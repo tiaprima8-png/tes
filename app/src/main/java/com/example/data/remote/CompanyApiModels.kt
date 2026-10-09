@@ -369,6 +369,8 @@ data class PostRencanaKerjaRequest(
     @Json(name = "keterangan") val keterangan: String? = null,
     @Json(name = "nomor_spk") val nomor_spk: String? = null,
     @Json(name = "status_spk") val status_spk: String? = "MENUNGGU_SPK",
+    @Json(name = "status_tahap") val status_tahap: String? = "RENCANA",
+    @Json(name = "is_realized") val is_realized: Boolean? = false,
     @Json(name = "nama_pengawas") val nama_pengawas: String? = null
 )
 

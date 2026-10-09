@@ -28,10 +28,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assignment
+import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Engineering
 import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockClock
 import androidx.compose.material.icons.filled.NightlightRound
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PrecisionManufacturing
@@ -115,6 +118,7 @@ fun FormReportScreen(
     // Selector Sheets State
     var isUnitSheetOpen by remember { mutableStateOf(false) }
     var isOperatorSheetOpen by remember { mutableStateOf(false) }
+    var isRencanaActivitySheetOpen by remember { mutableStateOf(false) }
     var isLokasiSheetOpen by remember { mutableStateOf(false) }
     var isActivitySheetOpen by remember { mutableStateOf(false) }
 
@@ -305,7 +309,7 @@ fun FormReportScreen(
                             onClick = { isUnitSheetOpen = true }
                         )
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         // 3. Operator Pelaksana Searchable Selector
                         SelectorFieldTrigger(
@@ -318,11 +322,24 @@ fun FormReportScreen(
                             onClick = { isOperatorSheetOpen = true }
                         )
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                        // 4. Lokasi Kerja Searchable Selector
+                        // 4. Aktivitas / Jenis Pekerjaan Searchable Selector (SAP Code & Satuan)
                         SelectorFieldTrigger(
-                            label = "4. Lokasi Kerja Lapangan",
+                            label = "4. Aktivitas / Jenis Pekerjaan",
+                            selectedValue = rencanaState.selectedActivity?.let { "${it.activityName} (${it.sapCode})" },
+                            placeholder = "Pilih Jenis Pekerjaan (Galian, Loading, dll)...",
+                            leadingIcon = Icons.Default.Assignment,
+                            badgeText = rencanaState.selectedActivity?.unitOfMeasure,
+                            testTag = "selector_rencana_aktivitas",
+                            onClick = { isRencanaActivitySheetOpen = true }
+                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // 5. Lokasi Kerja Lapangan Searchable Selector
+                        SelectorFieldTrigger(
+                            label = "5. Lokasi Kerja Lapangan",
                             selectedValue = rencanaState.selectedLokasi?.let { "${it.kodeLokasi} (${it.wilayah})" },
                             placeholder = "Pilih Lokasi Kerja (001A / PG1)...",
                             leadingIcon = Icons.Default.LocationOn,
@@ -333,9 +350,9 @@ fun FormReportScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // 5. Shift Kerja Toggle Pill [SIANG] | [MALAM]
+                        // 6. Shift Kerja Toggle Pill [SIANG] | [MALAM]
                         Text(
-                            text = "5. Shift Kerja",
+                            text = "6. Shift Kerja",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.SemiBold,
                                 color = Slate700
@@ -385,9 +402,9 @@ fun FormReportScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // 6. Keterangan Rencana
+                        // 7. Keterangan Rencana / Catatan Awal
                         Text(
-                            text = "6. Keterangan Rencana / Catatan Awal",
+                            text = "7. Keterangan Rencana Kerja",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.SemiBold,
                                 color = Slate700
@@ -573,46 +590,180 @@ fun FormReportScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // Field Nomor SPK (Surat Perintah Kerja) - Opsional & Auto-fill
+                        // 2. Nomor SPK (Surat Perintah Kerja) - Terkunci (Read-Only dari Web Admin)
+                        val hasSpkPublished = realisasiState.nomorSpk.isNotBlank() && realisasiState.nomorSpk != "Belum Terbit (Menunggu Admin)"
+
                         Text(
-                            text = "Nomor SPK (Surat Perintah Kerja) - Opsional",
+                            text = "2. Nomor SPK (Surat Perintah Kerja)",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.SemiBold,
                                 color = Slate700
                             ),
                             modifier = Modifier.padding(bottom = 6.dp)
                         )
-                        OutlinedTextField(
-                            value = realisasiState.nomorSpk,
-                            onValueChange = { viewModel.setRealisasiNomorSpk(it) },
-                            placeholder = { Text("Contoh: SPK-2026-089 (Boleh dikosongkan)", color = Slate400, fontSize = 13.sp) },
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Emerald600,
-                                unfocusedBorderColor = Slate200
-                            ),
+
+                        Surface(
                             shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth().testTag("input_nomor_spk")
-                        )
+                            color = if (hasSpkPublished) Color(0xFFF1F5F9) else Color(0xFFF8FAFC),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (hasSpkPublished) Emerald600.copy(alpha = 0.5f) else Slate200
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("spk_locked_field")
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (hasSpkPublished) Icons.Default.Lock else Icons.Default.LockClock,
+                                            contentDescription = null,
+                                            tint = if (hasSpkPublished) Emerald700 else Slate500,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Column {
+                                            Text(
+                                                text = if (hasSpkPublished) realisasiState.nomorSpk else "Belum Terbit (Menunggu Admin)",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 14.sp,
+                                                fontFamily = if (hasSpkPublished) FontFamily.Monospace else FontFamily.Default,
+                                                color = if (hasSpkPublished) Slate900 else Slate500
+                                            )
+                                            Text(
+                                                text = if (hasSpkPublished)
+                                                    "Terkunci resmi dari Web Admin (Read-Only)"
+                                                else
+                                                    "Admin belum menerbitkan SPK. Realisasi tetap dapat diisi.",
+                                                fontSize = 10.sp,
+                                                color = if (hasSpkPublished) Emerald700 else Slate400
+                                            )
+                                        }
+                                    }
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = if (hasSpkPublished) Emerald100 else Color(0xFFFEF3C7)
+                                    ) {
+                                        Text(
+                                            text = if (hasSpkPublished) "TERKUNCI" else "MENUNGGU",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = if (hasSpkPublished) Emerald900 else Color(0xFFB45309),
+                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                        )
+                                    }
+                                }
 
-                        // Pilih Aktivitas Lapangan (Kode SAP & Satuan)
-                        SelectorFieldTrigger(
-                            label = "Aktivitas Lapangan & Kode SAP",
-                            selectedValue = realisasiState.selectedActivity?.let { "${it.activityName} (${it.sapCode})" },
-                            placeholder = "Pilih Aktivitas SAP (Galian Tanah, Loading, dll)...",
-                            leadingIcon = Icons.Default.Assignment,
-                            badgeText = realisasiState.selectedActivity?.unitOfMeasure,
-                            testTag = "selector_realisasi_aktivitas",
-                            onClick = { isActivitySheetOpen = true }
-                        )
+                                // Quick simulation action chip for demo/testing Web Admin SPK publishing
+                                if (!hasSpkPublished && realisasiState.selectedRencana != null) {
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = Emerald50,
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Emerald600.copy(alpha = 0.3f)),
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable {
+                                                viewModel.adminSimulatePublishSpk(
+                                                    realisasiState.selectedRencana!!.id,
+                                                    realisasiState.selectedRencana!!.kodeUnit
+                                                )
+                                            }
+                                            .testTag("btn_simulate_spk")
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Bolt,
+                                                contentDescription = null,
+                                                tint = Emerald700,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "Simulasikan Web Admin Terbitkan SPK",
+                                                fontSize = 11.sp,
+                                                color = Emerald900,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Info Ringkasan Aktivitas Terjadwal
+                        if (realisasiState.selectedRencana != null) {
+                            val curActName = realisasiState.selectedActivity?.activityName
+                                ?: realisasiState.selectedRencana?.namaAktivitas?.ifBlank { "Aktivitas Lapangan" }
+                                ?: "Aktivitas Lapangan"
+                            val curSap = realisasiState.selectedActivity?.sapCode
+                                ?: realisasiState.selectedRencana?.sapCode?.ifBlank { "-" }
+                                ?: "-"
+                            val curUom = realisasiState.selectedActivity?.unitOfMeasure
+                                ?: realisasiState.selectedRencana?.satuanAktivitas?.ifBlank { "m3" }
+                                ?: "m3"
+
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = Emerald50,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Emerald100),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Aktivitas: $curActName",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp,
+                                            color = Emerald900
+                                        )
+                                        Text(
+                                            text = "Kode SAP: $curSap • Satuan Target: $curUom",
+                                            fontSize = 10.sp,
+                                            color = Emerald700
+                                        )
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = Color.White,
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Emerald600.copy(alpha = 0.3f))
+                                    ) {
+                                        Text(
+                                            text = "Ganti",
+                                            color = Emerald700,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier
+                                                .clickable { isActivitySheetOpen = true }
+                                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // 1. Durasi Jam Kerja Numerik (dengan preset quick-pill 4j, 7j, 8j, 10j, 12j)
+                        // 3. Durasi Jam Kerja Numerik (dengan preset quick-pill 4j, 7j, 8j, 10j, 12j)
                         Text(
-                            text = "1. Durasi Jam Kerja",
+                            text = "3. Durasi Jam Kerja",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.SemiBold,
                                 color = Slate700
@@ -688,7 +839,7 @@ fun FormReportScreen(
                                     Icon(Icons.Default.Speed, contentDescription = null, tint = Emerald600, modifier = Modifier.size(18.dp))
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "2. Blok Kalkulasi Hour Meter (HM)",
+                                        text = "4. Hour Meter (HM)",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 13.sp,
                                         color = Slate900
@@ -807,7 +958,15 @@ fun FormReportScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // 3. Pengisian Solar (BBM)
+                        // 5. Pengisian Solar BBM
+                        Text(
+                            text = "5. Pengisian Solar BBM",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = Slate700
+                            ),
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
                         Surface(
                             shape = RoundedCornerShape(12.dp),
                             color = Color(0xFFF8FAFC),
@@ -864,12 +1023,12 @@ fun FormReportScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // 4. Hasil Kerja Lapangan (Label dinamis satuan, 0 jika Standby/Breakdown)
+                        // 6. Hasil Kerja Lapangan (Label dinamis satuan, 0 jika Standby/Breakdown)
                         val isOperasi = realisasiState.selectedRencana?.statusUnit != "STANDBY" && realisasiState.selectedRencana?.statusUnit != "BREAKDOWN"
                         val dynamicUnitLabel = realisasiState.selectedActivity?.unitOfMeasure ?: "m3"
 
                         Text(
-                            text = "4. Hasil Kerja Lapangan (${if (isOperasi) "Satuan: $dynamicUnitLabel" else "Non-Aktif untuk Standby/Breakdown"})",
+                            text = "6. Hasil Kerja Lapangan (${if (isOperasi) "Satuan: $dynamicUnitLabel" else "Non-Aktif untuk Standby/Breakdown"})",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.SemiBold,
                                 color = Slate700
@@ -904,9 +1063,31 @@ fun FormReportScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // 5. Keterangan Realisasi
+                        // 7. Foto Bukti Lapangan (Kompresi Otomatis)
                         Text(
-                            text = "5. Catatan Realisasi / Kondisi Lapangan",
+                            text = "7. Foto Bukti Lapangan",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = Slate700
+                            ),
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+                        PhotoProofCard(
+                            photoPath = realisasiState.photoPath,
+                            photoSizeKb = realisasiState.photoSizeKb,
+                            photoDimensions = realisasiState.photoDimensions,
+                            isCompressing = realisasiState.isCompressingPhoto,
+                            onPhotoSelected = { uri ->
+                                viewModel.processAndCompressRealisasiPhoto(context, uri)
+                            },
+                            onRemovePhoto = { viewModel.removeRealisasiPhoto() }
+                        )
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        // 8. Keterangan Lapangan: Catatan kendala / kondisi akhir shift
+                        Text(
+                            text = "8. Keterangan Lapangan",
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = FontWeight.SemiBold,
                                 color = Slate700
@@ -924,20 +1105,6 @@ fun FormReportScreen(
                             ),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.fillMaxWidth().testTag("input_realisasi_keterangan")
-                        )
-
-                        Spacer(modifier = Modifier.height(14.dp))
-
-                        // Foto Bukti Kegiatan (Kompresi Otomatis)
-                        PhotoProofCard(
-                            photoPath = realisasiState.photoPath,
-                            photoSizeKb = realisasiState.photoSizeKb,
-                            photoDimensions = realisasiState.photoDimensions,
-                            isCompressing = realisasiState.isCompressingPhoto,
-                            onPhotoSelected = { uri ->
-                                viewModel.processAndCompressRealisasiPhoto(context, uri)
-                            },
-                            onRemovePhoto = { viewModel.removeRealisasiPhoto() }
                         )
 
                         Spacer(modifier = Modifier.height(20.dp))
@@ -1005,5 +1172,16 @@ fun FormReportScreen(
         activities = activities,
         selectedActivity = realisasiState.selectedActivity,
         onActivitySelected = { viewModel.setRealisasiActivity(it) }
+    )
+
+    ActivitySearchableSelectorSheet(
+        isOpen = isRencanaActivitySheetOpen,
+        onDismissRequest = { isRencanaActivitySheetOpen = false },
+        activities = activities,
+        selectedActivity = rencanaState.selectedActivity,
+        onActivitySelected = {
+            viewModel.selectRencanaActivity(it)
+            isRencanaActivitySheetOpen = false
+        }
     )
 }

@@ -232,11 +232,16 @@ class HeavyTrackRepository(
                 status_unit = savedRencana.statusUnit,
                 kode_unit = savedRencana.kodeUnit,
                 operator = savedRencana.operator,
+                sap_code = savedRencana.sapCode,
+                nama_aktivitas = savedRencana.namaAktivitas,
+                satuan_aktivitas = savedRencana.satuanAktivitas,
                 kode_lokasi = savedRencana.kodeLokasi,
                 shift_kerja = savedRencana.shiftKerja,
                 keterangan = savedRencana.keterangan,
                 nomor_spk = savedRencana.nomorSpk,
                 status_spk = savedRencana.statusSpk,
+                status_tahap = savedRencana.statusTahap,
+                is_realized = savedRencana.isRealized,
                 nama_pengawas = savedRencana.supervisorName
             )
 
@@ -255,6 +260,15 @@ class HeavyTrackRepository(
         }
     }
 
+    suspend fun updateRencanaSpk(planId: Long, spk: String, status: String) = withContext(Dispatchers.IO) {
+        rencanaDao.updateSpk(planId, spk, status)
+    }
+
+    suspend fun markRencanaRealized(planId: Long) = withContext(Dispatchers.IO) {
+        rencanaDao.markAsRealized(planId)
+        CompanyServerSimulator.markRencanaRealized(planId)
+    }
+
     suspend fun submitHasilAktivitas(hasil: HasilInputAktivitasEntity): Result<HasilInputAktivitasEntity> = withContext(Dispatchers.IO) {
         try {
             val insertedId = hasilDao.insertHasil(hasil.copy(isSynced = false))
@@ -263,7 +277,13 @@ class HeavyTrackRepository(
             // Update unit HM in local DB
             unitDao.updateUnitHm(savedHasil.kodeUnit, savedHasil.hmAkhir)
 
-            // Also mirror into ActivityReportEntity for historical compatibility
+            // Mark Rencana Kerja as realized so it disappears from active dropdown immediately
+            if (savedHasil.rencanaId > 0) {
+                rencanaDao.markAsRealized(savedHasil.rencanaId)
+                CompanyServerSimulator.markRencanaRealized(savedHasil.rencanaId)
+            }
+
+            // Also mirror into ActivityReportEntity for historical compatibility and analytics
             val reportMirror = ActivityReportEntity(
                 reportDate = savedHasil.tanggalFormat.ifBlank { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date()) },
                 supervisorName = savedHasil.supervisorName,

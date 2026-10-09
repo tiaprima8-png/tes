@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PrecisionManufacturing
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.WifiOff
@@ -171,131 +172,201 @@ fun HeavyTrackApp() {
                 )
             },
             topBar = {
-                // Header (AppBar) dengan Indikator Status Minimalis di Pojok Kanan Atas
-                TopAppBar(
-                    title = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                val supervisorSession by viewModel.currentSupervisorSession.collectAsState()
+                val activeSupervisorName by viewModel.activeSupervisor.collectAsState()
+
+                Column {
+                    // Header (AppBar) RKCE dengan Indikator Status Minimalis di Pojok Kanan Atas
+                    TopAppBar(
+                        title = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Emerald600,
+                                    modifier = Modifier.size(34.dp)
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.PrecisionManufacturing,
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Text(
+                                        text = "RKCE",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Slate900,
+                                            fontSize = 17.sp
+                                        )
+                                    )
+                                    Text(
+                                        text = "Rencana Kerja Unit Civil Engineering",
+                                        style = MaterialTheme.typography.bodySmall.copy(
+                                            color = Slate500,
+                                            fontSize = 10.sp
+                                        )
+                                    )
+                                }
+                            }
+                        },
+                        actions = {
+                            // Indikator Status Minimalis di Pojok Kanan Atas AppBar
+                            val isSyncing = isSyncingMaster || isSyncingPending
                             Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = Emerald600,
-                                modifier = Modifier.size(32.dp)
+                                shape = RoundedCornerShape(20.dp),
+                                color = when {
+                                    isSyncing -> Emerald50
+                                    isOfflineSimulated -> Color(0xFFFEF3C7)
+                                    else -> Emerald50
+                                },
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    when {
+                                        isSyncing -> Emerald600.copy(alpha = 0.5f)
+                                        isOfflineSimulated -> WarningAmber.copy(alpha = 0.5f)
+                                        else -> Emerald600.copy(alpha = 0.3f)
+                                    }
+                                ),
+                                modifier = Modifier
+                                    .padding(end = 12.dp)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .clickable {
+                                        val lastSyncDesc = viewModel.getLastSyncDescription()
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                "Status: ${if (isOfflineSimulated) "Offline Lapangan" else "Terhubung"} • Terakhir disinkronkan: $lastSyncDesc"
+                                            )
+                                        }
+                                        if (!isOfflineSimulated && !isSyncing) {
+                                            viewModel.fetchMasterData()
+                                        }
+                                    }
+                                    .testTag("appbar_sync_status_chip")
                             ) {
-                                Box(contentAlignment = Alignment.Center) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (isSyncing) {
+                                        CircularProgressIndicator(
+                                            color = Emerald600,
+                                            modifier = Modifier.size(12.dp),
+                                            strokeWidth = 2.dp
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Menyinkronkan...",
+                                            fontSize = 11.sp,
+                                            color = Emerald900,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    } else if (isOfflineSimulated) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(7.dp)
+                                                .background(WarningAmber, CircleShape)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Offline (Lokal)",
+                                            fontSize = 11.sp,
+                                            color = Color(0xFFB45309),
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.CloudDone,
+                                            contentDescription = "Sinkron",
+                                            tint = Color(0xFF059669),
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(5.dp))
+                                        Text(
+                                            text = "Sinkron",
+                                            fontSize = 11.sp,
+                                            color = Color(0xFF059669),
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = Color.White
+                        ),
+                        modifier = Modifier.testTag("main_app_bar")
+                    )
+
+                    // IDENTITAS USER PENGAWAS AKTIF (Konsisten di bagian atas)
+                    Surface(
+                        color = Color.White,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("active_supervisor_identity_bar")
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .background(Emerald50, CircleShape),
+                                    contentAlignment = Alignment.Center
+                                ) {
                                     Icon(
-                                        imageVector = Icons.Default.PrecisionManufacturing,
-                                        contentDescription = null,
-                                        tint = Color.White,
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = "Pengawas Aktif",
+                                        tint = Emerald600,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = "HeavyTrack Mobile",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.ExtraBold,
-                                        color = Slate900,
-                                        fontSize = 16.sp
-                                    )
-                                )
-                                Text(
-                                    text = "Sistem Pelaporan Alat Berat",
-                                    style = MaterialTheme.typography.bodySmall.copy(
-                                        color = Slate500,
-                                        fontSize = 10.sp
-                                    )
-                                )
-                            }
-                        }
-                    },
-                    actions = {
-                        // Indikator Status Minimalis di Pojok Kanan Atas AppBar
-                        val isSyncing = isSyncingMaster || isSyncingPending
-                        Surface(
-                            shape = RoundedCornerShape(20.dp),
-                            color = when {
-                                isSyncing -> Emerald50
-                                isOfflineSimulated -> Color(0xFFFEF3C7)
-                                else -> Emerald50
-                            },
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                when {
-                                    isSyncing -> Emerald600.copy(alpha = 0.5f)
-                                    isOfflineSimulated -> WarningAmber.copy(alpha = 0.5f)
-                                    else -> Emerald600.copy(alpha = 0.3f)
-                                }
-                            ),
-                            modifier = Modifier
-                                .padding(end = 12.dp)
-                                .clip(RoundedCornerShape(20.dp))
-                                .clickable {
-                                    val lastSyncDesc = viewModel.getLastSyncDescription()
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            "Status: ${if (isOfflineSimulated) "Offline Lapangan" else "Terhubung"} • Terakhir disinkronkan: $lastSyncDesc"
+                                Spacer(modifier = Modifier.width(10.dp))
+                                Column {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(
+                                            text = supervisorSession?.name ?: activeSupervisorName,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = Slate900
                                         )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = Emerald100
+                                        ) {
+                                            Text(
+                                                text = supervisorSession?.roleTitle ?: "Civil Engineering Supervisor",
+                                                color = Emerald900,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 9.sp,
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                            )
+                                        }
                                     }
-                                    if (!isOfflineSimulated && !isSyncing) {
-                                        viewModel.fetchMasterData()
-                                    }
-                                }
-                                .testTag("appbar_sync_status_chip")
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                if (isSyncing) {
-                                    CircularProgressIndicator(
-                                        color = Emerald600,
-                                        modifier = Modifier.size(12.dp),
-                                        strokeWidth = 2.dp
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "Menyinkronkan...",
-                                        fontSize = 11.sp,
-                                        color = Emerald900,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                } else if (isOfflineSimulated) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(7.dp)
-                                            .background(WarningAmber, CircleShape)
-                                    )
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text(
-                                        text = "Offline (Lokal)",
-                                        fontSize = 11.sp,
-                                        color = Color(0xFFB45309),
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Default.CloudDone,
-                                        contentDescription = "Sinkron",
-                                        tint = Color(0xFF059669),
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(5.dp))
-                                    Text(
-                                        text = "Sinkron",
-                                        fontSize = 11.sp,
-                                        color = Color(0xFF059669),
-                                        fontWeight = FontWeight.Bold
+                                        text = "${supervisorSession?.assignedSector ?: "Sektor Operasional Civil"} • Shift ${supervisorSession?.defaultShift ?: "SIANG"} • NIK: ${supervisorSession?.nik ?: "-"}",
+                                        fontSize = 10.sp,
+                                        color = Slate500
                                     )
                                 }
                             }
                         }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.White
-                    ),
-                    modifier = Modifier.testTag("main_app_bar")
-                )
+                    }
+                }
             },
             bottomBar = {
                 NavigationBar(

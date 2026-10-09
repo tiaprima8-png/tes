@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.PrecisionManufacturing
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Timeline
 import androidx.compose.material3.Card
@@ -36,6 +37,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -135,45 +137,67 @@ fun AnalyticsScreen(
                             }
                         }
 
-                        // Unit Filter Dropdown Trigger
-                        Box {
-                            OutlinedButton(
-                                onClick = { isUnitDropdownExpanded = true },
-                                shape = RoundedCornerShape(10.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Emerald600),
-                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                modifier = Modifier.height(34.dp).testTag("btn_filter_unit")
+                        // Actions: Refresh & Unit Filter Dropdown Trigger
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Tombol Refresh / Sinkronkan data terbaru dari server
+                            IconButton(
+                                onClick = { viewModel.refreshAnalyticsData() },
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .background(Emerald50, RoundedCornerShape(10.dp))
+                                    .testTag("btn_refresh_analytics")
                             ) {
-                                Icon(Icons.Default.FilterList, contentDescription = null, tint = Emerald600, modifier = Modifier.size(14.dp))
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = unitFilter,
-                                    color = Emerald700,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    maxLines = 1
+                                Icon(
+                                    imageVector = Icons.Default.Refresh,
+                                    contentDescription = "Sinkronkan Data Analitik",
+                                    tint = Emerald600,
+                                    modifier = Modifier.size(18.dp)
                                 )
                             }
 
-                            DropdownMenu(
-                                expanded = isUnitDropdownExpanded,
-                                onDismissRequest = { isUnitDropdownExpanded = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Semua Unit (${units.size})") },
-                                    onClick = {
-                                        viewModel.setAnalyticsUnitFilter("Semua Unit")
-                                        isUnitDropdownExpanded = false
-                                    }
-                                )
-                                units.forEach { u ->
+                            // Unit Filter Dropdown Trigger
+                            Box {
+                                OutlinedButton(
+                                    onClick = { isUnitDropdownExpanded = true },
+                                    shape = RoundedCornerShape(10.dp),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Emerald600),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    modifier = Modifier.height(34.dp).testTag("btn_filter_unit")
+                                ) {
+                                    Icon(Icons.Default.FilterList, contentDescription = null, tint = Emerald600, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = unitFilter,
+                                        color = Emerald700,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1
+                                    )
+                                }
+
+                                DropdownMenu(
+                                    expanded = isUnitDropdownExpanded,
+                                    onDismissRequest = { isUnitDropdownExpanded = false }
+                                ) {
                                     DropdownMenuItem(
-                                        text = { Text("${u.unitCode} - ${u.brandModel}") },
+                                        text = { Text("Semua Unit (${units.size})") },
                                         onClick = {
-                                            viewModel.setAnalyticsUnitFilter(u.unitCode)
+                                            viewModel.setAnalyticsUnitFilter("Semua Unit")
                                             isUnitDropdownExpanded = false
                                         }
                                     )
+                                    units.forEach { u ->
+                                        DropdownMenuItem(
+                                            text = { Text("${u.unitCode} - ${u.brandModel}") },
+                                            onClick = {
+                                                viewModel.setAnalyticsUnitFilter(u.unitCode)
+                                                isUnitDropdownExpanded = false
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -181,12 +205,12 @@ fun AnalyticsScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Periode Filter Pills [Bulan Ini] | [30 Hari] | [Semua]
+                    // Periode Filter Pills [Bulan Ini] | [30 Hari] | [Custom Range]
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        listOf("Bulan Ini", "30 Hari", "Semua").forEach { p ->
+                        listOf("Bulan Ini", "30 Hari", "Custom Range").forEach { p ->
                             val isSelected = period == p
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
@@ -209,6 +233,42 @@ fun AnalyticsScreen(
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 12.sp,
                                         color = if (isSelected) Color.White else Slate700
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    if (period == "Custom Range") {
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Emerald50,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Emerald100),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.DateRange, contentDescription = null, tint = Emerald700, modifier = Modifier.size(15.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Rentang Kustom (14 Hari Terakhir)",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Emerald900
+                                    )
+                                }
+                                Surface(shape = RoundedCornerShape(4.dp), color = Color.White) {
+                                    Text(
+                                        text = "Sinkron Otomatis",
+                                        fontSize = 10.sp,
+                                        color = Emerald700,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                     )
                                 }
                             }
@@ -279,6 +339,47 @@ fun AnalyticsScreen(
                         Surface(shape = RoundedCornerShape(10.dp), color = Emerald100) {
                             Text(
                                 text = "${String.format(Locale.US, "%.2f", analyticsState.avgFuelConsumptionRatio)} L/HM",
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Emerald900,
+                                fontSize = 15.sp,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                }
+
+                // KPI 4: Total Volume Hasil Kerja Seluruh Aktivitas
+                val totalOutputVolumeAll = analyticsState.activitySummaries.sumOf { it.totalOutputVolume }
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                    modifier = Modifier.fillMaxWidth().testTag("kpi_volume_output")
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .background(Emerald50, RoundedCornerShape(10.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.PrecisionManufacturing, contentDescription = null, tint = Emerald600, modifier = Modifier.size(22.dp))
+                            }
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Total Volume Hasil Kerja", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Slate900)
+                                Text("Akumulasi volume seluruh aktivitas lapangan", fontSize = 11.sp, color = Slate500)
+                            }
+                        }
+
+                        Surface(shape = RoundedCornerShape(10.dp), color = Emerald100) {
+                            Text(
+                                text = "${String.format(Locale.US, "%.1f", totalOutputVolumeAll)} Vol",
                                 fontWeight = FontWeight.ExtraBold,
                                 color = Emerald900,
                                 fontSize = 15.sp,

@@ -45,6 +45,12 @@ data class RencanaKerjaEntity(
     @ColumnInfo(name = "status_spk")
     val statusSpk: String = "MENUNGGU_SPK", // "MENUNGGU_SPK", "TERBIT_SPK", "SELESAI"
 
+    @ColumnInfo(name = "status_tahap", defaultValue = "RENCANA")
+    val statusTahap: String = "RENCANA", // "RENCANA", "REALISASI_SELESAI"
+
+    @ColumnInfo(name = "is_realized", defaultValue = "0")
+    val isRealized: Boolean = false,
+
     @ColumnInfo(name = "is_synced")
     val isSynced: Boolean = false,
 

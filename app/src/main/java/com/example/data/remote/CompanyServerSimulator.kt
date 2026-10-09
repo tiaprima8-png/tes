@@ -191,6 +191,18 @@ object CompanyServerSimulator {
         return spkNum
     }
 
+    fun markRencanaRealized(planId: Long) {
+        val idx = serverRencanaKerja.indexOfFirst { it.id == planId }
+        if (idx >= 0) {
+            val old = serverRencanaKerja[idx]
+            serverRencanaKerja[idx] = old.copy(
+                is_realized = true,
+                status_tahap = "REALISASI_SELESAI",
+                status_spk = "SELESAI"
+            )
+        }
+    }
+
     fun getPublishedSpk(planId: Long): String? = publishedSpkMap[planId]
 
     suspend fun postHasilAktivitas(request: PostHasilAktivitasRequest): ApiResponse<String> {

@@ -16,7 +16,7 @@ interface RencanaKerjaDao {
     @Query("SELECT * FROM rencana_kerja WHERE supervisor_name = :supervisor ORDER BY created_at DESC")
     fun getRencanaForSupervisor(supervisor: String): Flow<List<RencanaKerjaEntity>>
 
-    @Query("SELECT * FROM rencana_kerja WHERE supervisor_name = :supervisor AND status_spk != 'SELESAI' ORDER BY created_at DESC")
+    @Query("SELECT * FROM rencana_kerja WHERE supervisor_name = :supervisor AND is_realized = 0 AND status_tahap = 'RENCANA' ORDER BY created_at DESC")
     fun getActiveRencanaForSupervisor(supervisor: String): Flow<List<RencanaKerjaEntity>>
 
     @Query("SELECT * FROM rencana_kerja WHERE id = :id LIMIT 1")
@@ -30,6 +30,9 @@ interface RencanaKerjaDao {
 
     @Query("UPDATE rencana_kerja SET is_synced = 1 WHERE id = :id")
     suspend fun markAsSynced(id: Long)
+
+    @Query("UPDATE rencana_kerja SET is_realized = 1, status_tahap = 'REALISASI_SELESAI', status_spk = 'SELESAI' WHERE id = :id")
+    suspend fun markAsRealized(id: Long)
 
     @Query("UPDATE rencana_kerja SET nomor_spk = :spk, status_spk = :status WHERE id = :id")
     suspend fun updateSpk(id: Long, spk: String, status: String)

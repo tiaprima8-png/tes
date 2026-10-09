@@ -150,7 +150,7 @@ fun LoginScreen(
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Default.PrecisionManufacturing,
-                        contentDescription = "HeavyTrack Logo",
+                        contentDescription = "Logo RKCE",
                         tint = Color.White,
                         modifier = Modifier.size(42.dp)
                     )
@@ -160,7 +160,7 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             Text(
-                text = "HeavyTrack Mobile",
+                text = "RKCE",
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.ExtraBold,
                     color = Slate900,
@@ -169,10 +169,10 @@ fun LoginScreen(
             )
 
             Text(
-                text = "Sistem Pelaporan Aktivitas Alat Berat Lapangan",
+                text = "Rencana Kerja Unit Civil Engineering",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = Slate500,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.Bold
                 ),
                 modifier = Modifier.padding(top = 4.dp)
             )
@@ -386,7 +386,7 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             Text(
-                text = "HeavyTrack Mobile • Terintegrasi Web Admin & SQLite Offline-First",
+                text = "RKCE • Rencana Kerja Unit Civil Engineering • Offline-First",
                 style = MaterialTheme.typography.bodySmall.copy(color = Slate400, fontSize = 11.sp)
             )
         }

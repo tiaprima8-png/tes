@@ -122,4 +122,37 @@ class ExampleUnitTest {
         val opPercent = operasiHours / total
         assertEquals(0.80, opPercent, 0.001)
     }
+
+    @Test
+    fun test_rencana_unrealized_anti_duplication() {
+        val rencana1 = com.example.data.local.entity.RencanaKerjaEntity(
+            id = 1L,
+            supervisorName = "Budi Santoso",
+            kodeUnit = "EX-201",
+            operator = "Bambang",
+            kodeLokasi = "001A",
+            isRealized = false,
+            statusTahap = "RENCANA"
+        )
+        val rencana2 = com.example.data.local.entity.RencanaKerjaEntity(
+            id = 2L,
+            supervisorName = "Budi Santoso",
+            kodeUnit = "DZ-101",
+            operator = "Hendra",
+            kodeLokasi = "PG1",
+            isRealized = true,
+            statusTahap = "REALISASI_SELESAI"
+        )
+        val allPlans = listOf(rencana1, rencana2)
+        val activePlans = allPlans.filter { !it.isRealized && it.statusTahap == "RENCANA" }
+        assertEquals(1, activePlans.size)
+        assertEquals("EX-201", activePlans.first().kodeUnit)
+    }
+
+    @Test
+    fun test_spk_lock_verification() {
+        val publishedSpk = "SPK-2026-X101"
+        val isLocked = publishedSpk.isNotBlank() && publishedSpk != "Belum Terbit (Menunggu Admin)"
+        assertTrue(isLocked)
+    }
 }

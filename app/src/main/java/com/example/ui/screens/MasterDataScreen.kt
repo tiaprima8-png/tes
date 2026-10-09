@@ -529,7 +529,7 @@ fun DistributionDialog(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "Distribusi HeavyTrack Mobile",
+                            text = "Distribusi Aplikasi RKCE Mobile",
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
                             color = Slate900

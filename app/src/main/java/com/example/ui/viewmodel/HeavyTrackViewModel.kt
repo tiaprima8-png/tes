@@ -82,7 +82,7 @@ class HeavyTrackViewModel(
 
     companion object {
         const val INTERNAL_WEB_ADMIN_URL = "https://1-portalce.ai.studio/"
-        const val APK_DIRECT_DOWNLOAD_URL = "https://1-portalce.ai.studio/downloads/HeavyTrack.apk"
+        const val APK_DIRECT_DOWNLOAD_URL = "https://1-portalce.ai.studio/downloads/RKCE.apk"
     }
 
     // Active Supervisor
@@ -142,7 +142,7 @@ class HeavyTrackViewModel(
         .flatMapLatest { supervisor -> repository.getReportsForSupervisor(supervisor) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Active Rencana Kerja (shift today / active)
+    // Active Rencana Kerja (shift today / active and NOT yet realized)
     val activeRencanaList: StateFlow<List<RencanaKerjaEntity>> = _activeSupervisor
         .flatMapLatest { supervisor -> repository.getActiveRencanaForSupervisor(supervisor) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -201,6 +201,50 @@ class HeavyTrackViewModel(
         viewModelScope.launch {
             repository.seedInitialDataIfEmpty(_activeSupervisor.value)
             fetchMasterData()
+        }
+
+        // Live WebSocket / Polling simulation listener for SPK_PUBLISHED events
+        viewModelScope.launch {
+            CompanyServerSimulator.spkEventFlow.collect { event ->
+                repository.updateRencanaSpk(event.planId, event.nomorSpk, "TERBIT_SPK")
+                val curSelected = _realisasiFormState.value.selectedRencana
+                if (curSelected != null && curSelected.id == event.planId) {
+                    _realisasiFormState.value = _realisasiFormState.value.copy(
+                        nomorSpk = event.nomorSpk,
+                        selectedRencana = curSelected.copy(
+                            nomorSpk = event.nomorSpk,
+                            statusSpk = "TERBIT_SPK"
+                        )
+                    )
+                    _uiEvents.emit(
+                        UiMessage.Success("Nomor SPK Resmi Diterbitkan Web Admin: ${event.nomorSpk} (Terkunci)")
+                    )
+                }
+            }
+        }
+
+        // Polling loop to sync any published SPK in background
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(4000)
+                val curSelected = _realisasiFormState.value.selectedRencana
+                if (curSelected != null && _realisasiFormState.value.nomorSpk.isBlank()) {
+                    val published = CompanyServerSimulator.getPublishedSpk(curSelected.id)
+                    if (!published.isNullOrBlank()) {
+                        repository.updateRencanaSpk(curSelected.id, published, "TERBIT_SPK")
+                        _realisasiFormState.value = _realisasiFormState.value.copy(
+                            nomorSpk = published,
+                            selectedRencana = curSelected.copy(
+                                nomorSpk = published,
+                                statusSpk = "TERBIT_SPK"
+                            )
+                        )
+                        _uiEvents.emit(
+                            UiMessage.Success("Nomor SPK Resmi: $published (Terkunci Otomatis)")
+                        )
+                    }
+                }
+            }
         }
     }
 
@@ -340,6 +384,10 @@ class HeavyTrackViewModel(
         _rencanaFormState.value = _rencanaFormState.value.copy(selectedOperator = operator)
     }
 
+    fun selectRencanaActivity(activity: ActivityMasterEntity) {
+        _rencanaFormState.value = _rencanaFormState.value.copy(selectedActivity = activity)
+    }
+
     fun selectRencanaLokasi(lokasi: LokasiEntity) {
         _rencanaFormState.value = _rencanaFormState.value.copy(selectedLokasi = lokasi)
     }
@@ -356,6 +404,7 @@ class HeavyTrackViewModel(
         val state = _rencanaFormState.value
         val unit = state.selectedUnit
         val op = state.selectedOperator
+        val act = state.selectedActivity
         val lok = state.selectedLokasi
 
         if (unit == null) {
@@ -364,6 +413,10 @@ class HeavyTrackViewModel(
         }
         if (op == null) {
             viewModelScope.launch { _uiEvents.emit(UiMessage.Error("Pilih Operator Pelaksana terlebih dahulu")) }
+            return
+        }
+        if (act == null) {
+            viewModelScope.launch { _uiEvents.emit(UiMessage.Error("Pilih Aktivitas / Jenis Pekerjaan terlebih dahulu")) }
             return
         }
         if (lok == null) {
@@ -379,11 +432,16 @@ class HeavyTrackViewModel(
                 statusUnit = state.statusUnit,
                 kodeUnit = unit.unitCode,
                 operator = op.name,
+                sapCode = act.sapCode,
+                namaAktivitas = act.activityName,
+                satuanAktivitas = act.unitOfMeasure,
                 kodeLokasi = lok.kodeLokasi,
                 shiftKerja = state.shiftKerja,
                 keterangan = state.keterangan,
                 nomorSpk = "", // Admin belum tentu input SPK di awal shift
                 statusSpk = "MENUNGGU_SPK",
+                statusTahap = "RENCANA",
+                isRealized = false,
                 createdAt = System.currentTimeMillis(),
                 tanggalFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
             )
@@ -413,15 +471,45 @@ class HeavyTrackViewModel(
         val unitEntity = units.value.find { it.unitCode.equals(rencana.kodeUnit, ignoreCase = true) }
         val hmAwalVal = unitEntity?.lastHm ?: 0.0
 
+        val matchedActivity = activities.value.find {
+            it.sapCode.equals(rencana.sapCode, ignoreCase = true) ||
+            it.activityName.equals(rencana.namaAktivitas, ignoreCase = true)
+        } ?: if (rencana.sapCode.isNotBlank()) {
+            ActivityMasterEntity(
+                sapCode = rencana.sapCode,
+                activityName = rencana.namaAktivitas.ifBlank { "Aktivitas Lapangan" },
+                unitOfMeasure = rencana.satuanAktivitas.ifBlank { "m3" }
+            )
+        } else null
+
+        val spkFromMem = CompanyServerSimulator.getPublishedSpk(rencana.id) ?: ""
+        val resolvedSpk = if (rencana.nomorSpk.isNotBlank()) rencana.nomorSpk else spkFromMem
+
         _realisasiFormState.value = _realisasiFormState.value.copy(
             selectedRencana = rencana,
-            nomorSpk = rencana.nomorSpk, // auto-fill jika ada SPK dari server
+            selectedActivity = matchedActivity ?: _realisasiFormState.value.selectedActivity,
+            nomorSpk = resolvedSpk,
             hmAwal = hmAwalVal,
             hmAkhirInput = "",
             hmHarianBerjalan = 0.0,
             isHmValid = true,
             hmErrorMessage = null
         )
+    }
+
+    fun adminSimulatePublishSpk(planId: Long, unitCode: String) {
+        viewModelScope.launch {
+            val spk = CompanyServerSimulator.adminPublishSpk(planId, unitCode, _activeSupervisor.value)
+            repository.updateRencanaSpk(planId, spk, "TERBIT_SPK")
+            val cur = _realisasiFormState.value.selectedRencana
+            if (cur != null && cur.id == planId) {
+                _realisasiFormState.value = _realisasiFormState.value.copy(
+                    nomorSpk = spk,
+                    selectedRencana = cur.copy(nomorSpk = spk, statusSpk = "TERBIT_SPK")
+                )
+            }
+            _uiEvents.emit(UiMessage.Success("Web Admin telah menerbitkan SPK: $spk"))
+        }
     }
 
     fun setRealisasiActivity(activity: ActivityMasterEntity) {
@@ -624,17 +712,17 @@ class HeavyTrackViewModel(
     fun downloadApk(context: Context) {
         try {
             val request = DownloadManager.Request(Uri.parse(APK_DIRECT_DOWNLOAD_URL))
-                .setTitle("HeavyTrack.apk")
-                .setDescription("Mengunduh installer HeavyTrack Mobile...")
+                .setTitle("RKCE.apk")
+                .setDescription("Mengunduh installer RKCE (Rencana Kerja Unit Civil Engineering)...")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "HeavyTrack.apk")
+                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "RKCE.apk")
                 .setAllowedOverMetered(true)
                 .setAllowedOverRoaming(true)
 
             val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
             dm?.enqueue(request)
             viewModelScope.launch {
-                _uiEvents.emit(UiMessage.Success("Mengunduh HeavyTrack.apk ke folder Download perangkat..."))
+                _uiEvents.emit(UiMessage.Success("Mengunduh RKCE.apk ke folder Download perangkat..."))
             }
         } catch (e: Exception) {
             viewModelScope.launch {
@@ -644,7 +732,7 @@ class HeavyTrackViewModel(
     }
 
     fun shareApkViaWhatsApp(context: Context) {
-        val shareMessage = "Halo, silakan unduh dan pasang aplikasi HeavyTrack Mobile (Sistem Pelaporan Alat Berat) melalui tautan berikut: $APK_DIRECT_DOWNLOAD_URL"
+        val shareMessage = "Halo, silakan unduh dan pasang aplikasi RKCE (Rencana Kerja Unit Civil Engineering) melalui tautan berikut: $APK_DIRECT_DOWNLOAD_URL"
         try {
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = "text/plain"
@@ -661,7 +749,7 @@ class HeavyTrackViewModel(
                         type = "text/plain"
                         putExtra(Intent.EXTRA_TEXT, shareMessage)
                     },
-                    "Bagikan Aplikasi HeavyTrack Mobile"
+                    "Bagikan Aplikasi RKCE"
                 ).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
@@ -671,6 +759,16 @@ class HeavyTrackViewModel(
                     _uiEvents.emit(UiMessage.Error("Tidak dapat membuka aplikasi berbagi: ${e.message}"))
                 }
             }
+        }
+    }
+
+    fun refreshAnalyticsData() {
+        viewModelScope.launch {
+            _isSyncingMaster.value = true
+            fetchMasterData()
+            syncPendingReports()
+            _isSyncingMaster.value = false
+            _uiEvents.emit(UiMessage.Success("Data Analitik berhasil diperbarui secara real-time dari server Web Admin"))
         }
     }
 
@@ -699,6 +797,7 @@ class HeavyTrackViewModel(
                     val currentMonth = SimpleDateFormat("MM/yyyy", Locale.getDefault()).format(Date())
                     report.reportDate.contains(currentMonth) || (now - report.createdAt) <= (31L * 24 * 60 * 60 * 1000)
                 }
+                "Custom Range" -> (now - report.createdAt) <= (14L * 24 * 60 * 60 * 1000) // 14 hari terakhir
                 else -> true
             }
         }

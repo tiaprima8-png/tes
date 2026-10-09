@@ -29,7 +29,7 @@ import com.example.data.local.entity.UnitEntity
         RencanaKerjaEntity::class,
         HasilInputAktivitasEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
