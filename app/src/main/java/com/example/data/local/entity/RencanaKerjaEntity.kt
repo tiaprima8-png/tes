@@ -1,0 +1,56 @@
+package com.example.data.local.entity
+
+import androidx.room.ColumnInfo
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
+@Entity(tableName = "rencana_kerja")
+data class RencanaKerjaEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Long = 0,
+
+    @ColumnInfo(name = "supervisor_name")
+    val supervisorName: String,
+
+    @ColumnInfo(name = "status_unit")
+    val statusUnit: String = "OPERASI", // "OPERASI", "STANDBY", "BREAKDOWN"
+
+    @ColumnInfo(name = "kode_unit")
+    val kodeUnit: String,
+
+    @ColumnInfo(name = "operator")
+    val operator: String,
+
+    @ColumnInfo(name = "sap_code", defaultValue = "")
+    val sapCode: String = "",
+
+    @ColumnInfo(name = "nama_aktivitas", defaultValue = "")
+    val namaAktivitas: String = "",
+
+    @ColumnInfo(name = "satuan_aktivitas", defaultValue = "m3")
+    val satuanAktivitas: String = "m3",
+
+    @ColumnInfo(name = "kode_lokasi")
+    val kodeLokasi: String,
+
+    @ColumnInfo(name = "shift_kerja")
+    val shiftKerja: String = "SIANG", // "SIANG", "MALAM"
+
+    @ColumnInfo(name = "keterangan")
+    val keterangan: String = "",
+
+    @ColumnInfo(name = "nomor_spk")
+    val nomorSpk: String = "",
+
+    @ColumnInfo(name = "status_spk")
+    val statusSpk: String = "MENUNGGU_SPK", // "MENUNGGU_SPK", "TERBIT_SPK", "SELESAI"
+
+    @ColumnInfo(name = "is_synced")
+    val isSynced: Boolean = false,
+
+    @ColumnInfo(name = "created_at")
+    val createdAt: Long = System.currentTimeMillis(),
+
+    @ColumnInfo(name = "tanggal_format")
+    val tanggalFormat: String = ""
+)

@@ -1,0 +1,510 @@
+package com.example.data.repository
+
+import com.example.data.local.AppDatabase
+import com.example.data.local.entity.ActivityMasterEntity
+import com.example.data.local.entity.ActivityReportEntity
+import com.example.data.local.entity.HasilInputAktivitasEntity
+import com.example.data.local.entity.LokasiEntity
+import com.example.data.local.entity.OperatorEntity
+import com.example.data.local.entity.RencanaKerjaEntity
+import com.example.data.local.entity.UnitEntity
+import com.example.data.remote.ApiClientManager
+import com.example.data.remote.CompanyServerSimulator
+import com.example.data.remote.PostActivityReportRequest
+import com.example.data.remote.PostHasilAktivitasRequest
+import com.example.data.remote.PostRencanaKerjaRequest
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+data class SyncLogItem(
+    val timestamp: String,
+    val endpoint: String,
+    val method: String,
+    val status: String,
+    val detail: String,
+    val isSuccess: Boolean
+)
+
+class HeavyTrackRepository(
+    private val database: AppDatabase,
+    val apiClientManager: ApiClientManager
+) {
+    private val unitDao = database.unitDao()
+    private val activityDao = database.activityMasterDao()
+    private val operatorDao = database.operatorDao()
+    private val reportDao = database.activityReportDao()
+    private val lokasiDao = database.lokasiDao()
+    private val rencanaDao = database.rencanaKerjaDao()
+    private val hasilDao = database.hasilInputAktivitasDao()
+
+    private val _syncLogs = MutableStateFlow<List<SyncLogItem>>(emptyList())
+    val syncLogs: StateFlow<List<SyncLogItem>> = _syncLogs.asStateFlow()
+
+    private val _lastSyncTimeMillis = MutableStateFlow(System.currentTimeMillis())
+    val lastSyncTimeMillis: StateFlow<Long> = _lastSyncTimeMillis.asStateFlow()
+
+    private fun addLog(endpoint: String, method: String, status: String, detail: String, isSuccess: Boolean) {
+        val time = SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+        val item = SyncLogItem(time, endpoint, method, status, detail, isSuccess)
+        _syncLogs.value = listOf(item) + _syncLogs.value.take(20)
+    }
+
+    fun getUnitsForSupervisor(supervisor: String): Flow<List<UnitEntity>> =
+        unitDao.getUnitsForSupervisor(supervisor)
+
+    fun getAllUnits(): Flow<List<UnitEntity>> =
+        unitDao.getAllUnits()
+
+    fun getAllActivities(): Flow<List<ActivityMasterEntity>> =
+        activityDao.getAllActivities()
+
+    fun getOperatorsForSupervisor(supervisor: String): Flow<List<OperatorEntity>> =
+        operatorDao.getOperatorsForSupervisor(supervisor)
+
+    fun getAllLokasi(): Flow<List<LokasiEntity>> =
+        lokasiDao.getAllLokasi()
+
+    fun searchLokasi(query: String): Flow<List<LokasiEntity>> =
+        lokasiDao.searchLokasi(query)
+
+    fun getRencanaForSupervisor(supervisor: String): Flow<List<RencanaKerjaEntity>> =
+        rencanaDao.getRencanaForSupervisor(supervisor)
+
+    fun getActiveRencanaForSupervisor(supervisor: String): Flow<List<RencanaKerjaEntity>> =
+        rencanaDao.getActiveRencanaForSupervisor(supervisor)
+
+    fun getHasilForSupervisor(supervisor: String): Flow<List<HasilInputAktivitasEntity>> =
+        hasilDao.getHasilForSupervisor(supervisor)
+
+    fun getAllHasil(): Flow<List<HasilInputAktivitasEntity>> =
+        hasilDao.getAllHasil()
+
+    fun getAllReports(): Flow<List<ActivityReportEntity>> =
+        reportDao.getAllReports()
+
+    fun getReportsForSupervisor(supervisor: String): Flow<List<ActivityReportEntity>> =
+        reportDao.getReportsForSupervisor(supervisor)
+
+    fun getUnsyncedReports(): Flow<List<ActivityReportEntity>> =
+        reportDao.getUnsyncedReports()
+
+    fun getUnsyncedCount(): Flow<Int> =
+        reportDao.getUnsyncedCount()
+
+    suspend fun getUnitByCode(unitCode: String): UnitEntity? =
+        unitDao.getUnitByCode(unitCode)
+
+    suspend fun seedInitialDataIfEmpty(activeSupervisor: String) = withContext(Dispatchers.IO) {
+        try {
+            fetchMasterData(activeSupervisor)
+        } catch (_: Exception) {
+            val initialUnits = listOf(
+                UnitEntity("HEH1", "EXCAVATOR", "Komatsu PC200-8", 4125.5, activeSupervisor),
+                UnitEntity("EXC-02", "EXCAVATOR", "Caterpillar 320D", 6280.0, activeSupervisor),
+                UnitEntity("DT-101", "DUMP TRUCK", "Hino FM 260 Ti", 3450.2, activeSupervisor),
+                UnitEntity("DZ-01", "BULLDOZER", "Komatsu D85ESS-2", 5130.8, activeSupervisor)
+            )
+            unitDao.insertUnits(initialUnits)
+
+            val initialActivities = listOf(
+                ActivityMasterEntity("ACT-SAP-101", "Galian Tanah Lunak", "m3", "Galian area cut", "PRODUKSI"),
+                ActivityMasterEntity("ACT-SAP-102", "Loading Overburden", "m3", "Pemuatan tanah penutup", "PRODUKSI"),
+                ActivityMasterEntity("ACT-SAP-201", "Dumping & Spreading", "m2", "Penghamparan disposal", "SUPPORT"),
+                ActivityMasterEntity("ACT-SAP-202", "Grading Mainroad Tambang", "m", "Perawatan jalan", "INFRASTRUKTUR")
+            )
+            activityDao.insertActivities(initialActivities)
+
+            val initialOperators = listOf(
+                OperatorEntity("OPR-001", "Ahmad Fauzi", "NIK-94821", activeSupervisor),
+                OperatorEntity("OPR-002", "Bambang Sudrajat", "NIK-88234", activeSupervisor),
+                OperatorEntity("OPR-003", "Dedi Supriyadi", "NIK-77412", activeSupervisor)
+            )
+            operatorDao.insertOperators(initialOperators)
+
+            val initialLokasi = listOf(
+                LokasiEntity("001A", "PG1", 10.5, 8.2, "Area Front Utama"),
+                LokasiEntity("002B", "PG1", 14.0, 11.5, "Disposal North"),
+                LokasiEntity("100A", "PG2", 20.0, 16.8, "Pit Cut Site B"),
+                LokasiEntity("101B", "PG2", 18.5, 15.0, "Loading Area 2"),
+                LokasiEntity("201C", "PG3", 25.0, 21.4, "Hauling Route South"),
+                LokasiEntity("MAINROAD-01", "INFRA", 30.0, 28.0, "Jalan Tambang Utama")
+            )
+            lokasiDao.insertLokasiList(initialLokasi)
+        }
+    }
+
+    suspend fun fetchMasterData(supervisorName: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val (payload, message) = apiClientManager.fetchMasterData(supervisorName)
+
+            // 1. Process Units
+            val incomingUnits = payload.units ?: emptyList()
+            if (incomingUnits.isNotEmpty()) {
+                val unitEntities = incomingUnits.map {
+                    UnitEntity(
+                        unitCode = it.resolvedUnitCode,
+                        unitType = it.resolvedUnitType,
+                        brandModel = it.resolvedBrandModel,
+                        lastHm = it.resolvedLastHm,
+                        supervisorAssigned = if (it.resolvedSupervisor.isNotBlank()) it.resolvedSupervisor else supervisorName,
+                        status = it.resolvedStatus,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                }
+                unitDao.insertUnits(unitEntities)
+            }
+
+            // 2. Process Activities
+            val incomingActivities = payload.resolvedActivities
+            if (incomingActivities.isNotEmpty()) {
+                val actEntities = incomingActivities.map {
+                    ActivityMasterEntity(
+                        sapCode = it.resolvedSapCode,
+                        activityName = it.resolvedActivityName,
+                        unitOfMeasure = it.resolvedUnitOfMeasure,
+                        description = it.resolvedDescription,
+                        category = it.resolvedCategory,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                }
+                activityDao.clearAllActivities()
+                activityDao.insertActivities(actEntities)
+            }
+
+            // 3. Process Operators
+            val incomingOperators = payload.operators ?: emptyList()
+            if (incomingOperators.isNotEmpty()) {
+                val opEntities = incomingOperators.map {
+                    OperatorEntity(
+                        operatorId = it.resolvedOperatorId,
+                        name = it.resolvedName,
+                        badgeNumber = it.resolvedBadgeNumber,
+                        supervisorAssigned = if (it.resolvedSupervisor.isNotBlank()) it.resolvedSupervisor else supervisorName,
+                        skillLevel = it.resolvedSkillLevel,
+                        status = it.resolvedStatus,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                }
+                operatorDao.insertOperators(opEntities)
+            }
+
+            // 4. Process Lokasi
+            val incomingLokasi = payload.resolvedLokasi
+            if (incomingLokasi.isNotEmpty()) {
+                val lokasiEntities = incomingLokasi.map {
+                    LokasiEntity(
+                        kodeLokasi = it.resolvedKode,
+                        wilayah = it.resolvedWilayah,
+                        luasBruto = it.resolvedLuasBruto,
+                        luasNetto = it.resolvedLuasNetto,
+                        keterangan = it.keterangan ?: "",
+                        updatedAt = System.currentTimeMillis()
+                    )
+                }
+                lokasiDao.insertLokasiList(lokasiEntities)
+            }
+
+            _lastSyncTimeMillis.value = System.currentTimeMillis()
+            val summary = "${incomingUnits.size} Unit, ${incomingActivities.size} Aktivitas, ${incomingOperators.size} Operator, ${incomingLokasi.size} Lokasi"
+            addLog("GET /api/master-data", "GET", "200 OK", summary, true)
+
+            Result.success("$message ($summary)")
+        } catch (e: Exception) {
+            addLog("GET /api/master-data", "GET", "ERROR", e.localizedMessage ?: "Gagal", false)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun submitRencanaKerja(rencana: RencanaKerjaEntity): Result<RencanaKerjaEntity> = withContext(Dispatchers.IO) {
+        try {
+            val insertedId = rencanaDao.insertRencana(rencana.copy(isSynced = false))
+            val savedRencana = rencana.copy(id = insertedId)
+
+            val apiReq = PostRencanaKerjaRequest(
+                id = insertedId,
+                status_unit = savedRencana.statusUnit,
+                kode_unit = savedRencana.kodeUnit,
+                operator = savedRencana.operator,
+                kode_lokasi = savedRencana.kodeLokasi,
+                shift_kerja = savedRencana.shiftKerja,
+                keterangan = savedRencana.keterangan,
+                nomor_spk = savedRencana.nomorSpk,
+                status_spk = savedRencana.statusSpk,
+                nama_pengawas = savedRencana.supervisorName
+            )
+
+            try {
+                val respMsg = apiClientManager.postRencanaKerja(apiReq)
+                rencanaDao.markAsSynced(insertedId)
+                addLog("POST /api/rencana-kerja", "POST", "200 OK", "Rencana Unit ${savedRencana.kodeUnit} [${savedRencana.statusUnit}]", true)
+                _lastSyncTimeMillis.value = System.currentTimeMillis()
+                Result.success(savedRencana.copy(isSynced = true))
+            } catch (netEx: Exception) {
+                addLog("POST /api/rencana-kerja", "POST", "OFFLINE/PENDING", "Unit ${savedRencana.kodeUnit} disimpan lokal", false)
+                Result.success(savedRencana.copy(isSynced = false))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun submitHasilAktivitas(hasil: HasilInputAktivitasEntity): Result<HasilInputAktivitasEntity> = withContext(Dispatchers.IO) {
+        try {
+            val insertedId = hasilDao.insertHasil(hasil.copy(isSynced = false))
+            val savedHasil = hasil.copy(id = insertedId)
+
+            // Update unit HM in local DB
+            unitDao.updateUnitHm(savedHasil.kodeUnit, savedHasil.hmAkhir)
+
+            // Also mirror into ActivityReportEntity for historical compatibility
+            val reportMirror = ActivityReportEntity(
+                reportDate = savedHasil.tanggalFormat.ifBlank { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date()) },
+                supervisorName = savedHasil.supervisorName,
+                unitCode = savedHasil.kodeUnit,
+                unitType = "",
+                activityName = savedHasil.activityName,
+                sapCode = savedHasil.sapCode,
+                unitOfMeasure = savedHasil.satuan,
+                operatorName = savedHasil.operator,
+                workLocation = savedHasil.kodeLokasi,
+                shift = savedHasil.shift,
+                workDurationHours = savedHasil.jamKerja,
+                hmAwal = savedHasil.hmAwal,
+                hmAkhir = savedHasil.hmAkhir,
+                hmDailyRunning = savedHasil.hmHarianBerjalan,
+                workOutput = savedHasil.hasilKerja,
+                notes = savedHasil.keterangan,
+                unitStatus = savedHasil.unitStatus,
+                isRefueled = savedHasil.isIsiSolar,
+                fuelLiters = savedHasil.jumlahLiterSolar,
+                photoPath = savedHasil.photoPath,
+                photoBase64 = savedHasil.photoBase64,
+                photoSizeKb = savedHasil.photoSizeKb,
+                photoDimensions = savedHasil.photoDimensions,
+                isSynced = false
+            )
+            reportDao.insertReport(reportMirror)
+
+            val apiReq = PostHasilAktivitasRequest(
+                id = insertedId,
+                rencana_id = savedHasil.rencanaId,
+                nomor_spk = savedHasil.nomorSpk,
+                jam_kerja = savedHasil.jamKerja,
+                hm_awal = savedHasil.hmAwal,
+                hm_akhir = savedHasil.hmAkhir,
+                hm_harian_berjalan = savedHasil.hmHarianBerjalan,
+                is_isi_solar = savedHasil.isIsiSolar,
+                jumlah_liter_solar = savedHasil.jumlahLiterSolar,
+                hasil_kerja = savedHasil.hasilKerja,
+                keterangan = savedHasil.keterangan,
+                nama_pengawas = savedHasil.supervisorName,
+                kode_unit = savedHasil.kodeUnit,
+                foto_bukti = savedHasil.photoBase64
+            )
+
+            try {
+                val respMsg = apiClientManager.postHasilAktivitas(apiReq)
+                hasilDao.markAsSynced(insertedId)
+                _lastSyncTimeMillis.value = System.currentTimeMillis()
+                addLog("POST /api/hasil-aktivitas", "POST", "200 OK", "Realisasi Unit ${savedHasil.kodeUnit} (HM ${savedHasil.hmAkhir})", true)
+                Result.success(savedHasil.copy(isSynced = true, syncedAt = System.currentTimeMillis()))
+            } catch (netEx: Exception) {
+                addLog("POST /api/hasil-aktivitas", "POST", "OFFLINE/PENDING", "Realisasi Unit ${savedHasil.kodeUnit} disimpan lokal", false)
+                Result.success(savedHasil.copy(isSynced = false))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun submitReport(report: ActivityReportEntity): Result<ActivityReportEntity> = withContext(Dispatchers.IO) {
+        try {
+            val insertedId = reportDao.insertReport(report.copy(isSynced = false))
+            val savedReport = report.copy(id = insertedId)
+
+            val apiReq = PostActivityReportRequest.create(
+                clientUuid = savedReport.clientUuid,
+                reportDate = savedReport.reportDate,
+                supervisorName = savedReport.supervisorName,
+                unitCode = savedReport.unitCode,
+                unitType = savedReport.unitType,
+                activityName = savedReport.activityName,
+                sapCode = savedReport.sapCode,
+                unitOfMeasure = savedReport.unitOfMeasure,
+                operatorName = savedReport.operatorName,
+                workLocation = savedReport.workLocation,
+                shift = savedReport.shift,
+                workDurationHours = savedReport.workDurationHours,
+                hmAwal = savedReport.hmAwal,
+                hmAkhir = savedReport.hmAkhir,
+                hmDailyRunning = savedReport.hmDailyRunning,
+                workOutput = savedReport.workOutput,
+                notes = savedReport.notes,
+                unitStatus = savedReport.unitStatus,
+                isRefueled = savedReport.isRefueled,
+                fuelLiters = savedReport.fuelLiters,
+                photoBase64 = savedReport.photoBase64,
+                photoSizeKb = savedReport.photoSizeKb,
+                photoDimensions = savedReport.photoDimensions,
+                photoPath = savedReport.photoPath
+            )
+
+            try {
+                val responseMsg = apiClientManager.postActivityReport(apiReq)
+                reportDao.markReportAsSynced(insertedId)
+                unitDao.updateUnitHm(savedReport.unitCode, savedReport.hmAkhir)
+
+                val fuelTag = if (savedReport.isRefueled) " [Solar: ${savedReport.fuelLiters}L]" else ""
+                addLog("POST /api/aktivitas-unit", "POST", "200 OK", "Unit ${savedReport.unitCode} [${savedReport.unitStatus}]$fuelTag (HM ${savedReport.hmAkhir})", true)
+                Result.success(savedReport.copy(isSynced = true, syncedAt = System.currentTimeMillis()))
+            } catch (netEx: Exception) {
+                unitDao.updateUnitHm(savedReport.unitCode, savedReport.hmAkhir)
+                addLog("POST /api/aktivitas-unit", "POST", "OFFLINE/PENDING", "Unit ${savedReport.unitCode} [${savedReport.unitStatus}] disimpan di SQLite lokal", false)
+                Result.success(savedReport.copy(isSynced = false))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun syncAllPendingReports(): Result<Int> = withContext(Dispatchers.IO) {
+        try {
+            val pending = reportDao.getUnsyncedReportsList()
+            if (pending.isEmpty()) {
+                return@withContext Result.success(0)
+            }
+
+            var successCount = 0
+            for (report in pending) {
+                try {
+                    val apiReq = PostActivityReportRequest.create(
+                        clientUuid = report.clientUuid,
+                        reportDate = report.reportDate,
+                        supervisorName = report.supervisorName,
+                        unitCode = report.unitCode,
+                        unitType = report.unitType,
+                        activityName = report.activityName,
+                        sapCode = report.sapCode,
+                        unitOfMeasure = report.unitOfMeasure,
+                        operatorName = report.operatorName,
+                        workLocation = report.workLocation,
+                        shift = report.shift,
+                        workDurationHours = report.workDurationHours,
+                        hmAwal = report.hmAwal,
+                        hmAkhir = report.hmAkhir,
+                        hmDailyRunning = report.hmDailyRunning,
+                        workOutput = report.workOutput,
+                        notes = report.notes,
+                        unitStatus = report.unitStatus,
+                        isRefueled = report.isRefueled,
+                        fuelLiters = report.fuelLiters,
+                        photoBase64 = report.photoBase64,
+                        photoSizeKb = report.photoSizeKb,
+                        photoDimensions = report.photoDimensions,
+                        photoPath = report.photoPath
+                    )
+                    apiClientManager.postActivityReport(apiReq)
+                    reportDao.markReportAsSynced(report.id)
+                    unitDao.updateUnitHm(report.unitCode, report.hmAkhir)
+                    successCount++
+                } catch (_: Exception) {}
+            }
+
+            addLog("POST /api/aktivitas-unit (BATCH)", "POST", "SYNC COMPLETED", "Sinkron $successCount dari ${pending.size} laporan", true)
+            _lastSyncTimeMillis.value = System.currentTimeMillis()
+            Result.success(successCount)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun syncAllPendingOperationalData(): Result<Int> = withContext(Dispatchers.IO) {
+        var totalSynced = 0
+        try {
+            // 1. Sync pending rencana
+            val pendingRencana = rencanaDao.getUnsyncedRencanaList()
+            for (rencana in pendingRencana) {
+                try {
+                    val req = PostRencanaKerjaRequest(
+                        id = rencana.id,
+                        status_unit = rencana.statusUnit,
+                        kode_unit = rencana.kodeUnit,
+                        operator = rencana.operator,
+                        kode_lokasi = rencana.kodeLokasi,
+                        shift_kerja = rencana.shiftKerja,
+                        keterangan = rencana.keterangan,
+                        nomor_spk = rencana.nomorSpk,
+                        status_spk = rencana.statusSpk,
+                        nama_pengawas = rencana.supervisorName
+                    )
+                    apiClientManager.postRencanaKerja(req)
+                    rencanaDao.markAsSynced(rencana.id)
+                    totalSynced++
+                } catch (_: Exception) {}
+            }
+
+            // 2. Sync pending hasil aktivitas
+            val pendingHasil = hasilDao.getUnsyncedHasilList()
+            for (hasil in pendingHasil) {
+                try {
+                    val req = PostHasilAktivitasRequest(
+                        id = hasil.id,
+                        rencana_id = hasil.rencanaId,
+                        nomor_spk = hasil.nomorSpk,
+                        jam_kerja = hasil.jamKerja,
+                        hm_awal = hasil.hmAwal,
+                        hm_akhir = hasil.hmAkhir,
+                        hm_harian_berjalan = hasil.hmHarianBerjalan,
+                        is_isi_solar = hasil.isIsiSolar,
+                        jumlah_liter_solar = hasil.jumlahLiterSolar,
+                        hasil_kerja = hasil.hasilKerja,
+                        keterangan = hasil.keterangan,
+                        nama_pengawas = hasil.supervisorName,
+                        kode_unit = hasil.kodeUnit,
+                        foto_bukti = hasil.photoBase64
+                    )
+                    apiClientManager.postHasilAktivitas(req)
+                    hasilDao.markAsSynced(hasil.id)
+                    totalSynced++
+                } catch (_: Exception) {}
+            }
+
+            // 3. Sync pending reports
+            val reportsResult = syncAllPendingReports()
+            totalSynced += reportsResult.getOrDefault(0)
+
+            if (totalSynced > 0) {
+                _lastSyncTimeMillis.value = System.currentTimeMillis()
+                addLog("BATCH QUEUE SYNC", "SYNC", "SUCCESS", "Tersinkron total $totalSynced entri operasional", true)
+            }
+            Result.success(totalSynced)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun testConnection(url: String): Pair<Boolean, String> {
+        val result = apiClientManager.testConnection(url)
+        addLog("TEST $url", "PING", if (result.first) "CONNECTED" else "FAILED", result.second, result.first)
+        return result
+    }
+
+    suspend fun deleteReport(reportId: Long) = withContext(Dispatchers.IO) {
+        reportDao.deleteReport(reportId)
+    }
+
+    suspend fun deleteRencana(rencanaId: Long) = withContext(Dispatchers.IO) {
+        rencanaDao.deleteRencana(rencanaId)
+    }
+
+    suspend fun deleteHasil(hasilId: Long) = withContext(Dispatchers.IO) {
+        hasilDao.deleteHasil(hasilId)
+    }
+}
