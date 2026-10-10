@@ -27,6 +27,12 @@ data class ActivityReportEntity(
     val unitStatus: String = "OPERASI",  // "OPERASI" | "STANDBY" | "BREAKDOWN"
     val isRefueled: Boolean = false,     // Fuel refuel toggle
     val fuelLiters: Double = 0.0,        // Liter solar
+    val stikSolarAwal: Double = 0.0,     // Stik solar awal (cm/L)
+    val stikSolarAkhir: Double = 0.0,    // Stik solar akhir (cm/L)
+    val pemakaianSolar: Double = 0.0,    // Pemakaian solar
+    val kendalaId: String? = null,       // ID kendala dari master
+    val kendalaNama: String? = null,     // Nama kendala dari master
+    val catatanKendala: String? = null,  // Catatan detail kendala
     val photoPath: String? = null,       // Local compressed JPEG path
     val photoBase64: String? = null,     // Base64 data string (for sync)
     val photoSizeKb: Long? = null,       // Size in KB (e.g. 145)

@@ -60,6 +60,24 @@ data class HasilInputAktivitasEntity(
     @ColumnInfo(name = "jumlah_liter_solar")
     val jumlahLiterSolar: Double = 0.0,
 
+    @ColumnInfo(name = "stik_solar_awal", defaultValue = "0.0")
+    val stikSolarAwal: Double = 0.0,
+
+    @ColumnInfo(name = "stik_solar_akhir", defaultValue = "0.0")
+    val stikSolarAkhir: Double = 0.0,
+
+    @ColumnInfo(name = "pemakaian_solar", defaultValue = "0.0")
+    val pemakaianSolar: Double = 0.0,
+
+    @ColumnInfo(name = "kendala_id")
+    val kendalaId: String? = null,
+
+    @ColumnInfo(name = "kendala_nama")
+    val kendalaNama: String? = null,
+
+    @ColumnInfo(name = "catatan_kendala")
+    val catatanKendala: String? = null,
+
     @ColumnInfo(name = "hasil_kerja")
     val hasilKerja: Double = 0.0,
 

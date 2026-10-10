@@ -11,5 +11,7 @@ data class UnitEntity(
     val lastHm: Double,              // e.g. 3420.5 (used as auto-fill HM Awal)
     val supervisorAssigned: String,  // e.g. "Budi Santoso", "Agus Wijaya"
     val status: String = "OPERASIONAL", // "OPERASIONAL", "STANDBY", "MAINTENANCE"
+    val hmMinStandar: Double = 6.0,  // Standar minimal HM (misal 6.0 HM)
+    val hmMaxStandar: Double = 10.0, // Standar maksimal HM (misal 10.0 HM)
     val updatedAt: Long = System.currentTimeMillis()
 )

@@ -25,6 +25,12 @@ data class PostActivityReportRequest(
     @Json(name = "status_unit") val status_unit: String? = "OPERASI", // "OPERASI" | "STANDBY" | "BREAKDOWN"
     @Json(name = "is_isi_solar") val is_isi_solar: Boolean? = false,
     @Json(name = "jumlah_liter_solar") val jumlah_liter_solar: Double? = 0.0,
+    @Json(name = "stik_solar_awal") val stik_solar_awal: Double? = null,
+    @Json(name = "stik_solar_akhir") val stik_solar_akhir: Double? = null,
+    @Json(name = "pemakaian_solar") val pemakaian_solar: Double? = null,
+    @Json(name = "kendala_id") val kendala_id: String? = null,
+    @Json(name = "kendala_nama") val kendala_nama: String? = null,
+    @Json(name = "catatan_kendala") val catatan_kendala: String? = null,
     @Json(name = "foto_bukti") val foto_bukti: String? = null,
     @Json(name = "foto") val foto: String? = null,
     @Json(name = "photo_base64") val photo_base64: String? = null,
@@ -72,6 +78,12 @@ data class PostActivityReportRequest(
             unitStatus: String = "OPERASI",
             isRefueled: Boolean = false,
             fuelLiters: Double = 0.0,
+            stikSolarAwal: Double? = null,
+            stikSolarAkhir: Double? = null,
+            pemakaianSolar: Double? = null,
+            kendalaId: String? = null,
+            kendalaNama: String? = null,
+            catatanKendala: String? = null,
             photoBase64: String? = null,
             photoSizeKb: Long? = null,
             photoDimensions: String? = null,
@@ -98,6 +110,12 @@ data class PostActivityReportRequest(
                 status_unit = unitStatus,
                 is_isi_solar = isRefueled,
                 jumlah_liter_solar = fuelLiters,
+                stik_solar_awal = stikSolarAwal,
+                stik_solar_akhir = stikSolarAkhir,
+                pemakaian_solar = pemakaianSolar,
+                kendala_id = kendalaId,
+                kendala_nama = kendalaNama,
+                catatan_kendala = catatanKendala,
                 foto_bukti = photoBase64,
                 foto = photoBase64,
                 photo_base64 = photoBase64,
@@ -128,6 +146,17 @@ data class PostActivityReportRequest(
 }
 
 @JsonClass(generateAdapter = true)
+data class KendalaPayload(
+    @Json(name = "kode_kendala") val kode_kendala: String? = null,
+    @Json(name = "nama_kendala") val nama_kendala: String? = null,
+    @Json(name = "kategori") val kategori: String? = "OPERASIONAL"
+) {
+    val resolvedKode: String get() = kode_kendala ?: "KND-00"
+    val resolvedNama: String get() = nama_kendala ?: "Kendala Lapangan"
+    val resolvedKategori: String get() = kategori ?: "OPERASIONAL"
+}
+
+@JsonClass(generateAdapter = true)
 data class ApiResponse<T>(
     val status: String? = "success",
     val message: String? = "",
@@ -143,7 +172,8 @@ data class MasterDataPayload(
     val activities: List<ActivityPayload>? = emptyList(),
     val operators: List<OperatorPayload>? = emptyList(),
     val lokasi: List<LokasiPayload>? = emptyList(),
-    val locations: List<LokasiPayload>? = emptyList()
+    val locations: List<LokasiPayload>? = emptyList(),
+    val kendala: List<KendalaPayload>? = emptyList()
 ) {
     val resolvedActivities: List<ActivityPayload>
         get() {
@@ -182,7 +212,9 @@ data class UnitPayload(
     @Json(name = "supervisor_assigned") val supervisor_assigned: String? = null,
     @Json(name = "supervisorAssigned") val supervisorAssigned: String? = null,
 
-    @Json(name = "status") val status: String? = "OPERASIONAL"
+    @Json(name = "status") val status: String? = "OPERASIONAL",
+    @Json(name = "hm_min_standar") val hm_min_standar: Double? = null,
+    @Json(name = "hm_max_standar") val hm_max_standar: Double? = null
 ) {
     constructor(
         unitCode: String,
@@ -190,7 +222,9 @@ data class UnitPayload(
         brandModel: String,
         lastHm: Double,
         supervisorAssigned: String,
-        status: String = "OPERASIONAL"
+        status: String = "OPERASIONAL",
+        hmMinStandar: Double = 6.0,
+        hmMaxStandar: Double = 10.0
     ) : this(
         kode_unit = unitCode,
         unit_code = unitCode,
@@ -207,7 +241,9 @@ data class UnitPayload(
         nama_pengawas = supervisorAssigned,
         supervisor_assigned = supervisorAssigned,
         supervisorAssigned = supervisorAssigned,
-        status = status
+        status = status,
+        hm_min_standar = hmMinStandar,
+        hm_max_standar = hmMaxStandar
     )
 
     val resolvedUnitCode: String get() = kode_unit ?: unit_code ?: unitCode ?: "UNKNOWN"
@@ -216,6 +252,8 @@ data class UnitPayload(
     val resolvedLastHm: Double get() = hm_unit_terakhir_diinputkan ?: last_hm ?: lastHm ?: 0.0
     val resolvedSupervisor: String get() = nama_pengawas ?: supervisor_assigned ?: supervisorAssigned ?: ""
     val resolvedStatus: String get() = status ?: "OPERASIONAL"
+    val resolvedHmMinStandar: Double get() = hm_min_standar ?: 6.0
+    val resolvedHmMaxStandar: Double get() = hm_max_standar ?: 10.0
 }
 
 @JsonClass(generateAdapter = true)
@@ -385,6 +423,12 @@ data class PostHasilAktivitasRequest(
     @Json(name = "hm_harian_berjalan") val hm_harian_berjalan: Double? = null,
     @Json(name = "is_isi_solar") val is_isi_solar: Boolean? = false,
     @Json(name = "jumlah_liter_solar") val jumlah_liter_solar: Double? = 0.0,
+    @Json(name = "stik_solar_awal") val stik_solar_awal: Double? = null,
+    @Json(name = "stik_solar_akhir") val stik_solar_akhir: Double? = null,
+    @Json(name = "pemakaian_solar") val pemakaian_solar: Double? = null,
+    @Json(name = "kendala_id") val kendala_id: String? = null,
+    @Json(name = "kendala_nama") val kendala_nama: String? = null,
+    @Json(name = "catatan_kendala") val catatan_kendala: String? = null,
     @Json(name = "hasil_kerja") val hasil_kerja: Double? = 0.0,
     @Json(name = "keterangan") val keterangan: String? = null,
     @Json(name = "nama_pengawas") val nama_pengawas: String? = null,

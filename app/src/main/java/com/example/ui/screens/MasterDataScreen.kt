@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.data.local.entity.ActivityMasterEntity
+import com.example.data.local.entity.KendalaEntity
 import com.example.data.local.entity.LokasiEntity
 import com.example.data.local.entity.OperatorEntity
 import com.example.data.local.entity.UnitEntity
@@ -98,6 +99,7 @@ fun MasterDataScreen(
     val activities by viewModel.activities.collectAsState()
     val operators by viewModel.operators.collectAsState()
     val lokasiList by viewModel.lokasiList.collectAsState()
+    val kendalaList by viewModel.kendalaList.collectAsState()
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var showDistributionDialog by remember { mutableStateOf(false) }
@@ -259,6 +261,11 @@ fun MasterDataScreen(
                         Tab(
                             selected = selectedTab == 4,
                             onClick = { selectedTab = 4 },
+                            text = { Text("Kendala (${kendalaList.size})", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) }
+                        )
+                        Tab(
+                            selected = selectedTab == 5,
+                            onClick = { selectedTab = 5 },
                             text = { Text("Log Sync (${syncLogs.size})", fontWeight = FontWeight.SemiBold, fontSize = 12.sp) }
                         )
                     }
@@ -269,7 +276,8 @@ fun MasterDataScreen(
                             1 -> CleanLokasiTab(lokasiList)
                             2 -> CleanActivitiesTab(activities)
                             3 -> CleanOperatorsTab(operators)
-                            4 -> CleanSyncLogsTab(syncLogs)
+                            4 -> CleanKendalaTab(kendalaList)
+                            5 -> CleanSyncLogsTab(syncLogs)
                         }
                     }
                 }
@@ -335,7 +343,7 @@ fun CleanUnitsTab(units: List<UnitEntity>) {
                                 color = Slate500
                             )
                             Text(
-                                text = "HM Terakhir: ${String.format("%.1f", unit.lastHm)} Jam",
+                                text = "HM Terakhir: ${String.format("%.1f", unit.lastHm)} Jam • Standar: ${unit.hmMinStandar}-${unit.hmMaxStandar} HM",
                                 fontSize = 11.sp,
                                 color = Emerald700,
                                 fontWeight = FontWeight.Bold
@@ -448,6 +456,54 @@ fun CleanOperatorsTab(operators: List<OperatorEntity>) {
                                 }
                             }
                             Text("Pengawas: ${op.supervisorAssigned} • Status: ${op.status}", fontSize = 11.sp, color = Slate500)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CleanKendalaTab(kendalaList: List<KendalaEntity>) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Daftar Master Kendala Operasional (Sinkron Web Admin):", fontSize = 12.sp, color = Slate500)
+        if (kendalaList.isEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                Text("Belum ada data kendala terdaftar.", color = Slate400, fontSize = 13.sp)
+            }
+        } else {
+            kendalaList.forEach { knd ->
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF8FAFC),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(knd.namaKendala, fontWeight = FontWeight.Bold, color = Slate900, fontSize = 13.sp)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Surface(shape = RoundedCornerShape(4.dp), color = Color(0xFFFEE2E2)) {
+                                    Text(
+                                        text = knd.kodeKendala,
+                                        color = Color(0xFF991B1B),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "Kategori: ${knd.kategori}${if (knd.deskripsi.isNotBlank()) " • Keterangan: ${knd.deskripsi}" else ""}",
+                                fontSize = 11.sp,
+                                color = Slate500
+                            )
                         }
                     }
                 }

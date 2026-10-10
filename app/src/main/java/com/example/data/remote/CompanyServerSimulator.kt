@@ -39,16 +39,33 @@ object CompanyServerSimulator {
     val serverUnits = CopyOnWriteArrayList<UnitPayload>().apply {
         addAll(
             listOf(
-                UnitPayload("HEH1", "EXCAVATOR", "Komatsu PC200-8", 4125.5, "Budi Santoso", "OPERASIONAL"),
-                UnitPayload("EXC-02", "EXCAVATOR", "Caterpillar 320D", 6280.0, "Budi Santoso", "OPERASIONAL"),
-                UnitPayload("DT-101", "DUMP TRUCK", "Hino FM 260 Ti", 3450.2, "Budi Santoso", "OPERASIONAL"),
-                UnitPayload("DT-102", "DUMP TRUCK", "Scania P360", 2890.4, "Budi Santoso", "OPERASIONAL"),
-                UnitPayload("DZ-01", "BULLDOZER", "Komatsu D85ESS-2", 5130.8, "Budi Santoso", "OPERASIONAL"),
-                UnitPayload("GRD-01", "MOTOR GRADER", "Caterpillar 140K", 1870.0, "Budi Santoso", "OPERASIONAL"),
+                UnitPayload("HEH1", "EXCAVATOR", "Komatsu PC200-8", 4125.5, "Budi Santoso", "OPERASIONAL", 6.0, 10.0),
+                UnitPayload("EXC-02", "EXCAVATOR", "Caterpillar 320D", 6280.0, "Budi Santoso", "OPERASIONAL", 6.0, 10.0),
+                UnitPayload("DT-101", "DUMP TRUCK", "Hino FM 260 Ti", 3450.2, "Budi Santoso", "OPERASIONAL", 5.5, 9.5),
+                UnitPayload("DT-102", "DUMP TRUCK", "Scania P360", 2890.4, "Budi Santoso", "OPERASIONAL", 5.5, 9.5),
+                UnitPayload("DZ-01", "BULLDOZER", "Komatsu D85ESS-2", 5130.8, "Budi Santoso", "OPERASIONAL", 6.0, 10.0),
+                UnitPayload("GRD-01", "MOTOR GRADER", "Caterpillar 140K", 1870.0, "Budi Santoso", "OPERASIONAL", 5.0, 9.0),
                 // Units assigned to other supervisors
-                UnitPayload("EXC-09", "EXCAVATOR", "Hitachi ZX210-5G", 3990.2, "Agus Wijaya", "OPERASIONAL"),
-                UnitPayload("DT-205", "DUMP TRUCK", "Volvo FMX 440", 4150.0, "Agus Wijaya", "OPERASIONAL"),
-                UnitPayload("DZ-04", "BULLDOZER", "CAT D6R", 2980.5, "Rudi Hartono", "OPERASIONAL")
+                UnitPayload("EXC-09", "EXCAVATOR", "Hitachi ZX210-5G", 3990.2, "Agus Wijaya", "OPERASIONAL", 6.0, 10.0),
+                UnitPayload("DT-205", "DUMP TRUCK", "Volvo FMX 440", 4150.0, "Agus Wijaya", "OPERASIONAL", 5.5, 9.5),
+                UnitPayload("DZ-04", "BULLDOZER", "CAT D6R", 2980.5, "Rudi Hartono", "OPERASIONAL", 6.0, 10.0)
+            )
+        )
+    }
+
+    // Central master kendala operasional in company web admin
+    val serverKendala = CopyOnWriteArrayList<KendalaPayload>().apply {
+        addAll(
+            listOf(
+                KendalaPayload("KND-01", "Hujan / Slippery (Jalan Licin)", "CUACA"),
+                KendalaPayload("KND-02", "Breakdown Mekanikal / Perbaikan Mesin", "MEKANIKAL"),
+                KendalaPayload("KND-03", "Antrian DT / Hauler (Delay Loading)", "OPERASIONAL"),
+                KendalaPayload("KND-04", "Front Kerja Amblas / Undercarriage Terjebak", "OPERASIONAL"),
+                KendalaPayload("KND-05", "Safety Standstill / Investigasi Insiden", "SAFETY"),
+                KendalaPayload("KND-06", "Relokasi / Moving Unit Jarak Jauh", "OPERASIONAL"),
+                KendalaPayload("KND-07", "Ketiadaan Operator / Pergantian Shift Terhambat", "OPERASIONAL"),
+                KendalaPayload("KND-08", "Material Keras / Menunggu Blasting Peledakan", "OPERASIONAL"),
+                KendalaPayload("KND-09", "Preventive Maintenance / Servis Berkala", "MEKANIKAL")
             )
         )
     }
@@ -119,6 +136,7 @@ object CompanyServerSimulator {
         val filteredOperators = serverOperators.filter { it.resolvedSupervisor.equals(supervisorName, ignoreCase = true) }
         val activities = serverActivities.toList()
         val lokasi = serverLokasi.toList()
+        val kendala = serverKendala.toList()
 
         return ApiResponse(
             status = "SUCCESS",
@@ -129,7 +147,8 @@ object CompanyServerSimulator {
                 aktivitas = activities,
                 operators = filteredOperators,
                 lokasi = lokasi,
-                locations = lokasi
+                locations = lokasi,
+                kendala = kendala
             )
         )
     }

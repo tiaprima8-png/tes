@@ -36,6 +36,9 @@ interface CompanyApiService {
         @Query("supervisor") supervisor: String? = null
     ): Response<List<OperatorPayload>>
 
+    @GET("api/master-kendala")
+    suspend fun getMasterKendala(): Response<ApiResponse<List<KendalaPayload>>>
+
     @POST("api/aktivitas-unit")
     suspend fun postActivityReport(
         @Body report: PostActivityReportRequest

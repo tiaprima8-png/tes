@@ -56,9 +56,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.entity.ActivityMasterEntity
+import com.example.data.local.entity.KendalaEntity
 import com.example.data.local.entity.LokasiEntity
 import com.example.data.local.entity.OperatorEntity
 import com.example.data.local.entity.UnitEntity
+import com.example.ui.viewmodel.UnitPlanStatus
 import com.example.ui.theme.Emerald100
 import com.example.ui.theme.Emerald50
 import com.example.ui.theme.Emerald600
@@ -1022,4 +1024,305 @@ fun ActivitySearchableSelectorSheet(
         )
     }
 }
+
+/**
+ * Card item for Unit Alat Berat with automatic Backlog detection & target date badge.
+ */
+@Composable
+fun UnitPlanSelectorItemCard(
+    status: UnitPlanStatus,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val unit = status.unit
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .clickable { onClick() }
+            .testTag("unit_plan_item_${unit.unitCode}"),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) Emerald50 else if (status.isBacklog) Color(0xFFFFFBEB) else Color.White
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            width = if (isSelected) 2.dp else 1.dp,
+            color = if (isSelected) Emerald600 else if (status.isBacklog) Color(0xFFF59E0B) else Slate200
+        ),
+        shape = RoundedCornerShape(14.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = unit.unitCode,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = Slate900
+                        )
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = when (unit.unitType.uppercase()) {
+                            "EXCAVATOR" -> Color(0xFFFEF3C7)
+                            "DUMP TRUCK" -> Color(0xFFDBEAFE)
+                            "BULLDOZER" -> Color(0xFFFCE7F3)
+                            else -> Color(0xFFE2E8F0)
+                        }
+                    ) {
+                        Text(
+                            text = unit.unitType,
+                            color = when (unit.unitType.uppercase()) {
+                                "EXCAVATOR" -> Color(0xFF92400E)
+                                "DUMP TRUCK" -> Color(0xFF1E40AF)
+                                "BULLDOZER" -> Color(0xFF9D174D)
+                                else -> Slate700
+                            },
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Badge status backlog vs hari ini
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (status.isBacklog) Color(0xFFFEE2E2) else Emerald100,
+                    border = androidx.compose.foundation.BorderStroke(
+                        0.5.dp,
+                        if (status.isBacklog) Color(0xFFEF4444) else Emerald600
+                    )
+                ) {
+                    Text(
+                        text = status.labelText,
+                        color = if (status.isBacklog) Color(0xFF991B1B) else Emerald900,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "${unit.brandModel} • Ditugaskan: ${unit.supervisorAssigned}",
+                    style = MaterialTheme.typography.bodySmall.copy(color = Slate500),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = Emerald50
+                    ) {
+                        Text(
+                            text = "HM Terakhir: ${String.format(java.util.Locale.US, "%.1f", unit.lastHm)} Jam (Std: ${unit.hmMinStandar}-${unit.hmMaxStandar} HM)",
+                            color = Emerald700,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .background(Emerald600, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Terpilih",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Searchable Selector Sheet for Unit with Backlog detection & automatic filtering.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun UnitPlanSearchableSelectorSheet(
+    isOpen: Boolean,
+    onDismissRequest: () -> Unit,
+    availableUnits: List<UnitPlanStatus>,
+    selectedStatus: UnitPlanStatus?,
+    onStatusSelected: (UnitPlanStatus) -> Unit
+) {
+    val backlogCount = availableUnits.count { it.isBacklog }
+
+    SearchableSelectorSheet(
+        isOpen = isOpen,
+        title = "Pilih Unit Alat Berat",
+        searchPlaceholder = "Cari kode unit atau jenis (mis. EX-201, Dozer)...",
+        items = availableUnits,
+        filterPredicate = { item, query ->
+            item.unit.unitCode.contains(query, ignoreCase = true) ||
+            item.unit.unitType.contains(query, ignoreCase = true) ||
+            item.unit.brandModel.contains(query, ignoreCase = true) ||
+            item.labelText.contains(query, ignoreCase = true)
+        },
+        onItemSelected = onStatusSelected,
+        onDismissRequest = onDismissRequest
+    ) { item, _, onClick ->
+        UnitPlanSelectorItemCard(
+            status = item,
+            isSelected = selectedStatus?.unit?.unitCode == item.unit.unitCode,
+            onClick = onClick
+        )
+    }
+}
+
+/**
+ * Card item for Master Kendala Selector.
+ */
+@Composable
+fun KendalaSelectorItemCard(
+    kendala: KendalaEntity,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+            .testTag("kendala_item_${kendala.kodeKendala}"),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) Emerald50 else Color.White
+        ),
+        border = androidx.compose.foundation.BorderStroke(
+            width = if (isSelected) 1.5.dp else 1.dp,
+            color = if (isSelected) Emerald600 else Slate200
+        ),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = when (kendala.kategori.uppercase()) {
+                            "CUACA" -> Color(0xFFDBEAFE)
+                            "MEKANIKAL" -> Color(0xFFFEE2E2)
+                            "SAFETY" -> Color(0xFFFEF3C7)
+                            else -> Color(0xFFE2E8F0)
+                        }
+                    ) {
+                        Text(
+                            text = kendala.kodeKendala,
+                            color = when (kendala.kategori.uppercase()) {
+                                "CUACA" -> Color(0xFF1E40AF)
+                                "MEKANIKAL" -> Color(0xFF991B1B)
+                                "SAFETY" -> Color(0xFF92400E)
+                                else -> Slate700
+                            },
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = Color(0xFFF1F5F9)
+                    ) {
+                        Text(
+                            text = kendala.kategori,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Slate500,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = kendala.namaKendala,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Slate900
+                    )
+                )
+            }
+
+            if (isSelected) {
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .background(Emerald600, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = "Terpilih",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Searchable Selector Sheet for Master Kendala.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun KendalaSearchableSelectorSheet(
+    isOpen: Boolean,
+    onDismissRequest: () -> Unit,
+    kendalaList: List<KendalaEntity>,
+    selectedKendala: KendalaEntity?,
+    onKendalaSelected: (KendalaEntity) -> Unit
+) {
+    SearchableSelectorSheet(
+        isOpen = isOpen,
+        title = "Pilih Master Kendala Operasional",
+        searchPlaceholder = "Cari kendala (hujan, breakdown, antrian, amblas)...",
+        items = kendalaList,
+        filterPredicate = { item, query ->
+            item.namaKendala.contains(query, ignoreCase = true) ||
+            item.kodeKendala.contains(query, ignoreCase = true) ||
+            item.kategori.contains(query, ignoreCase = true)
+        },
+        onItemSelected = onKendalaSelected,
+        onDismissRequest = onDismissRequest
+    ) { item, _, onClick ->
+        KendalaSelectorItemCard(
+            kendala = item,
+            isSelected = selectedKendala?.kodeKendala == item.kodeKendala,
+            onClick = onClick
+        )
+    }
+}
+
 

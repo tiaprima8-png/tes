@@ -4,6 +4,7 @@ import com.example.data.local.AppDatabase
 import com.example.data.local.entity.ActivityMasterEntity
 import com.example.data.local.entity.ActivityReportEntity
 import com.example.data.local.entity.HasilInputAktivitasEntity
+import com.example.data.local.entity.KendalaEntity
 import com.example.data.local.entity.LokasiEntity
 import com.example.data.local.entity.OperatorEntity
 import com.example.data.local.entity.RencanaKerjaEntity
@@ -43,6 +44,7 @@ class HeavyTrackRepository(
     private val lokasiDao = database.lokasiDao()
     private val rencanaDao = database.rencanaKerjaDao()
     private val hasilDao = database.hasilInputAktivitasDao()
+    private val kendalaDao = database.kendalaDao()
 
     private val _syncLogs = MutableStateFlow<List<SyncLogItem>>(emptyList())
     val syncLogs: StateFlow<List<SyncLogItem>> = _syncLogs.asStateFlow()
@@ -86,6 +88,9 @@ class HeavyTrackRepository(
     fun getAllHasil(): Flow<List<HasilInputAktivitasEntity>> =
         hasilDao.getAllHasil()
 
+    fun getAllKendala(): Flow<List<KendalaEntity>> =
+        kendalaDao.getAllKendala()
+
     fun getAllReports(): Flow<List<ActivityReportEntity>> =
         reportDao.getAllReports()
 
@@ -106,10 +111,10 @@ class HeavyTrackRepository(
             fetchMasterData(activeSupervisor)
         } catch (_: Exception) {
             val initialUnits = listOf(
-                UnitEntity("HEH1", "EXCAVATOR", "Komatsu PC200-8", 4125.5, activeSupervisor),
-                UnitEntity("EXC-02", "EXCAVATOR", "Caterpillar 320D", 6280.0, activeSupervisor),
-                UnitEntity("DT-101", "DUMP TRUCK", "Hino FM 260 Ti", 3450.2, activeSupervisor),
-                UnitEntity("DZ-01", "BULLDOZER", "Komatsu D85ESS-2", 5130.8, activeSupervisor)
+                UnitEntity("HEH1", "EXCAVATOR", "Komatsu PC200-8", 4125.5, activeSupervisor, "OPERASIONAL", 6.0, 10.0),
+                UnitEntity("EXC-02", "EXCAVATOR", "Caterpillar 320D", 6280.0, activeSupervisor, "OPERASIONAL", 6.0, 10.0),
+                UnitEntity("DT-101", "DUMP TRUCK", "Hino FM 260 Ti", 3450.2, activeSupervisor, "OPERASIONAL", 5.5, 9.5),
+                UnitEntity("DZ-01", "BULLDOZER", "Komatsu D85ESS-2", 5130.8, activeSupervisor, "OPERASIONAL", 6.0, 10.0)
             )
             unitDao.insertUnits(initialUnits)
 
@@ -137,6 +142,19 @@ class HeavyTrackRepository(
                 LokasiEntity("MAINROAD-01", "INFRA", 30.0, 28.0, "Jalan Tambang Utama")
             )
             lokasiDao.insertLokasiList(initialLokasi)
+
+            val initialKendala = listOf(
+                KendalaEntity("KND-01", "Hujan / Slippery (Jalan Licin)", "CUACA"),
+                KendalaEntity("KND-02", "Breakdown Mekanikal / Perbaikan Mesin", "MEKANIKAL"),
+                KendalaEntity("KND-03", "Antrian DT / Hauler (Delay Loading)", "OPERASIONAL"),
+                KendalaEntity("KND-04", "Front Kerja Amblas / Undercarriage Terjebak", "OPERASIONAL"),
+                KendalaEntity("KND-05", "Safety Standstill / Investigasi Insiden", "SAFETY"),
+                KendalaEntity("KND-06", "Relokasi / Moving Unit Jarak Jauh", "OPERASIONAL"),
+                KendalaEntity("KND-07", "Ketiadaan Operator / Pergantian Shift Terhambat", "OPERASIONAL"),
+                KendalaEntity("KND-08", "Material Keras / Menunggu Blasting Peledakan", "OPERASIONAL"),
+                KendalaEntity("KND-09", "Preventive Maintenance / Servis Berkala", "MEKANIKAL")
+            )
+            kendalaDao.insertKendalaList(initialKendala)
         }
     }
 
@@ -155,6 +173,8 @@ class HeavyTrackRepository(
                         lastHm = it.resolvedLastHm,
                         supervisorAssigned = if (it.resolvedSupervisor.isNotBlank()) it.resolvedSupervisor else supervisorName,
                         status = it.resolvedStatus,
+                        hmMinStandar = it.resolvedHmMinStandar,
+                        hmMaxStandar = it.resolvedHmMaxStandar,
                         updatedAt = System.currentTimeMillis()
                     )
                 }
@@ -211,8 +231,23 @@ class HeavyTrackRepository(
                 lokasiDao.insertLokasiList(lokasiEntities)
             }
 
+            // 5. Process Kendala
+            val incomingKendala = payload.kendala ?: emptyList()
+            if (incomingKendala.isNotEmpty()) {
+                val kendalaEntities = incomingKendala.map {
+                    KendalaEntity(
+                        kodeKendala = it.resolvedKode,
+                        namaKendala = it.resolvedNama,
+                        kategori = it.resolvedKategori,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                }
+                kendalaDao.clearAll()
+                kendalaDao.insertKendalaList(kendalaEntities)
+            }
+
             _lastSyncTimeMillis.value = System.currentTimeMillis()
-            val summary = "${incomingUnits.size} Unit, ${incomingActivities.size} Aktivitas, ${incomingOperators.size} Operator, ${incomingLokasi.size} Lokasi"
+            val summary = "${incomingUnits.size} Unit, ${incomingActivities.size} Aktivitas, ${incomingOperators.size} Operator, ${incomingLokasi.size} Lokasi, ${incomingKendala.size} Kendala"
             addLog("GET /api/master-data", "GET", "200 OK", summary, true)
 
             Result.success("$message ($summary)")
@@ -304,6 +339,12 @@ class HeavyTrackRepository(
                 unitStatus = savedHasil.unitStatus,
                 isRefueled = savedHasil.isIsiSolar,
                 fuelLiters = savedHasil.jumlahLiterSolar,
+                stikSolarAwal = savedHasil.stikSolarAwal,
+                stikSolarAkhir = savedHasil.stikSolarAkhir,
+                pemakaianSolar = savedHasil.pemakaianSolar,
+                kendalaId = savedHasil.kendalaId,
+                kendalaNama = savedHasil.kendalaNama,
+                catatanKendala = savedHasil.catatanKendala,
                 photoPath = savedHasil.photoPath,
                 photoBase64 = savedHasil.photoBase64,
                 photoSizeKb = savedHasil.photoSizeKb,
@@ -322,6 +363,12 @@ class HeavyTrackRepository(
                 hm_harian_berjalan = savedHasil.hmHarianBerjalan,
                 is_isi_solar = savedHasil.isIsiSolar,
                 jumlah_liter_solar = savedHasil.jumlahLiterSolar,
+                stik_solar_awal = savedHasil.stikSolarAwal,
+                stik_solar_akhir = savedHasil.stikSolarAkhir,
+                pemakaian_solar = savedHasil.pemakaianSolar,
+                kendala_id = savedHasil.kendalaId,
+                kendala_nama = savedHasil.kendalaNama,
+                catatan_kendala = savedHasil.catatanKendala,
                 hasil_kerja = savedHasil.hasilKerja,
                 keterangan = savedHasil.keterangan,
                 nama_pengawas = savedHasil.supervisorName,

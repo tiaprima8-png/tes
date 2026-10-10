@@ -209,6 +209,51 @@ fun ReportDetailDialog(
                             Text("Hasil Kerja:", fontWeight = FontWeight.SemiBold, color = Slate900, fontSize = 13.sp)
                             Text("${String.format("%.1f", report.workOutput)} ${report.unitOfMeasure}", fontWeight = FontWeight.Bold, color = Emerald600, fontSize = 14.sp)
                         }
+
+                        if (report.stikSolarAwal > 0.0 || report.stikSolarAkhir > 0.0 || report.pemakaianSolar > 0.0) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Stik Solar (Awal/Akhir):", color = Slate700, fontSize = 12.sp)
+                                Text("${String.format("%.1f", report.stikSolarAwal)} / ${String.format("%.1f", report.stikSolarAkhir)} cm", fontWeight = FontWeight.Medium, color = Slate900, fontSize = 12.sp)
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Total Pemakaian Solar:", fontWeight = FontWeight.Bold, color = Emerald900, fontSize = 12.sp)
+                                Text("${String.format("%.1f", report.pemakaianSolar)} Liter/cm", fontWeight = FontWeight.Bold, color = Emerald700, fontSize = 12.sp)
+                            }
+                        }
+                    }
+                }
+
+                if (!report.kendalaNama.isNullOrBlank()) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFFEF2F2),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFCA5A5))
+                    ) {
+                        Column(modifier = Modifier.padding(10.dp)) {
+                            Text(
+                                text = "Kendala Lapangan: ${report.kendalaNama} (${report.kendalaId ?: "-"})",
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF991B1B),
+                                fontSize = 12.sp
+                            )
+                            if (!report.catatanKendala.isNullOrBlank()) {
+                                Text(
+                                    text = "Keterangan: ${report.catatanKendala}",
+                                    color = Color(0xFFB91C1C),
+                                    fontSize = 11.sp
+                                )
+                            }
+                        }
                     }
                 }
 
