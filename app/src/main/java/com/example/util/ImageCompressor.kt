@@ -28,8 +28,8 @@ data class CompressedPhotoResult(
 
 object ImageCompressor {
 
-    const val MAX_DIMENSION = 1280
-    const val COMPRESSION_QUALITY = 72 // 70% - 75% specification
+    const val MAX_DIMENSION = 1080
+    const val COMPRESSION_QUALITY = 78 // 75% - 80% specification (target ~150 KB - 400 KB)
 
     /**
      * Calculates proportional dimensions with maximum width or height constrained to maxDimension.
@@ -186,8 +186,11 @@ object ImageCompressor {
                 destinationFile
             )
 
-            // 7. Generate Base64 string
-            val base64String = Base64.encodeToString(compressedBytes, Base64.NO_WRAP)
+            // 7. Generate Base64 string with complete Data URL format compatible with web browsers
+            val rawBase64 = Base64.encodeToString(compressedBytes, Base64.NO_WRAP)
+                .replace("\n", "")
+                .replace("\r", "")
+            val dataUrlString = "data:image/jpeg;base64,$rawBase64"
             val sizeKb = (destinationFile.length() / 1024).coerceAtLeast(1)
             val dimensionsText = "${finalBitmap.width}x${finalBitmap.height} px"
 
@@ -206,7 +209,7 @@ object ImageCompressor {
                 CompressedPhotoResult(
                     filePath = destinationFile.absolutePath,
                     fileUri = finalUri,
-                    base64 = base64String,
+                    base64 = dataUrlString,
                     sizeKb = sizeKb,
                     width = targetWidth,
                     height = targetHeight,

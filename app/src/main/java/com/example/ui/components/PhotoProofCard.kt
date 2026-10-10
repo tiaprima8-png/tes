@@ -184,7 +184,7 @@ fun PhotoProofCard(
                             )
                         )
                         Text(
-                            text = "Kompresi otomatis max 1280px • JPEG 70-75%",
+                            text = "Kompresi otomatis max 1080px • JPEG 75-80% (150–400 KB)",
                             style = MaterialTheme.typography.bodySmall.copy(color = Slate500)
                         )
                     }
@@ -326,7 +326,7 @@ fun PhotoProofCard(
                                     color = Emerald700
                                 ) {
                                     Text(
-                                        text = "JPEG 72%",
+                                        text = "JPEG 78%",
                                         color = Color.White,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,

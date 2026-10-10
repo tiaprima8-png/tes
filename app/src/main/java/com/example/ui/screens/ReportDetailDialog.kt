@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -269,22 +270,46 @@ fun ReportDetailDialog(
                                     contentScale = ContentScale.Crop,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(140.dp)
+                                        .height(180.dp)
                                         .clip(RoundedCornerShape(8.dp))
                                 )
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(60.dp)
-                                        .background(Color(0xFFE2E8F0), RoundedCornerShape(8.dp)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "Foto Bukti Terkompresi (Base64 tersimpan)",
-                                        fontSize = 12.sp,
-                                        color = Slate700
+                            } else if (!report.photoBase64.isNullOrBlank()) {
+                                val bitmap = try {
+                                    val cleanBase64 = if (report.photoBase64.startsWith("data:")) {
+                                        report.photoBase64.substringAfter("base64,").trim()
+                                    } else {
+                                        report.photoBase64.trim()
+                                    }
+                                    val imageBytes = android.util.Base64.decode(cleanBase64, android.util.Base64.DEFAULT)
+                                    android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                                } catch (_: Exception) {
+                                    null
+                                }
+
+                                if (bitmap != null) {
+                                    androidx.compose.foundation.Image(
+                                        bitmap = bitmap.asImageBitmap(),
+                                        contentDescription = "Foto Bukti Lapangan",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(180.dp)
+                                            .clip(RoundedCornerShape(8.dp))
                                     )
+                                } else {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(60.dp)
+                                            .background(Color(0xFFE2E8F0), RoundedCornerShape(8.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "Foto Bukti Terkompresi (Base64 tersimpan)",
+                                            fontSize = 12.sp,
+                                            color = Slate700
+                                        )
+                                    }
                                 }
                             }
                         }

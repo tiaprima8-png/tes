@@ -58,6 +58,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.entity.ActivityReportEntity
 import com.example.ui.components.FuelBadge
+import com.example.ui.components.FullscreenPhotoPreviewDialog
+import com.example.ui.components.ReportPhotoThumbnail
 import com.example.ui.components.ShiftBadge
 import com.example.ui.components.SyncStatusBadge
 import com.example.ui.components.UnitStatusBadge
@@ -87,6 +89,7 @@ fun HistoryScreen(
 
     var selectedFilter by remember { mutableStateOf("ALL") } // ALL, PENDING, SYNCED
     var selectedReportForDetail by remember { mutableStateOf<ActivityReportEntity?>(null) }
+    var photoPreviewReport by remember { mutableStateOf<ActivityReportEntity?>(null) }
 
     val filteredReports = remember(reports, selectedFilter) {
         when (selectedFilter) {
@@ -295,7 +298,8 @@ fun HistoryScreen(
             items(filteredReports, key = { it.id }) { report ->
                 ReportHistoryCard(
                     report = report,
-                    onClick = { selectedReportForDetail = report }
+                    onClick = { selectedReportForDetail = report },
+                    onPhotoClick = { photoPreviewReport = report }
                 )
             }
         }
@@ -309,12 +313,26 @@ fun HistoryScreen(
             onDelete = { id -> viewModel.deleteReport(id) }
         )
     }
+
+    // Fullscreen Photo Preview Dialog
+    photoPreviewReport?.let { rep ->
+        FullscreenPhotoPreviewDialog(
+            photoPath = rep.photoPath,
+            photoBase64 = rep.photoBase64,
+            unitCode = rep.unitCode,
+            reportDate = rep.reportDate,
+            nomorSpk = null, // ActivityReportEntity
+            photoSizeKb = rep.photoSizeKb,
+            onDismiss = { photoPreviewReport = null }
+        )
+    }
 }
 
 @Composable
 fun ReportHistoryCard(
     report: ActivityReportEntity,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onPhotoClick: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -352,7 +370,7 @@ fun ReportHistoryCard(
                         color = Color(0xFFF1F5F9)
                     ) {
                         Text(
-                            text = report.unitType,
+                            text = report.unitType.ifBlank { "UNIT HE" },
                             color = Slate700,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -365,120 +383,127 @@ fun ReportHistoryCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (!report.photoPath.isNullOrBlank() || !report.photoBase64.isNullOrBlank()) {
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = Emerald100
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CameraAlt,
-                                    contentDescription = null,
-                                    tint = Emerald700,
-                                    modifier = Modifier.size(11.dp)
-                                )
-                                Spacer(modifier = Modifier.width(3.dp))
-                                Text(
-                                    text = "${report.photoSizeKb ?: 145}KB",
-                                    color = Emerald900,
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
-                    }
                     ShiftBadge(shift = report.shift)
                     SyncStatusBadge(isSynced = report.isSynced)
                 }
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
-            // Operational Status Chip & Fuel Log Badge
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                UnitStatusBadge(status = report.unitStatus)
-                if (report.isRefueled && report.fuelLiters > 0.0) {
-                    FuelBadge(liters = report.fuelLiters)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Activity & SAP Code
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.Assignment,
-                    contentDescription = null,
-                    tint = Emerald600,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = report.activityName,
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        color = Slate900
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = Emerald100
-                ) {
-                    Text(
-                        text = report.sapCode,
-                        color = Emerald900,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Operator & Location
+            // Main Content Row: Thumbnail on left (or right) alongside Job Information
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = null,
-                        tint = Slate400,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = report.operatorName,
-                        style = MaterialTheme.typography.bodySmall.copy(color = Slate500),
-                        maxLines = 1
-                    )
-                }
+                // 64x64 dp Thumbnail Foto Bukti Lapangan with Click to Preview Modal
+                ReportPhotoThumbnail(
+                    photoPath = report.photoPath,
+                    photoBase64 = report.photoBase64,
+                    photoSizeKb = report.photoSizeKb,
+                    onClick = onPhotoClick
+                )
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        imageVector = Icons.Default.LocationOn,
-                        contentDescription = null,
-                        tint = Slate400,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = report.workLocation,
-                        style = MaterialTheme.typography.bodySmall.copy(color = Slate500),
-                        maxLines = 1
-                    )
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Information Column alongside thumbnail
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    // Operational Status Chip & Fuel Log Badge
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        UnitStatusBadge(status = report.unitStatus)
+                        if (report.isRefueled && report.fuelLiters > 0.0) {
+                            FuelBadge(liters = report.fuelLiters)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    // Activity & SAP Code
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Assignment,
+                            contentDescription = null,
+                            tint = Emerald600,
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Spacer(modifier = Modifier.width(5.dp))
+                        Text(
+                            text = report.activityName,
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = Slate900
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        if (report.sapCode.isNotBlank()) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Emerald100
+                            ) {
+                                Text(
+                                    text = report.sapCode,
+                                    color = Emerald900,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // Operator & Location
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = null,
+                                tint = Slate400,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = report.operatorName,
+                                style = MaterialTheme.typography.bodySmall.copy(color = Slate500),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(start = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.LocationOn,
+                                contentDescription = null,
+                                tint = Slate400,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = report.workLocation,
+                                style = MaterialTheme.typography.bodySmall.copy(color = Slate500),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
                 }
             }
 
