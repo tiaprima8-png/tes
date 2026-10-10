@@ -328,6 +328,9 @@ fun MasterDataScreen(
                 viewModel.launchApkInstaller(context)
                 showDistributionDialog = false
             },
+            onOpenInBrowser = { url ->
+                viewModel.openApkDownloadInBrowser(context, url)
+            },
             onUpdateApkUrl = { newUrl ->
                 viewModel.updateCustomApkUrl(newUrl)
             }
@@ -501,13 +504,51 @@ fun CleanOperatorsTab(operators: List<OperatorEntity>) {
 @Composable
 fun CleanKendalaTab(kendalaList: List<KendalaEntity>) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Daftar Master Kendala Operasional (Sinkron Web Admin):", fontSize = 12.sp, color = Slate500)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Daftar Master Kendala Lapangan (Sinkron Web Admin):",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = Slate500
+            )
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Emerald50,
+                border = androidx.compose.foundation.BorderStroke(1.dp, Emerald100)
+            ) {
+                Text(
+                    text = "${kendalaList.size} Kendala Aktif",
+                    color = Emerald700,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                )
+            }
+        }
+
         if (kendalaList.isEmpty()) {
             Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                 Text("Belum ada data kendala terdaftar.", color = Slate400, fontSize = 13.sp)
             }
         } else {
-            kendalaList.forEach { knd ->
+            kendalaList.forEachIndexed { index, knd ->
+                val badgeBg = when (knd.kategori.uppercase()) {
+                    "CUACA" -> Color(0xFFE0F2FE)
+                    "MEKANIKAL" -> Color(0xFFFEE2E2)
+                    "LOGISTIK" -> Color(0xFFFEF3C7)
+                    else -> Color(0xFFF1F5F9)
+                }
+                val badgeText = when (knd.kategori.uppercase()) {
+                    "CUACA" -> Color(0xFF0369A1)
+                    "MEKANIKAL" -> Color(0xFF991B1B)
+                    "LOGISTIK" -> Color(0xFF92400E)
+                    else -> Slate700
+                }
+
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = Color(0xFFF8FAFC),
@@ -516,25 +557,53 @@ fun CleanKendalaTab(kendalaList: List<KendalaEntity>) {
                 ) {
                     Row(
                         modifier = Modifier.padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(knd.namaKendala, fontWeight = FontWeight.Bold, color = Slate900, fontSize = 13.sp)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Surface(shape = RoundedCornerShape(4.dp), color = Color(0xFFFEE2E2)) {
+                        // Nomor Urut 1 s/d 15
+                        Surface(
+                            shape = CircleShape,
+                            color = Slate200,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = "${index + 1}",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = Slate700
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(
+                                    text = knd.namaKendala,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Slate900,
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(shape = RoundedCornerShape(4.dp), color = badgeBg) {
                                     Text(
                                         text = knd.kodeKendala,
-                                        color = Color(0xFF991B1B),
+                                        color = badgeText,
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                     )
                                 }
                             }
+                            Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Kategori: ${knd.kategori}${if (knd.deskripsi.isNotBlank()) " • Keterangan: ${knd.deskripsi}" else ""}",
+                                text = "Kategori: ${knd.kategori}${if (knd.deskripsi.isNotBlank()) " • ${knd.deskripsi}" else ""}",
                                 fontSize = 11.sp,
                                 color = Slate500
                             )
@@ -597,6 +666,7 @@ fun DistributionDialog(
     onShareWhatsApp: () -> Unit,
     onShareGeneral: () -> Unit,
     onInstallLocalApk: () -> Unit,
+    onOpenInBrowser: (String) -> Unit,
     onUpdateApkUrl: (String) -> Unit
 ) {
     val clipboardManager = LocalClipboardManager.current
@@ -625,7 +695,7 @@ fun DistributionDialog(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(42.dp)
+                            .size(44.dp)
                             .background(Emerald50, RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
@@ -638,14 +708,29 @@ fun DistributionDialog(
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = "Distribusi RKCE Mobile",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = Slate900
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = Emerald100
+                            ) {
+                                Text(
+                                    text = "v1.1 Update",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Emerald700,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
                         Text(
-                            text = "Distribusi RKCE Mobile",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 17.sp,
-                            color = Slate900
-                        )
-                        Text(
-                            text = "Kirim berkas installer APK utuh ke HP lain & panduan instalasi",
+                            text = "Link installer APK resmi & pembaruan aplikasi lapangan",
                             fontSize = 11.sp,
                             color = Slate500,
                             lineHeight = 15.sp
@@ -653,7 +738,7 @@ fun DistributionDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Info Box Tautan Download Resmi (GitHub / Cloud)
                 Surface(
@@ -669,7 +754,7 @@ fun DistributionDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Tautan Installer Resmi (GitHub):",
+                                text = "Tautan Installer Pembaruan:",
                                 fontSize = 11.sp,
                                 color = Slate700,
                                 fontWeight = FontWeight.SemiBold
@@ -763,6 +848,45 @@ fun DistributionDialog(
                                 modifier = Modifier.padding(top = 4.dp)
                             )
                         }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Tombol Aksi Cepat Tautan: Buka di Browser & Preset Rilis
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = { onOpenInBrowser(currentApkUrl) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(36.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Emerald700)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.CloudDownload,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("Buka di Browser", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            }
+
+                            OutlinedButton(
+                                onClick = {
+                                    onUpdateApkUrl(HeavyTrackViewModel.GITHUB_RELEASES_PAGE_URL)
+                                    onOpenInBrowser(HeavyTrackViewModel.GITHUB_RELEASES_PAGE_URL)
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(36.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Slate700)
+                            ) {
+                                Text("Halaman Rilis GitHub", fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                            }
+                        }
                     }
                 }
 
@@ -781,8 +905,8 @@ fun DistributionDialog(
                     Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(20.dp), tint = Color.White)
                     Spacer(modifier = Modifier.width(10.dp))
                     Column {
-                        Text("Kirim Berkas APK via WhatsApp", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
-                        Text("Langsung kirim file .apk asli ke chat (Paling Praktis)", fontSize = 10.sp, color = Color.White.copy(alpha = 0.9f))
+                        Text("Kirim Berkas APK Pembaruan v1.1 via WhatsApp", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 12.sp)
+                        Text("Langsung kirim berkas .apk asli ke chat (Paling Praktis & Bebas Error)", fontSize = 10.sp, color = Color.White.copy(alpha = 0.9f))
                     }
                 }
 
@@ -817,7 +941,7 @@ fun DistributionDialog(
                 ) {
                     Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Simpan File APK ke Folder Download HP Ini", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                    Text("Simpan File APK Pembaruan ke Folder Download HP", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -838,7 +962,7 @@ fun DistributionDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // KARTU PANDUAN: SOLUSI MENGAPA GAGAL DIINSTAL DI HP LAIN
+                // KARTU PANDUAN: SOLUSI MENGAPA GAGAL DIINSTAL DI HP LAIN & PEMBARUAN APLIKASI
                 Surface(
                     shape = RoundedCornerShape(14.dp),
                     color = WarningAmber50,
@@ -855,7 +979,7 @@ fun DistributionDialog(
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = "Panduan Jika Gagal Diinstal di HP Lain:",
+                                text = "Panduan Pembaruan Aplikasi & Instalasi HP Lain:",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 12.sp,
                                 color = Slate900
@@ -865,14 +989,14 @@ fun DistributionDialog(
                         Spacer(modifier = Modifier.height(8.dp))
 
                         Text(
-                            text = "1. Peringatan Play Protect / Tidak Dikenal:\n" +
-                                   "   Aplikasi didistribusikan langsung tanpa Play Store. Jika HP penerima memblokir, klik 'Detail Lainnya' (More details) lalu pilih 'Tetap Instal' (Install anyway).\n\n" +
-                                   "2. Izin Sumber Tidak Dikenal:\n" +
-                                   "   Saat membuka berkas di WhatsApp atau File Manager, masuk ke 'Setelan' dan aktifkan 'Izinkan dari sumber ini'.\n\n" +
-                                   "3. Copot Versi Lama Terlebih Dahulu:\n" +
-                                   "   Jika di HP tujuan pernah terpasang APK versi uji coba sebelumnya, hapus (uninstall) aplikasi lama terlebih dahulu sebelum memasang yang baru.\n\n" +
-                                   "4. Berkas Asli 100% Utuh:\n" +
-                                   "   Gunakan tombol 'Kirim Berkas APK via WhatsApp' di atas. Sistem mengirim berkas biner asli aplikasi yang sedang berjalan, sehingga berkas dijamin lengkap dan tidak rusak (bukan 0 byte).",
+                            text = "1. PENTING - Solusi Jika Gagal Update ('Aplikasi Tidak Terpasang'):\n" +
+                                   "   Jika di HP tujuan sebelumnya sudah pernah terpasang aplikasi RKCE versi lama, Android dapat memblokir pembaruan karena perbedaan tanda tangan (signature). Solusinya: Hapus / copot (UNINSTALL) versi lama terlebih dahulu, lalu pasang berkas pembaruan v1.1 ini.\n\n" +
+                                   "2. Peringatan Play Protect / 'Aplikasi Tidak Dikenal':\n" +
+                                   "   Aplikasi didistribusikan langsung tanpa Play Store. Jika Play Protect memblokir, klik 'Detail Lainnya' (More details) lalu pilih 'Tetap Instal' (Install anyway).\n\n" +
+                                   "3. Izin 'Sumber Tidak Dikenal':\n" +
+                                   "   Saat membuka berkas dari WhatsApp atau File Manager, masuk ke 'Setelan' dan aktifkan 'Izinkan dari sumber ini'.\n\n" +
+                                   "4. Berkas Asli 100% Utuh & Terkini:\n" +
+                                   "   Gunakan tombol 'Kirim Berkas APK via WhatsApp' di atas. Sistem mengirim berkas biner asli aplikasi yang sedang berjalan (v1.1) sehingga berkas dijamin lengkap dan tidak rusak (bukan 0 byte).",
                             fontSize = 11.sp,
                             color = Slate700,
                             lineHeight = 16.sp

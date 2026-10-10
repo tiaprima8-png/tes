@@ -222,9 +222,163 @@ class ExampleUnitTest {
     fun test_official_apk_distribution_urls() {
         val defaultUrl = com.example.ui.viewmodel.HeavyTrackViewModel.APK_DIRECT_DOWNLOAD_URL
         val repoUrl = com.example.ui.viewmodel.HeavyTrackViewModel.GITHUB_REPO_URL
+        val releasesPage = com.example.ui.viewmodel.HeavyTrackViewModel.GITHUB_RELEASES_PAGE_URL
+        val debugUrl = com.example.ui.viewmodel.HeavyTrackViewModel.APK_DEBUG_DOWNLOAD_URL
 
         assertTrue(defaultUrl.startsWith("https://github.com/tiaprima8-png/tes"))
         assertTrue(defaultUrl.endsWith(".apk"))
         assertTrue(repoUrl.contains("tiaprima8-png/tes"))
+        assertTrue(releasesPage.endsWith("/releases"))
+        assertTrue(debugUrl.endsWith(".apk"))
+    }
+
+    @Test
+    fun test_master_kendala_15_items_mapping() {
+        val serverList = com.example.data.remote.CompanyServerSimulator.serverKendala
+        assertEquals(15, serverList.size)
+
+        // Verify the 15 standard items in order
+        val expectedNames = listOf(
+            "Antar - jemput",
+            "Cek unit, Implement Pemanasan mesin",
+            "Transport",
+            "Kerja",
+            "Istirahat",
+            "Perbaikan Unit",
+            "Perbaikan Implement",
+            "Perawatan Unit",
+            "Perawatan Implement",
+            "Ganti Implement",
+            "Tunggu Solar",
+            "Tunggu Mekanik",
+            "Tunggu Trailler",
+            "Tunggu Lokasi",
+            "Tunggu Cuaca"
+        )
+
+        serverList.forEachIndexed { index, item ->
+            assertEquals(expectedNames[index], item.resolvedNama)
+            val generatedKode = item.resolveKode(index)
+            assertTrue(generatedKode.startsWith("KND-"))
+        }
+
+        // Test fallback resolveKode when API provides no code or null
+        val payloadWithoutCode = com.example.data.remote.KendalaPayload(nama_kendala = "Tunggu Cuaca")
+        assertEquals("KND-15", payloadWithoutCode.resolveKode(14))
+    }
+
+    @Test
+    fun test_unit_plan_status_three_cases() {
+        val uA = UnitEntity("EX-301", "EXCAVATOR", "Komatsu PC300", 3500.0, "Budi")
+        val uB = UnitEntity("DZ-01", "BULLDOZER", "Cat D8R", 4200.0, "Budi")
+        val uC = UnitEntity("GD-01", "MOTOR GRADER", "Cat 14M", 2800.0, "Budi")
+
+        val yesterdayStr = "09/10/2026"
+        val todayStr = "10/10/2026"
+
+        val rencanaList = listOf(
+            // Unit DZ-01 ada kemarin, belum ada hari ini (Kasus B)
+            com.example.data.local.entity.RencanaKerjaEntity(
+                id = 1,
+                supervisorName = "Budi",
+                kodeUnit = "DZ-01",
+                operator = "Agus",
+                kodeLokasi = "001A",
+                tanggalFormat = yesterdayStr
+            ),
+            // Unit GD-01 ada kemarin dan sudah ada 1 rencana hari ini (Kasus C)
+            com.example.data.local.entity.RencanaKerjaEntity(
+                id = 2,
+                supervisorName = "Budi",
+                kodeUnit = "GD-01",
+                operator = "Fauzi",
+                kodeLokasi = "001A",
+                tanggalFormat = yesterdayStr
+            ),
+            com.example.data.local.entity.RencanaKerjaEntity(
+                id = 3,
+                supervisorName = "Budi",
+                kodeUnit = "GD-01",
+                operator = "Fauzi",
+                kodeLokasi = "001A",
+                tanggalFormat = todayStr
+            )
+            // Unit EX-301 belum ada kemarin sama sekali (Kasus A)
+        )
+
+        val units = listOf(uA, uB, uC)
+
+        val resultStatuses = units.map { u ->
+            val plansYesterday = rencanaList.filter {
+                it.kodeUnit.equals(u.unitCode, ignoreCase = true) &&
+                it.tanggalFormat == yesterdayStr
+            }
+            val plansToday = rencanaList.filter {
+                it.kodeUnit.equals(u.unitCode, ignoreCase = true) &&
+                it.tanggalFormat == todayStr
+            }
+
+            when {
+                plansYesterday.isEmpty() -> {
+                    com.example.ui.viewmodel.UnitPlanStatus(
+                        unit = u,
+                        targetDate = yesterdayStr,
+                        isBacklog = true,
+                        isSusulan = false,
+                        existingPlanCount = plansToday.size,
+                        labelText = "${u.unitCode} [Tgl Kemarin: Belum Diisi]"
+                    )
+                }
+                plansToday.isEmpty() -> {
+                    com.example.ui.viewmodel.UnitPlanStatus(
+                        unit = u,
+                        targetDate = todayStr,
+                        isBacklog = false,
+                        isSusulan = false,
+                        existingPlanCount = 0,
+                        labelText = "${u.unitCode} [Hari Ini: Belum Ada Rencana]"
+                    )
+                }
+                else -> {
+                    val count = plansToday.size
+                    com.example.ui.viewmodel.UnitPlanStatus(
+                        unit = u,
+                        targetDate = todayStr,
+                        isBacklog = false,
+                        isSusulan = true,
+                        existingPlanCount = count,
+                        labelText = "${u.unitCode} [Hari Ini: Sudah Ada $count Rencana] (+ Tambah Rencana Susulan)"
+                    )
+                }
+            }
+        }
+
+        // 1. Kasus A: EX-301
+        val statusA = resultStatuses.find { it.unit.unitCode == "EX-301" }
+        assertNotNull(statusA)
+        assertTrue(statusA!!.isBacklog)
+        assertFalse(statusA.isSusulan)
+        assertEquals("EX-301 [Tgl Kemarin: Belum Diisi]", statusA.labelText)
+        assertEquals(com.example.ui.viewmodel.UnitPlanCategory.BACKLOG_YESTERDAY, statusA.category)
+
+        // 2. Kasus B: DZ-01
+        val statusB = resultStatuses.find { it.unit.unitCode == "DZ-01" }
+        assertNotNull(statusB)
+        assertFalse(statusB!!.isBacklog)
+        assertFalse(statusB.isSusulan)
+        assertEquals("DZ-01 [Hari Ini: Belum Ada Rencana]", statusB.labelText)
+        assertEquals(com.example.ui.viewmodel.UnitPlanCategory.NO_PLAN_TODAY, statusB.category)
+
+        // 3. Kasus C: GD-01
+        val statusC = resultStatuses.find { it.unit.unitCode == "GD-01" }
+        assertNotNull(statusC)
+        assertFalse(statusC!!.isBacklog)
+        assertTrue(statusC.isSusulan)
+        assertEquals(1, statusC.existingPlanCount)
+        assertEquals("GD-01 [Hari Ini: Sudah Ada 1 Rencana] (+ Tambah Rencana Susulan)", statusC.labelText)
+        assertEquals(com.example.ui.viewmodel.UnitPlanCategory.HAS_PLAN_TODAY, statusC.category)
+
+        // Pastikan tidak ada unit yang hilang (total 3 unit tetap tersedia)
+        assertEquals(3, resultStatuses.size)
     }
 }

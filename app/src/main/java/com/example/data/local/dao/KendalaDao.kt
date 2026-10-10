@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface KendalaDao {
-    @Query("SELECT * FROM master_kendala ORDER BY kodeKendala ASC")
+    @Query("SELECT * FROM master_kendala ORDER BY id ASC")
     fun getAllKendala(): Flow<List<KendalaEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

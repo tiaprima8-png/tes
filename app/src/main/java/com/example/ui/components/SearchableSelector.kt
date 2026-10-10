@@ -1035,6 +1035,19 @@ fun UnitPlanSelectorItemCard(
     onClick: () -> Unit
 ) {
     val unit = status.unit
+    val containerBg = when {
+        isSelected -> Emerald50
+        status.isBacklog -> Color(0xFFFEF2F2)
+        status.isSusulan -> Color(0xFFF0FDF4)
+        else -> Color.White
+    }
+    val borderColor = when {
+        isSelected -> Emerald600
+        status.isBacklog -> Color(0xFFFCA5A5)
+        status.isSusulan -> Color(0xFF86EFAC)
+        else -> Slate200
+    }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -1042,11 +1055,11 @@ fun UnitPlanSelectorItemCard(
             .clickable { onClick() }
             .testTag("unit_plan_item_${unit.unitCode}"),
         colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Emerald50 else if (status.isBacklog) Color(0xFFFFFBEB) else Color.White
+            containerColor = containerBg
         ),
         border = androidx.compose.foundation.BorderStroke(
             width = if (isSelected) 2.dp else 1.dp,
-            color = if (isSelected) Emerald600 else if (status.isBacklog) Color(0xFFF59E0B) else Slate200
+            color = borderColor
         ),
         shape = RoundedCornerShape(14.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
@@ -1094,18 +1107,34 @@ fun UnitPlanSelectorItemCard(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Badge status backlog vs hari ini
+                // Badge status: Kasus A (Backlog), Kasus B (Belum Ada Rencana), Kasus C (Sudah Ada Rencana / Tambah Susulan)
+                val badgeBg = when {
+                    status.isBacklog -> Color(0xFFFEE2E2)
+                    status.isSusulan -> Color(0xFFDCFCE7)
+                    else -> Color(0xFFEFF6FF)
+                }
+                val badgeBorder = when {
+                    status.isBacklog -> Color(0xFFEF4444)
+                    status.isSusulan -> Emerald600
+                    else -> Color(0xFF93C5FD)
+                }
+                val badgeTextCol = when {
+                    status.isBacklog -> Color(0xFF991B1B)
+                    status.isSusulan -> Emerald900
+                    else -> Color(0xFF1E40AF)
+                }
+
                 Surface(
                     shape = RoundedCornerShape(6.dp),
-                    color = if (status.isBacklog) Color(0xFFFEE2E2) else Emerald100,
+                    color = badgeBg,
                     border = androidx.compose.foundation.BorderStroke(
                         0.5.dp,
-                        if (status.isBacklog) Color(0xFFEF4444) else Emerald600
+                        badgeBorder
                     )
                 ) {
                     Text(
                         text = status.labelText,
-                        color = if (status.isBacklog) Color(0xFF991B1B) else Emerald900,
+                        color = badgeTextCol,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)

@@ -91,6 +91,8 @@ class HeavyTrackViewModel(
         const val INTERNAL_WEB_ADMIN_URL = "https://1-portalce.ai.studio/"
         const val GITHUB_REPO_URL = "https://github.com/tiaprima8-png/tes"
         const val APK_DIRECT_DOWNLOAD_URL = "https://github.com/tiaprima8-png/tes/releases/latest/download/app-release.apk"
+        const val GITHUB_RELEASES_PAGE_URL = "https://github.com/tiaprima8-png/tes/releases"
+        const val APK_DEBUG_DOWNLOAD_URL = "https://github.com/tiaprima8-png/tes/releases/latest/download/app-debug.apk"
     }
 
     // Configurable APK Download URL (dengan fallback ke GitHub Release resmi)
@@ -101,6 +103,20 @@ class HeavyTrackViewModel(
         val trimmed = newUrl.trim()
         if (trimmed.isNotEmpty()) {
             _customApkUrl.value = trimmed
+        }
+    }
+
+    fun openApkDownloadInBrowser(context: Context, urlToOpen: String? = null) {
+        val targetUrl = (urlToOpen ?: _customApkUrl.value).ifEmpty { APK_DIRECT_DOWNLOAD_URL }
+        try {
+            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl)).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(browserIntent)
+        } catch (e: Exception) {
+            viewModelScope.launch {
+                _uiEvents.emit(UiMessage.Error("Gagal membuka browser: ${e.localizedMessage ?: "Tidak ada aplikasi peramban"}"))
+            }
         }
     }
 
@@ -174,7 +190,7 @@ class HeavyTrackViewModel(
         .flatMapLatest { supervisor -> repository.getRencanaForSupervisor(supervisor) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Selector Unit: Deteksi Backlog (Hari Kemarin) & Filter Otomatis (Unit Selesai Otomatis Hilang)
+    // Selector Unit: Status informatif 3 Kasus (Kasus A: Backlog Kemarin, Kasus B: Belum Ada Rencana Hari Ini, Kasus C: Sudah Ada Rencana Hari Ini / Tambah Susulan)
     val availableUnitsForRencana: StateFlow<List<UnitPlanStatus>> = combine(
         units,
         allRencanaList
@@ -182,40 +198,61 @@ class HeavyTrackViewModel(
         val todayStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
         val yesterdayStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(System.currentTimeMillis() - 24 * 60 * 60 * 1000L))
 
-        unitList.mapNotNull { u ->
-            // Apakah unit sudah dibuatkan rencana kerja untuk hari kemarin?
-            val hasYesterday = rencanaList.any {
+        unitList.map { u ->
+            // Rencana kerja unit untuk kemarin & hari ini
+            val plansYesterday = rencanaList.filter {
                 it.kodeUnit.equals(u.unitCode, ignoreCase = true) &&
                 it.tanggalFormat == yesterdayStr
             }
-            // Apakah unit sudah dibuatkan rencana kerja untuk hari ini?
-            val hasToday = rencanaList.any {
+            val plansToday = rencanaList.filter {
                 it.kodeUnit.equals(u.unitCode, ignoreCase = true) &&
                 it.tanggalFormat == todayStr
             }
 
-            if (!hasYesterday) {
-                // 1. Deteksi Backlog: Kemarin belum diisi. Pengawas wajib menyelesaikan ini terlebih dahulu
-                UnitPlanStatus(
-                    unit = u,
-                    targetDate = yesterdayStr,
-                    isBacklog = true,
-                    labelText = "${u.unitCode} - [Tanggal Kemarin: $yesterdayStr - Belum Diisi]"
-                )
-            } else if (!hasToday) {
-                // 2. Input Hari Ini: Kemarin sudah beres, hari ini belum diinput
-                UnitPlanStatus(
-                    unit = u,
-                    targetDate = todayStr,
-                    isBacklog = false,
-                    labelText = "${u.unitCode} - [Hari Ini: $todayStr]"
-                )
-            } else {
-                // 3. Filter Otomatis: Sudah selesai hari ini & tidak ada backlog -> Otomatis hilang dari dropdown
-                null
+            when {
+                plansYesterday.isEmpty() -> {
+                    // Kasus A (Backlog Kemarin): Wajib diisi dulu
+                    UnitPlanStatus(
+                        unit = u,
+                        targetDate = yesterdayStr,
+                        isBacklog = true,
+                        isSusulan = false,
+                        existingPlanCount = plansToday.size,
+                        labelText = "${u.unitCode} [Tgl Kemarin: Belum Diisi]"
+                    )
+                }
+                plansToday.isEmpty() -> {
+                    // Kasus B (Belum Ada Rencana Hari Ini)
+                    UnitPlanStatus(
+                        unit = u,
+                        targetDate = todayStr,
+                        isBacklog = false,
+                        isSusulan = false,
+                        existingPlanCount = 0,
+                        labelText = "${u.unitCode} [Hari Ini: Belum Ada Rencana]"
+                    )
+                }
+                else -> {
+                    // Kasus C (Sudah Ada Rencana Hari Ini): Pengawas tetap dapat menambah rencana susulan
+                    val count = plansToday.size
+                    UnitPlanStatus(
+                        unit = u,
+                        targetDate = todayStr,
+                        isBacklog = false,
+                        isSusulan = true,
+                        existingPlanCount = count,
+                        labelText = "${u.unitCode} [Hari Ini: Sudah Ada $count Rencana] (+ Tambah Rencana Susulan)"
+                    )
+                }
             }
         }.sortedWith(
-            compareByDescending<UnitPlanStatus> { it.isBacklog }.thenBy { it.unit.unitCode }
+            compareBy<UnitPlanStatus> {
+                when {
+                    it.isBacklog -> 0 // Kasus A di atas (prioritas backlog)
+                    !it.isSusulan -> 1 // Kasus B di tengah
+                    else -> 2 // Kasus C berikutnya
+                }
+            }.thenBy { it.unit.unitCode }
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -445,11 +482,20 @@ class HeavyTrackViewModel(
     }
 
     fun selectRencanaUnitStatus(status: UnitPlanStatus) {
-        _rencanaFormState.value = _rencanaFormState.value.copy(
+        val current = _rencanaFormState.value
+        val isDifferentUnit = current.selectedUnit?.unitCode != status.unit.unitCode
+        _rencanaFormState.value = current.copy(
             selectedUnitStatus = status,
             selectedUnit = status.unit,
             targetDate = status.targetDate,
-            isBacklog = status.isBacklog
+            isBacklog = status.isBacklog,
+            isSusulan = status.isSusulan,
+            // Jika memilih unit baru atau unit Kasus C (susulan), persiapkan form input bersih
+            selectedOperator = if (isDifferentUnit) null else current.selectedOperator,
+            selectedActivity = if (isDifferentUnit) null else current.selectedActivity,
+            selectedLokasi = if (isDifferentUnit) null else current.selectedLokasi,
+            keterangan = if (isDifferentUnit) "" else current.keterangan,
+            subPlans = if (isDifferentUnit) emptyList() else current.subPlans
         )
     }
 
@@ -463,7 +509,8 @@ class HeavyTrackViewModel(
             _rencanaFormState.value = _rencanaFormState.value.copy(
                 selectedUnit = unit,
                 targetDate = todayStr,
-                isBacklog = false
+                isBacklog = false,
+                isSusulan = false
             )
         }
     }
@@ -635,15 +682,20 @@ class HeavyTrackViewModel(
 
             primaryResult.onSuccess { saved ->
                 val totalPlans = 1 + subSuccessCount
-                val backlogNotice = if (state.isBacklog) " [Backlog Tertinggal Terselesaikan]" else ""
+                val planNotice = when {
+                    state.isBacklog -> " [Backlog Tertinggal Terselesaikan]"
+                    state.isSusulan -> " [Rencana Kerja Susulan Ditambahkan]"
+                    else -> ""
+                }
+                val planType = if (state.isSusulan) "Rencana Kerja Susulan" else "Rencana Kerja"
                 _uiEvents.emit(
-                    UiMessage.Success("Berhasil membuat $totalPlans Rencana Kerja untuk Unit ${saved.kodeUnit} ($targetDate)$backlogNotice")
+                    UiMessage.Success("Berhasil membuat $totalPlans $planType untuk Unit ${saved.kodeUnit} ($targetDate)$planNotice")
                 )
                 // Reset form
                 _rencanaFormState.value = RencanaFormUiState(
                     shiftKerja = state.shiftKerja
                 )
-                // Otomatis beralih ke Tahap 2 Realisasi Kerja dengan rencana utama yang baru dibuat
+                // Otomatis beralih ke Tahap 2 Realisasi Kerja dengan rencana baru yang dibuat
                 selectRencanaForRealisasi(saved)
                 _formSubTab.value = 1
             }.onFailure { err ->
@@ -691,7 +743,11 @@ class HeavyTrackViewModel(
             selectedActivity = matchedActivity ?: _realisasiFormState.value.selectedActivity,
             selectedLokasi = matchedLokasi ?: _realisasiFormState.value.selectedLokasi,
             nomorSpk = resolvedSpk,
+            hmAwalOriginal = hmAwalVal,
             hmAwal = hmAwalVal,
+            hmAwalInput = String.format(Locale.US, "%.1f", hmAwalVal),
+            isHmAwalCorrected = false,
+            alasanKoreksiHm = "",
             hmAkhirInput = "",
             hmHarianBerjalan = 0.0,
             isHmValid = true,
@@ -707,6 +763,62 @@ class HeavyTrackViewModel(
             jumlahLiterSolarInput = "",
             pemakaianSolarOtomatis = 0.0
         )
+    }
+
+    // Fitur Koreksi Manual HM Awal & Logika Pergantian Shift
+    fun toggleKoreksiHmAwal() {
+        val current = _realisasiFormState.value
+        val newCorrected = !current.isHmAwalCorrected
+        if (newCorrected) {
+            _realisasiFormState.value = current.copy(
+                isHmAwalCorrected = true,
+                hmAwalInput = if (current.hmAwal > 0.0) String.format(Locale.US, "%.1f", current.hmAwal) else ""
+            )
+        } else {
+            // Kembalikan ke HM Awal riwayat sistem default
+            val original = current.hmAwalOriginal
+            val cleanHmAkhir = current.hmAkhirInput.replace(',', '.').toDoubleOrNull()
+            val (isValid, running, errorMsg) = validateHm(original, cleanHmAkhir)
+            val isUnderMin = cleanHmAkhir != null && isValid && running > 0.0 && running < current.hmMinStandar
+            val kendalaList = if (isUnderMin && current.daftarKendala.isEmpty()) listOf(KendalaItemFormState()) else current.daftarKendala
+
+            _realisasiFormState.value = current.copy(
+                isHmAwalCorrected = false,
+                hmAwal = original,
+                hmAwalInput = String.format(Locale.US, "%.1f", original),
+                alasanKoreksiHm = "",
+                isHmValid = isValid,
+                hmHarianBerjalan = running,
+                hmErrorMessage = errorMsg,
+                isUnderMinStandard = isUnderMin,
+                daftarKendala = kendalaList
+            )
+        }
+    }
+
+    fun setRealisasiHmAwalManual(input: String) {
+        val state = _realisasiFormState.value
+        val cleanInput = input.replace(',', '.')
+        val parsedAwal = cleanInput.toDoubleOrNull() ?: 0.0
+        val cleanHmAkhir = state.hmAkhirInput.replace(',', '.').toDoubleOrNull()
+        val (isValid, running, errorMsg) = validateHm(parsedAwal, cleanHmAkhir)
+        val isUnderMin = cleanHmAkhir != null && isValid && running > 0.0 && running < state.hmMinStandar
+        val kendalaList = if (isUnderMin && state.daftarKendala.isEmpty()) listOf(KendalaItemFormState()) else state.daftarKendala
+
+        _realisasiFormState.value = state.copy(
+            hmAwalInput = cleanInput,
+            hmAwal = parsedAwal,
+            isHmValid = isValid,
+            hmHarianBerjalan = running,
+            hmErrorMessage = errorMsg,
+            isUnderMinStandard = isUnderMin,
+            daftarKendala = kendalaList
+        )
+        recalculateSolarConsumption()
+    }
+
+    fun setRealisasiAlasanKoreksiHm(reason: String) {
+        _realisasiFormState.value = _realisasiFormState.value.copy(alasanKoreksiHm = reason)
     }
 
     fun adminSimulatePublishSpk(planId: Long, unitCode: String) {
@@ -925,6 +1037,30 @@ class HeavyTrackViewModel(
             return
         }
 
+        // Validasi Alasan Koreksi HM Awal jika diedit manual
+        if (state.isHmAwalCorrected && state.hmAwal != state.hmAwalOriginal && state.alasanKoreksiHm.isBlank()) {
+            viewModelScope.launch {
+                _uiEvents.emit(UiMessage.Error("Alasan koreksi HM Awal wajib diisi (misal: salah input shift sebelumnya / pergantian meteran alat)"))
+            }
+            return
+        }
+
+        // Validasi Tumpang Tindih (Anti-Overlapping) Jam Kendala
+        if (state.hasAnyKendalaOverlap) {
+            viewModelScope.launch {
+                _uiEvents.emit(UiMessage.Error("Jam kendala bertabrakan dengan kendala sebelumnya! Perbaiki jam input kendala."))
+            }
+            return
+        }
+
+        // Validasi Batas Maksimal Shift untuk Kendala
+        if (state.isTotalKendalaExceedingShift) {
+            viewModelScope.launch {
+                _uiEvents.emit(UiMessage.Error("Akumulasi total durasi kendala (${state.totalHambatanLabel}) melebihi durasi jam kerja shift (${String.format(Locale.US, "%.1f", state.maxShiftHours)} Jam)!"))
+            }
+            return
+        }
+
         val runningHm = hmAkhir - state.hmAwal
         val isUnderMin = runningHm > 0.0 && runningHm < state.hmMinStandar
 
@@ -1050,7 +1186,9 @@ class HeavyTrackViewModel(
                 photoSizeKb = state.photoSizeKb,
                 photoDimensions = state.photoDimensions,
                 createdAt = System.currentTimeMillis(),
-                tanggalFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
+                tanggalFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date()),
+                isHmAwalCorrected = state.isHmAwalCorrected && (state.hmAwal != state.hmAwalOriginal || state.alasanKoreksiHm.isNotBlank()),
+                alasanKoreksiHm = if (state.isHmAwalCorrected) state.alasanKoreksiHm.ifBlank { null } else null
             )
 
             val result = repository.submitHasilAktivitas(hasilEntity)
@@ -1092,6 +1230,15 @@ class HeavyTrackViewModel(
     // ==========================================
     // MODUL DISTRIBUSI & PEMASANGAN INSTALLER APK
     // ==========================================
+    fun getAppVersionName(context: Context): String {
+        return try {
+            val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+            pInfo.versionName ?: "1.1"
+        } catch (_: Exception) {
+            "1.1"
+        }
+    }
+
     fun getOrExtractApkFile(context: Context): File? {
         return try {
             val sourcePath = context.applicationInfo.sourceDir
@@ -1099,9 +1246,19 @@ class HeavyTrackViewModel(
             val sourceApk = File(sourcePath)
             if (!sourceApk.exists() || sourceApk.length() == 0L) return null
 
+            val vName = getAppVersionName(context)
+            val targetFileName = "RKCE_Installer_v${vName}.apk"
+
             val cacheShareDir = File(context.cacheDir, "apk_share").apply { mkdirs() }
-            val targetApk = File(cacheShareDir, "RKCE_Installer_v1.0.apk")
-            if (!targetApk.exists() || targetApk.length() != sourceApk.length()) {
+            val targetApk = File(cacheShareDir, targetFileName)
+
+            // Bersihkan berkas usang jika versi/timestamp berubah
+            if (!targetApk.exists() || targetApk.length() != sourceApk.length() || targetApk.lastModified() < sourceApk.lastModified()) {
+                cacheShareDir.listFiles()?.forEach { file ->
+                    if (file.name.endsWith(".apk")) {
+                        file.delete()
+                    }
+                }
                 sourceApk.copyTo(targetApk, overwrite = true)
             }
             targetApk
@@ -1113,6 +1270,8 @@ class HeavyTrackViewModel(
     fun downloadApk(context: Context) {
         viewModelScope.launch {
             try {
+                val vName = getAppVersionName(context)
+                val fileName = "RKCE_Installer_v${vName}.apk"
                 var savedLocally = false
                 val sourcePath = context.applicationInfo.sourceDir
                 val sourceApk = if (!sourcePath.isNullOrEmpty()) File(sourcePath) else null
@@ -1120,7 +1279,7 @@ class HeavyTrackViewModel(
                 if (sourceApk != null && sourceApk.exists() && sourceApk.length() > 0L) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         val contentValues = ContentValues().apply {
-                            put(MediaStore.MediaColumns.DISPLAY_NAME, "RKCE_Installer_v1.0.apk")
+                            put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
                             put(MediaStore.MediaColumns.MIME_TYPE, "application/vnd.android.package-archive")
                             put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
                         }
@@ -1135,7 +1294,7 @@ class HeavyTrackViewModel(
                         @Suppress("DEPRECATION")
                         val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
                         downloadsDir.mkdirs()
-                        val destFile = File(downloadsDir, "RKCE_Installer_v1.0.apk")
+                        val destFile = File(downloadsDir, fileName)
                         sourceApk.copyTo(destFile, overwrite = true)
                         savedLocally = true
                     }
@@ -1144,23 +1303,23 @@ class HeavyTrackViewModel(
                 if (savedLocally) {
                     _uiEvents.emit(
                         UiMessage.Success(
-                            "Installer asli 'RKCE_Installer_v1.0.apk' berhasil disimpan di folder Download! Berkas utuh dan siap dipasang atau dikirim ke HP lain."
+                            "Installer pembaruan '$fileName' berhasil disimpan di folder Download! Berkas versi terbaru utuh dan siap dipasang atau dikirim ke HP lain."
                         )
                     )
                 } else {
                     // Fallback unduh via DownloadManager dari URL resmi
                     val downloadUrl = _customApkUrl.value.ifEmpty { APK_DIRECT_DOWNLOAD_URL }
                     val request = DownloadManager.Request(Uri.parse(downloadUrl))
-                        .setTitle("RKCE_Installer_v1.0.apk")
-                        .setDescription("Mengunduh installer resmi RKCE (Rencana Kerja Civil Engineering)...")
+                        .setTitle(fileName)
+                        .setDescription("Mengunduh installer resmi RKCE pembaruan aplikasi...")
                         .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                        .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "RKCE_Installer_v1.0.apk")
+                        .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
                         .setAllowedOverMetered(true)
                         .setAllowedOverRoaming(true)
 
                     val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
                     dm?.enqueue(request)
-                    _uiEvents.emit(UiMessage.Success("Memulai unduhan berkas APK resmi ke folder Download perangkat..."))
+                    _uiEvents.emit(UiMessage.Success("Memulai unduhan berkas APK pembaruan resmi ke folder Download perangkat..."))
                 }
             } catch (e: Exception) {
                 _uiEvents.emit(UiMessage.Error("Gagal menyimpan installer: ${e.localizedMessage ?: "Periksa izin penyimpanan"}"))
@@ -1179,23 +1338,27 @@ class HeavyTrackViewModel(
     private fun shareApk(context: Context, targetWhatsAppOnly: Boolean) {
         viewModelScope.launch {
             try {
+                val vName = getAppVersionName(context)
+                val fileName = "RKCE_Installer_v${vName}.apk"
                 val apkFile = getOrExtractApkFile(context)
                 val downloadUrl = _customApkUrl.value.ifEmpty { APK_DIRECT_DOWNLOAD_URL }
                 val shareCaption = """
-*Aplikasi RKCE (Rencana Kerja Unit Civil Engineering) v1.0*
+*Aplikasi RKCE (Rencana Kerja Civil Engineering) - Pembaruan v$vName*
 
-Halo Rekan Pengawas, berkas installer APK resmi terlampir. Anda dapat langsung memasang aplikasi ini di HP Android Anda.
+Halo Rekan Pengawas, berkas installer APK pembaruan aplikasi resmi terlampir ($fileName). Anda dapat langsung memasang atau memperbarui aplikasi ini di HP Android Anda.
 
-*PANDUAN AGAR BISA DIINSTAL DI HP LAIN:*
-1. Buka atau klik berkas *RKCE_Installer_v1.0.apk* yang terlampir.
+*PANDUAN PEMBARUAN & AGAR BISA DIINSTAL DI HP LAIN:*
+1. Buka atau klik berkas *$fileName* yang terlampir.
 2. Jika muncul peringatan keamanan sistem Android, pilih *'Setelan' / 'Pengaturan'* lalu aktifkan *'Izinkan dari sumber ini'*.
 3. Jika muncul notifikasi Google Play Protect ('Aplikasi tidak dikenal' / 'Blocked by Play Protect'):
    👉 Klik *'Detail Lainnya'* (More details)
    👉 Pilih *'Tetap Instal'* (Install anyway).
-4. Jika sebelumnya sudah ada versi RKCE yang terpasang namun gagal update, copot (uninstall) dulu versi lama tersebut lalu pasang kembali berkas ini.
+4. *PENTING SAAT PEMBARUAN APLIKASI:*
+   Jika sebelumnya sudah ada versi RKCE yang terpasang di HP dan muncul pesan 'Aplikasi tidak terpasang' (App not installed / bentrok versi lama), silakan copot (uninstall) dulu versi lama tersebut, lalu pasang berkas pembaruan ini.
 
-*Tautan Unduh Resmi (GitHub):*
-$downloadUrl
+*Tautan Unduh Resmi Pembaruan:*
+- Unduh Langsung APK: $downloadUrl
+- Halaman Rilis GitHub: $GITHUB_RELEASES_PAGE_URL
                 """.trimIndent()
 
                 if (apkFile != null && apkFile.exists()) {
@@ -1209,7 +1372,7 @@ $downloadUrl
                         type = "application/vnd.android.package-archive"
                         putExtra(Intent.EXTRA_STREAM, apkUri)
                         putExtra(Intent.EXTRA_TEXT, shareCaption)
-                        putExtra(Intent.EXTRA_SUBJECT, "Installer RKCE Mobile v1.0")
+                        putExtra(Intent.EXTRA_SUBJECT, "Installer RKCE Mobile v$vName")
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
                         if (targetWhatsAppOnly) {
                             setPackage("com.whatsapp")
@@ -1224,7 +1387,7 @@ $downloadUrl
                                 type = "application/vnd.android.package-archive"
                                 putExtra(Intent.EXTRA_STREAM, apkUri)
                                 putExtra(Intent.EXTRA_TEXT, shareCaption)
-                                putExtra(Intent.EXTRA_SUBJECT, "Installer RKCE Mobile v1.0")
+                                putExtra(Intent.EXTRA_SUBJECT, "Installer RKCE Mobile v$vName")
                                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
                             },
                             "Bagikan Berkas Installer RKCE"

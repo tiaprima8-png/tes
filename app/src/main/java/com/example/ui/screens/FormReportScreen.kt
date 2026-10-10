@@ -112,9 +112,12 @@ import com.example.ui.theme.ErrorRose
 import com.example.ui.theme.Slate200
 import com.example.ui.theme.Slate400
 import com.example.ui.theme.Slate500
+import com.example.ui.theme.Slate600
 import com.example.ui.theme.Slate700
+import com.example.ui.theme.Slate800
 import com.example.ui.theme.Slate900
 import com.example.ui.theme.WarningAmber
+import androidx.compose.ui.text.style.TextOverflow
 import com.example.ui.viewmodel.HeavyTrackViewModel
 
 @Composable
@@ -298,31 +301,40 @@ fun FormReportScreen(
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Banner jika semua unit sudah selesai terisi hari ini & tidak ada backlog
-                        if (availableUnitsForRencana.isEmpty()) {
+                        // Banner Info Kasus C: Unit Sudah Memiliki Rencana Hari Ini (Rencana Susulan)
+                        if (rencanaState.isSusulan && rencanaState.selectedUnit != null) {
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = Emerald50,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Emerald600.copy(alpha = 0.3f)),
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp)
+                                color = Color(0xFFECFDF5), // Hijau lembut
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFA7F3D0)),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(bottom = 14.dp)
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(12.dp),
+                                    modifier = Modifier.padding(14.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = Emerald600, modifier = Modifier.size(24.dp))
-                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.Info,
+                                        contentDescription = null,
+                                        tint = Emerald600,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
                                     Column {
                                         Text(
-                                            text = "Semua Unit Binaan Selesai!",
+                                            text = "Rencana Kerja Tambahan / Susulan",
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 13.sp,
                                             color = Emerald900
                                         )
+                                        Spacer(modifier = Modifier.height(2.dp))
                                         Text(
-                                            text = "Seluruh unit telah dibuatkan rencana kerja hari ini & tidak ada tanggungan backlog. Unit otomatis hilang dari daftar.",
-                                            fontSize = 11.sp,
-                                            color = Emerald700
+                                            text = "Unit ini sudah memiliki rencana kerja hari ini. Anda sedang membuat Rencana Kerja Tambahan/Susulan.",
+                                            fontSize = 12.sp,
+                                            color = Emerald700,
+                                            lineHeight = 16.sp
                                         )
                                     }
                                 }
@@ -379,19 +391,27 @@ fun FormReportScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // 2. Unit Alat Berat Searchable Selector (Otomatis Tanggal & Deteksi Backlog)
+                        // 2. Unit Alat Berat Searchable Selector (Otomatis Tanggal, Deteksi Backlog & Tambah Susulan)
                         SelectorFieldTrigger(
-                            label = "2. Unit Alat Berat (Deteksi Backlog & Tanggal Otomatis)",
+                            label = "2. Unit Alat Berat (Deteksi Backlog & Rencana Susulan)",
                             selectedValue = rencanaState.selectedUnit?.let { u ->
-                                "${u.unitCode} - ${u.brandModel}"
+                                when {
+                                    rencanaState.isBacklog -> "${u.unitCode} - ${u.brandModel} [Backlog Kemarin]"
+                                    rencanaState.isSusulan -> "${u.unitCode} - ${u.brandModel} [Rencana Susulan]"
+                                    else -> "${u.unitCode} - ${u.brandModel}"
+                                }
                             },
                             placeholder = if (availableUnitsForRencana.isEmpty())
-                                "Semua unit telah terisi rencana kerja"
+                                "Tidak ada unit terdaftar"
                             else
                                 "Pilih Unit Alat Berat binaan pengawas...",
                             leadingIcon = Icons.Default.PrecisionManufacturing,
                             badgeText = rencanaState.selectedUnit?.let {
-                                if (rencanaState.isBacklog) "BACKLOG H-1" else "HARI INI"
+                                when {
+                                    rencanaState.isBacklog -> "BACKLOG H-1"
+                                    rencanaState.isSusulan -> "SUSULAN"
+                                    else -> "HARI INI"
+                                }
                             },
                             testTag = "selector_rencana_unit",
                             onClick = { isUnitSheetOpen = true }
@@ -402,10 +422,18 @@ fun FormReportScreen(
                             Spacer(modifier = Modifier.height(6.dp))
                             Surface(
                                 shape = RoundedCornerShape(10.dp),
-                                color = if (rencanaState.isBacklog) Color(0xFFFEF2F2) else Color(0xFFF0FDF4),
+                                color = when {
+                                    rencanaState.isBacklog -> Color(0xFFFEF2F2)
+                                    rencanaState.isSusulan -> Color(0xFFECFDF5)
+                                    else -> Color(0xFFF0FDF4)
+                                },
                                 border = androidx.compose.foundation.BorderStroke(
                                     1.dp,
-                                    if (rencanaState.isBacklog) Color(0xFFFCA5A5) else Color(0xFF86EFAC)
+                                    when {
+                                        rencanaState.isBacklog -> Color(0xFFFCA5A5)
+                                        rencanaState.isSusulan -> Color(0xFFA7F3D0)
+                                        else -> Color(0xFF86EFAC)
+                                    }
                                 ),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
@@ -414,29 +442,47 @@ fun FormReportScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Icon(
-                                        imageVector = if (rencanaState.isBacklog) Icons.Default.Warning else Icons.Default.Info,
+                                        imageVector = when {
+                                            rencanaState.isBacklog -> Icons.Default.Warning
+                                            rencanaState.isSusulan -> Icons.Default.Add
+                                            else -> Icons.Default.Info
+                                        },
                                         contentDescription = null,
-                                        tint = if (rencanaState.isBacklog) Color(0xFFDC2626) else Emerald700,
+                                        tint = when {
+                                            rencanaState.isBacklog -> Color(0xFFDC2626)
+                                            rencanaState.isSusulan -> Emerald700
+                                            else -> Emerald700
+                                        },
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Column {
                                         Text(
-                                            text = if (rencanaState.isBacklog)
-                                                "TARGET: TANGGAL KEMARIN (${rencanaState.targetDate})"
-                                            else
-                                                "TARGET: TANGGAL HARI INI (${rencanaState.targetDate})",
+                                            text = when {
+                                                rencanaState.isBacklog -> "TARGET: TANGGAL KEMARIN (${rencanaState.targetDate}) - BACKLOG"
+                                                rencanaState.isSusulan -> "TARGET: TANGGAL HARI INI (${rencanaState.targetDate}) - RENCANA SUSULAN"
+                                                else -> "TARGET: TANGGAL HARI INI (${rencanaState.targetDate})"
+                                            },
                                             fontWeight = FontWeight.Bold,
                                             fontSize = 11.sp,
-                                            color = if (rencanaState.isBacklog) Color(0xFF991B1B) else Emerald900
+                                            color = when {
+                                                rencanaState.isBacklog -> Color(0xFF991B1B)
+                                                rencanaState.isSusulan -> Emerald900
+                                                else -> Emerald900
+                                            }
                                         )
                                         Text(
-                                            text = if (rencanaState.isBacklog)
-                                                "Unit belum diisi kemarin. Pengawas wajib menyelesaikan pengisian backlog ini terlebih dahulu."
-                                            else
-                                                "Tanggal otomatis terisi oleh sistem. Pengguna tidak perlu menginput tanggal manual.",
+                                            text = when {
+                                                rencanaState.isBacklog -> "Unit belum diisi kemarin. Pengawas wajib menyelesaikan pengisian backlog ini terlebih dahulu."
+                                                rencanaState.isSusulan -> "Unit ini sudah memiliki rencana kerja hari ini. Anda sedang membuat Rencana Kerja Tambahan/Susulan."
+                                                else -> "Tanggal otomatis terisi oleh sistem. Pengguna tidak perlu menginput tanggal manual."
+                                            },
                                             fontSize = 10.sp,
-                                            color = if (rencanaState.isBacklog) Color(0xFFB91C1C) else Emerald700
+                                            color = when {
+                                                rencanaState.isBacklog -> Color(0xFFB91C1C)
+                                                rencanaState.isSusulan -> Emerald700
+                                                else -> Emerald700
+                                            }
                                         )
                                     }
                                 }
@@ -873,15 +919,20 @@ fun FormReportScreen(
                             ) {
                                 items(activeRencanaList) { ren ->
                                     val isSelected = realisasiState.selectedRencana?.id == ren.id
+                                    val sameUnitPlans = activeRencanaList.filter { it.kodeUnit.equals(ren.kodeUnit, ignoreCase = true) }
+                                    val isMultipleForUnit = sameUnitPlans.size > 1
+                                    val unitPlanIndex = sameUnitPlans.sortedBy { it.createdAt }.indexOfFirst { it.id == ren.id } + 1
+                                    val isSusulan = isMultipleForUnit && unitPlanIndex > 1
+
                                     Surface(
                                         shape = RoundedCornerShape(12.dp),
                                         color = if (isSelected) Emerald50 else Color(0xFFF8FAFC),
                                         border = androidx.compose.foundation.BorderStroke(
-                                            1.5.dp,
-                                            if (isSelected) Emerald600 else Slate200
+                                            if (isSelected) 2.dp else 1.dp,
+                                            if (isSelected) Emerald600 else if (isSusulan) Color(0xFF86EFAC) else Slate200
                                         ),
                                         modifier = Modifier
-                                            .width(230.dp)
+                                            .width(240.dp)
                                             .clip(RoundedCornerShape(12.dp))
                                             .clickable { viewModel.selectRencanaForRealisasi(ren) }
                                     ) {
@@ -891,12 +942,29 @@ fun FormReportScreen(
                                                 horizontalArrangement = Arrangement.SpaceBetween,
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
-                                                Text(
-                                                    text = ren.kodeUnit,
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 14.sp,
-                                                    color = Slate900
-                                                )
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Text(
+                                                        text = ren.kodeUnit,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 14.sp,
+                                                        color = Slate900
+                                                    )
+                                                    if (isMultipleForUnit) {
+                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                        Surface(
+                                                            shape = RoundedCornerShape(4.dp),
+                                                            color = if (isSusulan) Color(0xFFDCFCE7) else Color(0xFFEFF6FF)
+                                                        ) {
+                                                            Text(
+                                                                text = if (isSusulan) "Susulan #$unitPlanIndex" else "Rencana #1",
+                                                                fontSize = 9.sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = if (isSusulan) Color(0xFF166534) else Color(0xFF1E40AF),
+                                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                            )
+                                                        }
+                                                    }
+                                                }
                                                 Surface(
                                                     shape = RoundedCornerShape(4.dp),
                                                     color = if (ren.statusUnit == "OPERASI") Emerald100 else Color(0xFFFEF3C7)
@@ -910,17 +978,59 @@ fun FormReportScreen(
                                                     )
                                                 }
                                             }
-                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Spacer(modifier = Modifier.height(4.dp))
                                             Text(
-                                                text = "Opr: ${ren.operator}",
+                                                text = "Akt: ${ren.namaAktivitas.ifBlank { ren.sapCode }}",
                                                 fontSize = 11.sp,
-                                                color = Slate700
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = Slate800,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
                                             )
                                             Text(
-                                                text = "Tgl: ${ren.tanggalFormat} • Shift ${ren.shiftKerja}",
+                                                text = "Opr: ${ren.operator} • Shift ${ren.shiftKerja}",
+                                                fontSize = 11.sp,
+                                                color = Slate600
+                                            )
+                                            Text(
+                                                text = "Lok: ${ren.kodeLokasi} • Tgl: ${ren.tanggalFormat}",
                                                 fontSize = 10.sp,
                                                 color = Slate500
                                             )
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(4.dp),
+                                                    color = if (ren.nomorSpk.isNotBlank() && ren.nomorSpk != "Belum Terbit (Menunggu Admin)")
+                                                        Color(0xFFDCFCE7)
+                                                    else
+                                                        Color(0xFFFEF3C7)
+                                                ) {
+                                                    Text(
+                                                        text = if (ren.nomorSpk.isNotBlank() && ren.nomorSpk != "Belum Terbit (Menunggu Admin)")
+                                                            "SPK: ${ren.nomorSpk}"
+                                                        else
+                                                            "Menunggu SPK",
+                                                        fontSize = 9.sp,
+                                                        fontWeight = FontWeight.Bold,
+                                                        color = if (ren.nomorSpk.isNotBlank() && ren.nomorSpk != "Belum Terbit (Menunggu Admin)")
+                                                            Color(0xFF166534)
+                                                        else
+                                                            Color(0xFF92400E),
+                                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                    )
+                                                }
+                                                Text(
+                                                    text = if (isSelected) "Terpilih" else "Siap Realisasi",
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (isSelected) Emerald700 else Slate400
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -1195,29 +1305,85 @@ fun FormReportScreen(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    // HM Awal: Terkunci (Read-Only)
+                                    // HM Awal: Terkunci (Read-Only) secara default, atau dapat diedit manual saat Koreksi diaktifkan
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text("HM Awal (Terkunci)", fontSize = 11.sp, color = Slate500, fontWeight = FontWeight.SemiBold)
-                                        Surface(
-                                            shape = RoundedCornerShape(10.dp),
-                                            color = Color(0xFFE2E8F0),
-                                            modifier = Modifier.fillMaxWidth().height(48.dp)
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.padding(horizontal = 12.dp)) {
+                                            Text(
+                                                text = if (realisasiState.isHmAwalCorrected) "HM Awal (Koreksi)" else "HM Awal (Terkunci)",
+                                                fontSize = 11.sp,
+                                                color = if (realisasiState.isHmAwalCorrected) Color(0xFFB45309) else Slate500,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                            // Toggle / Ikon Pensil Koreksi HM Awal
+                                            Row(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(6.dp))
+                                                    .clickable { viewModel.toggleKoreksiHmAwal() }
+                                                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                                                    .testTag("btn_koreksi_hm_awal"),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = if (realisasiState.isHmAwalCorrected) Icons.Default.Close else Icons.Default.Edit,
+                                                    contentDescription = "Koreksi HM Awal",
+                                                    tint = if (realisasiState.isHmAwalCorrected) Color(0xFFDC2626) else Emerald600,
+                                                    modifier = Modifier.size(12.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(3.dp))
                                                 Text(
-                                                    text = String.format(Locale.US, "%.1f", realisasiState.hmAwal),
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 14.sp,
-                                                    fontFamily = FontFamily.Monospace,
-                                                    color = Slate700
+                                                    text = if (realisasiState.isHmAwalCorrected) "Batal" else "Koreksi HM Awal",
+                                                    fontSize = 10.sp,
+                                                    color = if (realisasiState.isHmAwalCorrected) Color(0xFFDC2626) else Emerald700,
+                                                    fontWeight = FontWeight.Bold
                                                 )
                                             }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(2.dp))
+
+                                        if (!realisasiState.isHmAwalCorrected) {
+                                            Surface(
+                                                shape = RoundedCornerShape(10.dp),
+                                                color = Color(0xFFE2E8F0),
+                                                modifier = Modifier.fillMaxWidth().height(48.dp)
+                                            ) {
+                                                Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.padding(horizontal = 12.dp)) {
+                                                    Text(
+                                                        text = String.format(Locale.US, "%.1f", realisasiState.hmAwal),
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 14.sp,
+                                                        fontFamily = FontFamily.Monospace,
+                                                        color = Slate700
+                                                    )
+                                                }
+                                            }
+                                        } else {
+                                            OutlinedTextField(
+                                                value = realisasiState.hmAwalInput,
+                                                onValueChange = { viewModel.setRealisasiHmAwalManual(it) },
+                                                placeholder = { Text("HM Awal Baru", fontSize = 12.sp, color = Slate400) },
+                                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                                singleLine = true,
+                                                colors = OutlinedTextFieldDefaults.colors(
+                                                    focusedBorderColor = Color(0xFFD97706),
+                                                    unfocusedBorderColor = Color(0xFFFDE68A),
+                                                    focusedContainerColor = Color(0xFFFFFBEB),
+                                                    unfocusedContainerColor = Color(0xFFFFFBEB)
+                                                ),
+                                                shape = RoundedCornerShape(10.dp),
+                                                modifier = Modifier.fillMaxWidth().height(48.dp).testTag("input_hm_awal_manual")
+                                            )
                                         }
                                     }
 
                                     // HM Akhir: Input numerik desimal
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text("HM Akhir Lapangan", fontSize = 11.sp, color = Slate700, fontWeight = FontWeight.Bold)
+                                        Spacer(modifier = Modifier.height(2.dp))
                                         OutlinedTextField(
                                             value = realisasiState.hmAkhirInput,
                                             onValueChange = { viewModel.setRealisasiHmAkhir(it) },
@@ -1234,6 +1400,71 @@ fun FormReportScreen(
                                             shape = RoundedCornerShape(10.dp),
                                             modifier = Modifier.fillMaxWidth().height(48.dp).testTag("input_hm_akhir")
                                         )
+                                    }
+                                }
+
+                                // Bagian Peringatan & Alasan jika HM Awal dikoreksi manual
+                                if (realisasiState.isHmAwalCorrected) {
+                                    if (realisasiState.hmAwal != realisasiState.hmAwalOriginal) {
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = Color(0xFFFEF3C7),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFDE68A)),
+                                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag("peringatan_koreksi_hm")
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.WarningAmber,
+                                                    contentDescription = null,
+                                                    tint = Color(0xFFD97706),
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = "Anda mengubah HM Awal dari nilai riwayat sistem (${String.format(Locale.US, "%.1f", realisasiState.hmAwalOriginal)} ➔ ${String.format(Locale.US, "%.1f", realisasiState.hmAwal)})",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = Color(0xFF92400E)
+                                                )
+                                            }
+                                        }
+                                    }
+
+                                    Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                                        Text(
+                                            text = "Alasan Koreksi HM Awal (Wajib):",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (realisasiState.hmAwal != realisasiState.hmAwalOriginal && realisasiState.alasanKoreksiHm.isBlank()) Color(0xFFDC2626) else Slate700
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        OutlinedTextField(
+                                            value = realisasiState.alasanKoreksiHm,
+                                            onValueChange = { viewModel.setRealisasiAlasanKoreksiHm(it) },
+                                            placeholder = { Text("misal: salah input shift sebelumnya / pergantian meteran alat", fontSize = 12.sp, color = Slate400) },
+                                            singleLine = true,
+                                            isError = realisasiState.hmAwal != realisasiState.hmAwalOriginal && realisasiState.alasanKoreksiHm.isBlank(),
+                                            colors = OutlinedTextFieldDefaults.colors(
+                                                focusedBorderColor = Color(0xFFD97706),
+                                                unfocusedBorderColor = Slate200,
+                                                focusedContainerColor = Color.White,
+                                                unfocusedContainerColor = Color.White
+                                            ),
+                                            shape = RoundedCornerShape(10.dp),
+                                            modifier = Modifier.fillMaxWidth().testTag("input_alasan_koreksi_hm")
+                                        )
+                                        if (realisasiState.hmAwal != realisasiState.hmAwalOriginal && realisasiState.alasanKoreksiHm.isBlank()) {
+                                            Text(
+                                                text = "Alasan koreksi HM Awal wajib diisi untuk audit log admin.",
+                                                color = Color(0xFFDC2626),
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                modifier = Modifier.padding(top = 2.dp)
+                                            )
+                                        }
                                     }
                                 }
 
@@ -1386,12 +1617,14 @@ fun FormReportScreen(
 
                                             // Daftar Kartu Kendala (Multi-Kendala)
                                             realisasiState.daftarKendala.forEachIndexed { index, item ->
+                                                val isRowOverlapping = realisasiState.isKendalaOverlapping(index)
+                                                val isCardValid = item.isValid && !isRowOverlapping
                                                 Card(
                                                     shape = RoundedCornerShape(10.dp),
                                                     colors = CardDefaults.cardColors(containerColor = Color.White),
                                                     border = androidx.compose.foundation.BorderStroke(
                                                         1.dp,
-                                                        if (item.isValid) Color(0xFFE2E8F0) else Color(0xFFFCA5A5)
+                                                        if (isCardValid) Color(0xFFE2E8F0) else Color(0xFFFCA5A5)
                                                     ),
                                                     modifier = Modifier
                                                         .fillMaxWidth()
@@ -1479,7 +1712,7 @@ fun FormReportScreen(
                                                                 value = item.waktuMulai,
                                                                 onValueChange = { viewModel.updateKendalaWaktuMulai(index, it) },
                                                                 placeholder = "08:00",
-                                                                isError = item.waktuMulai.isBlank() || KendalaItemFormState.parseTimeToMinutes(item.waktuMulai) == null,
+                                                                isError = item.waktuMulai.isBlank() || KendalaItemFormState.parseTimeToMinutes(item.waktuMulai) == null || isRowOverlapping,
                                                                 errorMessage = if (item.waktuMulai.isNotBlank() && KendalaItemFormState.parseTimeToMinutes(item.waktuMulai) == null) "Format salah (JJ:MM)" else null,
                                                                 modifier = Modifier.weight(1f),
                                                                 testTag = "input_waktu_mulai_${index + 1}"
@@ -1490,7 +1723,7 @@ fun FormReportScreen(
                                                                 value = item.waktuSelesai,
                                                                 onValueChange = { viewModel.updateKendalaWaktuSelesai(index, it) },
                                                                 placeholder = "10:15",
-                                                                isError = item.waktuSelesai.isBlank() || KendalaItemFormState.parseTimeToMinutes(item.waktuSelesai) == null || (item.waktuMulai.isNotBlank() && !item.isTimeRangeValid),
+                                                                isError = item.waktuSelesai.isBlank() || KendalaItemFormState.parseTimeToMinutes(item.waktuSelesai) == null || (item.waktuMulai.isNotBlank() && !item.isTimeRangeValid) || isRowOverlapping,
                                                                 errorMessage = if (item.waktuSelesai.isNotBlank() && KendalaItemFormState.parseTimeToMinutes(item.waktuSelesai) == null) "Format salah (JJ:MM)" else null,
                                                                 modifier = Modifier.weight(1f),
                                                                 testTag = "input_waktu_selesai_${index + 1}"
@@ -1499,35 +1732,9 @@ fun FormReportScreen(
 
                                                         Spacer(modifier = Modifier.height(8.dp))
 
-                                                        // c. Perhitungan Durasi Otomatis
+                                                        // c. Perhitungan Durasi Otomatis & Validasi Waktu / Overlapping
                                                         if (item.waktuMulai.isNotBlank() && item.waktuSelesai.isNotBlank()) {
-                                                            if (item.isTimeRangeValid) {
-                                                                Surface(
-                                                                    shape = RoundedCornerShape(8.dp),
-                                                                    color = Color(0xFFFEF3C7),
-                                                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFDE68A)),
-                                                                    modifier = Modifier.fillMaxWidth().testTag("durasi_kendala_${index + 1}")
-                                                                ) {
-                                                                    Row(
-                                                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                                                        verticalAlignment = Alignment.CenterVertically
-                                                                    ) {
-                                                                        Icon(
-                                                                            Icons.Default.Schedule,
-                                                                            contentDescription = null,
-                                                                            tint = Color(0xFFD97706),
-                                                                            modifier = Modifier.size(16.dp)
-                                                                        )
-                                                                        Spacer(modifier = Modifier.width(6.dp))
-                                                                        Text(
-                                                                            text = "Total Hambatan: ${item.durasiLabel} (${item.durasiMenit} Menit)",
-                                                                            fontSize = 12.sp,
-                                                                            fontWeight = FontWeight.Bold,
-                                                                            color = Color(0xFF92400E)
-                                                                        )
-                                                                    }
-                                                                }
-                                                            } else {
+                                                            if (!item.isTimeRangeValid) {
                                                                 Surface(
                                                                     shape = RoundedCornerShape(8.dp),
                                                                     color = Color(0xFFFEF2F2),
@@ -1553,8 +1760,109 @@ fun FormReportScreen(
                                                                         )
                                                                     }
                                                                 }
+                                                            } else if (isRowOverlapping) {
+                                                                // Validasi Anti-Overlapping Jam Kendala
+                                                                Surface(
+                                                                    shape = RoundedCornerShape(8.dp),
+                                                                    color = Color(0xFFFEF2F2),
+                                                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFECACA)),
+                                                                    modifier = Modifier.fillMaxWidth().testTag("error_overlap_kendala_${index + 1}")
+                                                                ) {
+                                                                    Row(
+                                                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                                                        verticalAlignment = Alignment.CenterVertically
+                                                                    ) {
+                                                                        Icon(
+                                                                            Icons.Default.ErrorOutline,
+                                                                            contentDescription = null,
+                                                                            tint = Color(0xFFDC2626),
+                                                                            modifier = Modifier.size(16.dp)
+                                                                        )
+                                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                                        Text(
+                                                                            text = "Jam kendala bertabrakan dengan kendala sebelumnya!",
+                                                                            fontSize = 11.sp,
+                                                                            fontWeight = FontWeight.Bold,
+                                                                            color = Color(0xFFB91C1C)
+                                                                        )
+                                                                    }
+                                                                }
+                                                            } else {
+                                                                Surface(
+                                                                    shape = RoundedCornerShape(8.dp),
+                                                                    color = Color(0xFFFEF3C7),
+                                                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFDE68A)),
+                                                                    modifier = Modifier.fillMaxWidth().testTag("durasi_kendala_${index + 1}")
+                                                                ) {
+                                                                    Row(
+                                                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                                                        verticalAlignment = Alignment.CenterVertically
+                                                                    ) {
+                                                                        Icon(
+                                                                            Icons.Default.Schedule,
+                                                                            contentDescription = null,
+                                                                            tint = Color(0xFFD97706),
+                                                                            modifier = Modifier.size(16.dp)
+                                                                        )
+                                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                                        Text(
+                                                                            text = "Total Hambatan: ${item.durasiLabel} (${item.durasiMenit} Menit)",
+                                                                            fontSize = 12.sp,
+                                                                            fontWeight = FontWeight.Bold,
+                                                                            color = Color(0xFF92400E)
+                                                                        )
+                                                                    }
+                                                                }
                                                             }
                                                         }
+                                                    }
+                                                }
+                                            }
+
+                                            // Alert Banner jika Overlap terjadi di baris mana pun
+                                            if (realisasiState.hasAnyKendalaOverlap) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    color = Color(0xFFFEF2F2),
+                                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFECACA)),
+                                                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).testTag("banner_overlap_kendala")
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.padding(10.dp),
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(18.dp))
+                                                        Spacer(modifier = Modifier.width(8.dp))
+                                                        Text(
+                                                            text = "Jam kendala bertabrakan dengan kendala sebelumnya! Perbaiki rentang waktu kendala sebelum mengirim.",
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = Color(0xFFB91C1C)
+                                                        )
+                                                    }
+                                                }
+                                            }
+
+                                            // Alert Banner jika Akumulasi Jam Kendala melebihi Shift
+                                            if (realisasiState.isTotalKendalaExceedingShift) {
+                                                Surface(
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    color = Color(0xFFFEF2F2),
+                                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFECACA)),
+                                                    modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).testTag("banner_limit_shift_kendala")
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.padding(10.dp),
+                                                        verticalAlignment = Alignment.CenterVertically
+                                                    ) {
+                                                        Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(18.dp))
+                                                        Spacer(modifier = Modifier.width(8.dp))
+                                                        Text(
+                                                            text = "Akumulasi total kendala (${realisasiState.totalHambatanLabel}) melebihi batas maksimal durasi jam kerja shift (${String.format(Locale.US, "%.1f", realisasiState.maxShiftHours)} Jam)!",
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = Color(0xFFB91C1C)
+                                                        )
                                                     }
                                                 }
                                             }

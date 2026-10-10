@@ -39,6 +39,8 @@ data class ActivityReportEntity(
     val photoSizeKb: Long? = null,       // Size in KB (e.g. 145)
     val photoDimensions: String? = null, // e.g. "1280x960 px"
     val isSynced: Boolean = false,       // 0 = pending/offline, 1 = synced
+    val isHmAwalCorrected: Boolean = false, // Audit: apakah HM Awal dikoreksi manual
+    val alasanKoreksiHm: String? = null,  // Catatan alasan koreksi HM
     val createdAt: Long = System.currentTimeMillis(),
     val syncedAt: Long? = null
 )

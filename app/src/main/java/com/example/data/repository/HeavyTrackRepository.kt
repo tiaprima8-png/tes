@@ -145,16 +145,23 @@ class HeavyTrackRepository(
             lokasiDao.insertLokasiList(initialLokasi)
 
             val initialKendala = listOf(
-                KendalaEntity("KND-01", "Hujan / Slippery (Jalan Licin)", "CUACA"),
-                KendalaEntity("KND-02", "Breakdown Mekanikal / Perbaikan Mesin", "MEKANIKAL"),
-                KendalaEntity("KND-03", "Antrian DT / Hauler (Delay Loading)", "OPERASIONAL"),
-                KendalaEntity("KND-04", "Front Kerja Amblas / Undercarriage Terjebak", "OPERASIONAL"),
-                KendalaEntity("KND-05", "Safety Standstill / Investigasi Insiden", "SAFETY"),
-                KendalaEntity("KND-06", "Relokasi / Moving Unit Jarak Jauh", "OPERASIONAL"),
-                KendalaEntity("KND-07", "Ketiadaan Operator / Pergantian Shift Terhambat", "OPERASIONAL"),
-                KendalaEntity("KND-08", "Material Keras / Menunggu Blasting Peledakan", "OPERASIONAL"),
-                KendalaEntity("KND-09", "Preventive Maintenance / Servis Berkala", "MEKANIKAL")
+                KendalaEntity(kodeKendala = "KND-01", namaKendala = "Antar - jemput", kategori = "OPERASIONAL", deskripsi = "Mobilisasi personel antar - jemput"),
+                KendalaEntity(kodeKendala = "KND-02", namaKendala = "Cek unit, Implement Pemanasan mesin", kategori = "OPERASIONAL", deskripsi = "P2H dan pemanasan unit"),
+                KendalaEntity(kodeKendala = "KND-03", namaKendala = "Transport", kategori = "OPERASIONAL", deskripsi = "Transport unit ke front kerja"),
+                KendalaEntity(kodeKendala = "KND-04", namaKendala = "Kerja", kategori = "OPERASIONAL", deskripsi = "Aktivitas kerja"),
+                KendalaEntity(kodeKendala = "KND-05", namaKendala = "Istirahat", kategori = "OPERASIONAL", deskripsi = "Istirahat operator"),
+                KendalaEntity(kodeKendala = "KND-06", namaKendala = "Perbaikan Unit", kategori = "MEKANIKAL", deskripsi = "Perbaikan kerusakan unit"),
+                KendalaEntity(kodeKendala = "KND-07", namaKendala = "Perbaikan Implement", kategori = "MEKANIKAL", deskripsi = "Perbaikan attachment/implement"),
+                KendalaEntity(kodeKendala = "KND-08", namaKendala = "Perawatan Unit", kategori = "MEKANIKAL", deskripsi = "Servis berkala unit"),
+                KendalaEntity(kodeKendala = "KND-09", namaKendala = "Perawatan Implement", kategori = "MEKANIKAL", deskripsi = "Perawatan attachment/implement"),
+                KendalaEntity(kodeKendala = "KND-10", namaKendala = "Ganti Implement", kategori = "OPERASIONAL", deskripsi = "Ganti attachment unit"),
+                KendalaEntity(kodeKendala = "KND-11", namaKendala = "Tunggu Solar", kategori = "LOGISTIK", deskripsi = "Menunggu pengisian bahan bakar"),
+                KendalaEntity(kodeKendala = "KND-12", namaKendala = "Tunggu Mekanik", kategori = "MEKANIKAL", deskripsi = "Menunggu kedatangan mekanik"),
+                KendalaEntity(kodeKendala = "KND-13", namaKendala = "Tunggu Trailler", kategori = "LOGISTIK", deskripsi = "Menunggu lowbed / trailler"),
+                KendalaEntity(kodeKendala = "KND-14", namaKendala = "Tunggu Lokasi", kategori = "OPERASIONAL", deskripsi = "Menunggu kesiapan front kerja"),
+                KendalaEntity(kodeKendala = "KND-15", namaKendala = "Tunggu Cuaca", kategori = "CUACA", deskripsi = "Menunggu cuaca membaik / hujan / slippery")
             )
+            kendalaDao.clearAll()
             kendalaDao.insertKendalaList(initialKendala)
         }
     }
@@ -235,16 +242,21 @@ class HeavyTrackRepository(
             // 5. Process Kendala
             val incomingKendala = payload.kendala ?: emptyList()
             if (incomingKendala.isNotEmpty()) {
-                val kendalaEntities = incomingKendala.map {
+                val kendalaEntities = incomingKendala.mapIndexed { index, it ->
                     KendalaEntity(
-                        kodeKendala = it.resolvedKode,
+                        kodeKendala = it.resolveKode(index),
                         namaKendala = it.resolvedNama,
                         kategori = it.resolvedKategori,
+                        deskripsi = it.resolvedDeskripsi,
                         updatedAt = System.currentTimeMillis()
                     )
                 }
                 kendalaDao.clearAll()
                 kendalaDao.insertKendalaList(kendalaEntities)
+            } else {
+                // Jika payload kendala kosong dari API luar, pastikan database lokal memiliki 15 master kendala standar
+                val currentCount = kendalaDao.getAllKendala()
+                // Tidak menghapus jika lokal sudah ada data
             }
 
             _lastSyncTimeMillis.value = System.currentTimeMillis()
@@ -353,6 +365,8 @@ class HeavyTrackRepository(
                 photoBase64 = savedHasil.photoBase64,
                 photoSizeKb = savedHasil.photoSizeKb,
                 photoDimensions = savedHasil.photoDimensions,
+                isHmAwalCorrected = savedHasil.isHmAwalCorrected,
+                alasanKoreksiHm = savedHasil.alasanKoreksiHm,
                 isSynced = false
             )
             reportDao.insertReport(reportMirror)
@@ -378,7 +392,9 @@ class HeavyTrackRepository(
                 keterangan = savedHasil.keterangan,
                 nama_pengawas = savedHasil.supervisorName,
                 kode_unit = savedHasil.kodeUnit,
-                foto_bukti = savedHasil.photoBase64
+                foto_bukti = savedHasil.photoBase64,
+                is_hm_awal_corrected = savedHasil.isHmAwalCorrected,
+                alasan_koreksi_hm = savedHasil.alasanKoreksiHm
             )
 
             val apiActivityReq = PostActivityReportRequest.create(
@@ -412,7 +428,9 @@ class HeavyTrackRepository(
                 photoBase64 = reportMirror.photoBase64,
                 photoSizeKb = reportMirror.photoSizeKb,
                 photoDimensions = reportMirror.photoDimensions,
-                photoPath = reportMirror.photoPath
+                photoPath = reportMirror.photoPath,
+                isHmAwalCorrected = savedHasil.isHmAwalCorrected,
+                alasanKoreksiHm = savedHasil.alasanKoreksiHm
             )
 
             try {
@@ -466,7 +484,9 @@ class HeavyTrackRepository(
                 photoBase64 = savedReport.photoBase64,
                 photoSizeKb = savedReport.photoSizeKb,
                 photoDimensions = savedReport.photoDimensions,
-                photoPath = savedReport.photoPath
+                photoPath = savedReport.photoPath,
+                isHmAwalCorrected = savedReport.isHmAwalCorrected,
+                alasanKoreksiHm = savedReport.alasanKoreksiHm
             )
 
             try {
@@ -526,7 +546,9 @@ class HeavyTrackRepository(
                         photoBase64 = report.photoBase64,
                         photoSizeKb = report.photoSizeKb,
                         photoDimensions = report.photoDimensions,
-                        photoPath = report.photoPath
+                        photoPath = report.photoPath,
+                        isHmAwalCorrected = report.isHmAwalCorrected,
+                        alasanKoreksiHm = report.alasanKoreksiHm
                     )
                     apiClientManager.postActivityReport(apiReq)
                     reportDao.markReportAsSynced(report.id)
@@ -591,7 +613,9 @@ class HeavyTrackRepository(
                         keterangan = hasil.keterangan,
                         nama_pengawas = hasil.supervisorName,
                         kode_unit = hasil.kodeUnit,
-                        foto_bukti = hasil.photoBase64
+                        foto_bukti = hasil.photoBase64,
+                        is_hm_awal_corrected = hasil.isHmAwalCorrected,
+                        alasan_koreksi_hm = hasil.alasanKoreksiHm
                     )
                     apiClientManager.postHasilAktivitas(req)
                     hasilDao.markAsSynced(hasil.id)

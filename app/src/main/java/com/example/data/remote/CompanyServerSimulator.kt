@@ -53,19 +53,25 @@ object CompanyServerSimulator {
         )
     }
 
-    // Central master kendala operasional in company web admin
+    // Central master kendala operasional in company web admin (15 Item Standar Lapangan)
     val serverKendala = CopyOnWriteArrayList<KendalaPayload>().apply {
         addAll(
             listOf(
-                KendalaPayload("KND-01", "Hujan / Slippery (Jalan Licin)", "CUACA"),
-                KendalaPayload("KND-02", "Breakdown Mekanikal / Perbaikan Mesin", "MEKANIKAL"),
-                KendalaPayload("KND-03", "Antrian DT / Hauler (Delay Loading)", "OPERASIONAL"),
-                KendalaPayload("KND-04", "Front Kerja Amblas / Undercarriage Terjebak", "OPERASIONAL"),
-                KendalaPayload("KND-05", "Safety Standstill / Investigasi Insiden", "SAFETY"),
-                KendalaPayload("KND-06", "Relokasi / Moving Unit Jarak Jauh", "OPERASIONAL"),
-                KendalaPayload("KND-07", "Ketiadaan Operator / Pergantian Shift Terhambat", "OPERASIONAL"),
-                KendalaPayload("KND-08", "Material Keras / Menunggu Blasting Peledakan", "OPERASIONAL"),
-                KendalaPayload("KND-09", "Preventive Maintenance / Servis Berkala", "MEKANIKAL")
+                KendalaPayload(id = 1, kode_kendala = "KND-01", nama_kendala = "Antar - jemput", kategori = "OPERASIONAL", deskripsi = "Mobilisasi personel antar - jemput shift"),
+                KendalaPayload(id = 2, kode_kendala = "KND-02", nama_kendala = "Cek unit, Implement Pemanasan mesin", kategori = "OPERASIONAL", deskripsi = "Pemeriksaan P2H harian dan pemanasan unit"),
+                KendalaPayload(id = 3, kode_kendala = "KND-03", nama_kendala = "Transport", kategori = "OPERASIONAL", deskripsi = "Perjalanan/transportasi unit ke front kerja"),
+                KendalaPayload(id = 4, kode_kendala = "KND-04", nama_kendala = "Kerja", kategori = "OPERASIONAL", deskripsi = "Aktivitas kerja operasional"),
+                KendalaPayload(id = 5, kode_kendala = "KND-05", nama_kendala = "Istirahat", kategori = "OPERASIONAL", deskripsi = "Waktu istirahat resmi operator"),
+                KendalaPayload(id = 6, kode_kendala = "KND-06", nama_kendala = "Perbaikan Unit", kategori = "MEKANIKAL", deskripsi = "Perbaikan kerusakan pada unit alat berat"),
+                KendalaPayload(id = 7, kode_kendala = "KND-07", nama_kendala = "Perbaikan Implement", kategori = "MEKANIKAL", deskripsi = "Perbaikan attachment/implement unit"),
+                KendalaPayload(id = 8, kode_kendala = "KND-08", nama_kendala = "Perawatan Unit", kategori = "MEKANIKAL", deskripsi = "Servis rutin dan perawatan berkala unit"),
+                KendalaPayload(id = 9, kode_kendala = "KND-09", nama_kendala = "Perawatan Implement", kategori = "MEKANIKAL", deskripsi = "Servis dan greasing implement"),
+                KendalaPayload(id = 10, kode_kendala = "KND-10", nama_kendala = "Ganti Implement", kategori = "OPERASIONAL", deskripsi = "Penggantian bucket/blade/ripper attachment"),
+                KendalaPayload(id = 11, kode_kendala = "KND-11", nama_kendala = "Tunggu Solar", kategori = "LOGISTIK", deskripsi = "Menunggu pengisian bahan bakar solar / fuel truck"),
+                KendalaPayload(id = 12, kode_kendala = "KND-12", nama_kendala = "Tunggu Mekanik", kategori = "MEKANIKAL", deskripsi = "Menunggu kedatangan mekanik servis"),
+                KendalaPayload(id = 13, kode_kendala = "KND-13", nama_kendala = "Tunggu Trailler", kategori = "LOGISTIK", deskripsi = "Menunggu lowbed / trailler mobilisasi unit"),
+                KendalaPayload(id = 14, kode_kendala = "KND-14", nama_kendala = "Tunggu Lokasi", kategori = "OPERASIONAL", deskripsi = "Menunggu kesiapan front kerja / lokasi kerja"),
+                KendalaPayload(id = 15, kode_kendala = "KND-15", nama_kendala = "Tunggu Cuaca", kategori = "CUACA", deskripsi = "Hambatan cuaca buruk / hujan lebat / slippery")
             )
         )
     }
@@ -241,9 +247,10 @@ object CompanyServerSimulator {
         }
 
         val fuelInfo = if (request.is_isi_solar == true) " [Solar: ${request.jumlah_liter_solar} L]" else ""
+        val auditInfo = if (request.is_hm_awal_corrected == true) " [AUDIT ADMIN: Koreksi HM Awal Manual (Alasan: ${request.alasan_koreksi_hm ?: "-"})]" else ""
         return ApiResponse(
             status = "SUCCESS",
-            message = "Realisasi Unit $targetUnitCode berhasil dikirim.$fuelInfo HM Unit diperbarui ke $lastHmVal.",
+            message = "Realisasi Unit $targetUnitCode berhasil dikirim.$fuelInfo$auditInfo HM Unit diperbarui ke $lastHmVal.",
             data = "ACK-${System.currentTimeMillis()}"
         )
     }
@@ -271,10 +278,11 @@ object CompanyServerSimulator {
         val photoInfo = if (hasPhoto) " [Foto Bukti Kegiatan Terverifikasi (${report.photo_size_kb ?: 145} KB, ${report.photo_dimensions ?: "1280x960 px"})]" else ""
         val statusInfo = " [Status: ${report.status_unit ?: "OPERASI"}]"
         val fuelInfo = if (report.is_isi_solar == true) " [Solar: ${report.jumlah_liter_solar} L]" else ""
+        val auditInfo = if (report.is_hm_awal_corrected == true) " [AUDIT: Koreksi HM Awal (${report.hm_awal}) Alasan: ${report.alasan_koreksi_hm ?: "-"}]" else ""
 
         return ApiResponse(
             status = "SUCCESS",
-            message = "Laporan berhasil dikirim dan diverifikasi oleh Server Web Admin.$statusInfo$fuelInfo. HM Unit diperbarui ke $lastHmVal.$photoInfo",
+            message = "Laporan berhasil dikirim dan diverifikasi oleh Server Web Admin.$statusInfo$fuelInfo$auditInfo. HM Unit diperbarui ke $lastHmVal.$photoInfo",
             data = "REPORT-ACK-${System.currentTimeMillis()}"
         )
     }

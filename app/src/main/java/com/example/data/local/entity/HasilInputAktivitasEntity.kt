@@ -109,5 +109,11 @@ data class HasilInputAktivitasEntity(
     val syncedAt: Long? = null,
 
     @ColumnInfo(name = "tanggal_format")
-    val tanggalFormat: String = ""
+    val tanggalFormat: String = "",
+
+    @ColumnInfo(name = "is_hm_awal_corrected", defaultValue = "0")
+    val isHmAwalCorrected: Boolean = false,
+
+    @ColumnInfo(name = "alasan_koreksi_hm")
+    val alasanKoreksiHm: String? = null
 )

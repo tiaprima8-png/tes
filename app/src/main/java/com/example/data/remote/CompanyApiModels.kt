@@ -40,6 +40,9 @@ data class PostActivityReportRequest(
     @Json(name = "photo_path") val photo_path: String? = null,
     @Json(name = "photo_size_kb") val photo_size_kb: Long? = null,
     @Json(name = "photo_dimensions") val photo_dimensions: String? = null,
+    // Audit log koreksi HM Awal manual
+    @Json(name = "is_hm_awal_corrected") val is_hm_awal_corrected: Boolean? = false,
+    @Json(name = "alasan_koreksi_hm") val alasan_koreksi_hm: String? = null,
 
     // Dual compatibility with standard camelCase/English keys
     @Json(name = "client_uuid") val client_uuid: String? = null,
@@ -91,7 +94,9 @@ data class PostActivityReportRequest(
             photoBase64: String? = null,
             photoSizeKb: Long? = null,
             photoDimensions: String? = null,
-            photoPath: String? = null
+            photoPath: String? = null,
+            isHmAwalCorrected: Boolean = false,
+            alasanKoreksiHm: String? = null
         ): PostActivityReportRequest {
             return PostActivityReportRequest(
                 // Indonesian exact fields for 1-portalce.ai.studio
@@ -127,6 +132,8 @@ data class PostActivityReportRequest(
                 photo_path = photoPath,
                 photo_size_kb = photoSizeKb,
                 photo_dimensions = photoDimensions,
+                is_hm_awal_corrected = isHmAwalCorrected,
+                alasan_koreksi_hm = alasanKoreksiHm,
 
                 // Fallbacks
                 client_uuid = clientUuid,
@@ -161,13 +168,33 @@ data class KendalaItemPayload(
 
 @JsonClass(generateAdapter = true)
 data class KendalaPayload(
+    @Json(name = "id") val id: Any? = null,
+    @Json(name = "id_kendala") val id_kendala: String? = null,
     @Json(name = "kode_kendala") val kode_kendala: String? = null,
+    @Json(name = "kode") val kode: String? = null,
     @Json(name = "nama_kendala") val nama_kendala: String? = null,
-    @Json(name = "kategori") val kategori: String? = "OPERASIONAL"
+    @Json(name = "nama") val nama: String? = null,
+    @Json(name = "kategori") val kategori: String? = null,
+    @Json(name = "deskripsi") val deskripsi: String? = null,
+    @Json(name = "keterangan") val keterangan: String? = null
 ) {
-    val resolvedKode: String get() = kode_kendala ?: "KND-00"
-    val resolvedNama: String get() = nama_kendala ?: "Kendala Lapangan"
-    val resolvedKategori: String get() = kategori ?: "OPERASIONAL"
+    fun resolveKode(index: Int): String {
+        val candidate = kode_kendala ?: kode ?: id_kendala ?: (id?.toString())
+        return if (!candidate.isNullOrBlank()) {
+            candidate
+        } else {
+            String.format(java.util.Locale.US, "KND-%02d", index + 1)
+        }
+    }
+
+    val resolvedNama: String
+        get() = (nama_kendala ?: nama ?: deskripsi ?: keterangan)?.takeIf { it.isNotBlank() } ?: "Kendala Lapangan"
+
+    val resolvedKategori: String
+        get() = kategori?.takeIf { it.isNotBlank() } ?: "OPERASIONAL"
+
+    val resolvedDeskripsi: String
+        get() = (deskripsi ?: keterangan) ?: ""
 }
 
 @JsonClass(generateAdapter = true)
@@ -448,7 +475,10 @@ data class PostHasilAktivitasRequest(
     @Json(name = "keterangan") val keterangan: String? = null,
     @Json(name = "nama_pengawas") val nama_pengawas: String? = null,
     @Json(name = "kode_unit") val kode_unit: String? = null,
-    @Json(name = "foto_bukti") val foto_bukti: String? = null
+    @Json(name = "foto_bukti") val foto_bukti: String? = null,
+    // Audit log koreksi HM Awal manual
+    @Json(name = "is_hm_awal_corrected") val is_hm_awal_corrected: Boolean? = false,
+    @Json(name = "alasan_koreksi_hm") val alasan_koreksi_hm: String? = null
 )
 
 @JsonClass(generateAdapter = true)
