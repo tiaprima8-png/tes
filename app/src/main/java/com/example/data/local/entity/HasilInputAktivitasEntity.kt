@@ -78,6 +78,9 @@ data class HasilInputAktivitasEntity(
     @ColumnInfo(name = "catatan_kendala")
     val catatanKendala: String? = null,
 
+    @ColumnInfo(name = "daftar_kendala_json")
+    val daftarKendalaJson: String? = null,
+
     @ColumnInfo(name = "hasil_kerja")
     val hasilKerja: Double = 0.0,
 

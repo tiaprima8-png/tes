@@ -33,6 +33,7 @@ data class ActivityReportEntity(
     val kendalaId: String? = null,       // ID kendala dari master
     val kendalaNama: String? = null,     // Nama kendala dari master
     val catatanKendala: String? = null,  // Catatan detail kendala
+    val daftarKendalaJson: String? = null, // JSON array of multi-kendala items
     val photoPath: String? = null,       // Local compressed JPEG path
     val photoBase64: String? = null,     // Base64 data string (for sync)
     val photoSizeKb: Long? = null,       // Size in KB (e.g. 145)

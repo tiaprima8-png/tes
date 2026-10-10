@@ -39,6 +39,56 @@ data class RencanaFormUiState(
     val isSubmitting: Boolean = false
 )
 
+data class KendalaItemFormState(
+    val id: String = UUID.randomUUID().toString(),
+    val selectedKendala: KendalaEntity? = null,
+    val waktuMulai: String = "",
+    val waktuSelesai: String = ""
+) {
+    val durasiMenit: Int?
+        get() {
+            val startMin = parseTimeToMinutes(waktuMulai) ?: return null
+            val endMin = parseTimeToMinutes(waktuSelesai) ?: return null
+            if (endMin <= startMin) return null
+            return endMin - startMin
+        }
+
+    val isTimeRangeValid: Boolean
+        get() {
+            if (waktuMulai.isBlank() || waktuSelesai.isBlank()) return false
+            val startMin = parseTimeToMinutes(waktuMulai) ?: return false
+            val endMin = parseTimeToMinutes(waktuSelesai) ?: return false
+            return endMin > startMin
+        }
+
+    val isValid: Boolean
+        get() = selectedKendala != null && isTimeRangeValid
+
+    val durasiLabel: String
+        get() {
+            val minutes = durasiMenit ?: return ""
+            val hours = minutes / 60
+            val remainingMins = minutes % 60
+            return when {
+                hours > 0 && remainingMins > 0 -> "$hours Jam $remainingMins Menit"
+                hours > 0 -> "$hours Jam"
+                else -> "$remainingMins Menit"
+            }
+        }
+
+    companion object {
+        fun parseTimeToMinutes(timeStr: String): Int? {
+            val trimmed = timeStr.trim()
+            val parts = trimmed.split(":")
+            if (parts.size != 2) return null
+            val h = parts[0].toIntOrNull() ?: return null
+            val m = parts[1].toIntOrNull() ?: return null
+            if (h !in 0..23 || m !in 0..59) return null
+            return h * 60 + m
+        }
+    }
+}
+
 data class RealisasiFormUiState(
     val selectedRencana: RencanaKerjaEntity? = null,
     val selectedActivity: ActivityMasterEntity? = null,
@@ -55,6 +105,8 @@ data class RealisasiFormUiState(
     val isUnderMinStandard: Boolean = false,
     val selectedKendala: KendalaEntity? = null,
     val catatanKendala: String = "",
+    // Multi-Kendala Form State
+    val daftarKendala: List<KendalaItemFormState> = listOf(KendalaItemFormState()),
     // Parameter Stik Solar BBM
     val stikSolarAwalInput: String = "",
     val stikSolarAkhirInput: String = "",
@@ -69,7 +121,23 @@ data class RealisasiFormUiState(
     val photoDimensions: String? = null,
     val isCompressingPhoto: Boolean = false,
     val isSubmitting: Boolean = false
-)
+) {
+    val totalHambatanMenit: Int
+        get() = daftarKendala.mapNotNull { it.durasiMenit }.sum()
+
+    val totalHambatanLabel: String
+        get() {
+            val total = totalHambatanMenit
+            val hours = total / 60
+            val minutes = total % 60
+            return when {
+                total == 0 -> "0 Menit"
+                hours > 0 && minutes > 0 -> "$hours Jam $minutes Menit"
+                hours > 0 -> "$hours Jam"
+                else -> "$minutes Menit"
+            }
+        }
+}
 
 data class UnitAnalyticsRow(
     val unitCode: String,

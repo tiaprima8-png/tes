@@ -155,4 +155,76 @@ class ExampleUnitTest {
         val isLocked = publishedSpk.isNotBlank() && publishedSpk != "Belum Terbit (Menunggu Admin)"
         assertTrue(isLocked)
     }
+
+    @Test
+    fun test_kendala_time_duration_calculation() {
+        val kendalaItem = com.example.ui.viewmodel.KendalaItemFormState(
+            waktuMulai = "09:30",
+            waktuSelesai = "11:45"
+        )
+        // 09:30 to 11:45 = 135 minutes (2 Jam 15 Menit)
+        assertEquals(135, kendalaItem.durasiMenit)
+        assertEquals("2 Jam 15 Menit", kendalaItem.durasiLabel)
+        assertTrue(kendalaItem.isTimeRangeValid)
+    }
+
+    @Test
+    fun test_kendala_invalid_time_range() {
+        val invalidEndBeforeStart = com.example.ui.viewmodel.KendalaItemFormState(
+            waktuMulai = "14:00",
+            waktuSelesai = "13:30"
+        )
+        assertFalse(invalidEndBeforeStart.isTimeRangeValid)
+        assertNull(invalidEndBeforeStart.durasiMenit)
+
+        val invalidEqualTimes = com.example.ui.viewmodel.KendalaItemFormState(
+            waktuMulai = "10:00",
+            waktuSelesai = "10:00"
+        )
+        assertFalse(invalidEqualTimes.isTimeRangeValid)
+        assertNull(invalidEqualTimes.durasiMenit)
+    }
+
+    @Test
+    fun test_kendala_json_serialization_and_deserialization() {
+        val payloads = listOf(
+            com.example.data.remote.KendalaItemPayload(
+                id_kendala = "KND-01",
+                nama_kendala = "Hujan",
+                waktu_mulai = "09:30",
+                waktu_selesai = "11:45",
+                durasi_menit = 135
+            ),
+            com.example.data.remote.KendalaItemPayload(
+                id_kendala = "KND-02",
+                nama_kendala = "Breakdown Mekanikal",
+                waktu_mulai = "13:00",
+                waktu_selesai = "14:30",
+                durasi_menit = 90
+            )
+        )
+
+        val json = com.example.data.remote.KendalaJsonConverter.toJson(payloads)
+        assertTrue(json.contains("KND-01"))
+        assertTrue(json.contains("135"))
+        assertTrue(json.contains("Breakdown Mekanikal"))
+
+        val parsed = com.example.data.remote.KendalaJsonConverter.fromJson(json)
+        assertEquals(2, parsed.size)
+        assertEquals("KND-01", parsed[0].id_kendala)
+        assertEquals("09:30", parsed[0].waktu_mulai)
+        assertEquals("11:45", parsed[0].waktu_selesai)
+        assertEquals(135, parsed[0].durasi_menit)
+        assertEquals("Breakdown Mekanikal", parsed[1].nama_kendala)
+    }
+
+    @Test
+    fun test_official_apk_distribution_urls() {
+        val defaultUrl = com.example.ui.viewmodel.HeavyTrackViewModel.APK_DIRECT_DOWNLOAD_URL
+        val repoUrl = com.example.ui.viewmodel.HeavyTrackViewModel.GITHUB_REPO_URL
+
+        assertTrue(defaultUrl.startsWith("https://github.com/tiaprima8-png/tes"))
+        assertTrue(defaultUrl.endsWith(".apk"))
+        assertTrue(repoUrl.contains("tiaprima8-png/tes"))
+    }
 }

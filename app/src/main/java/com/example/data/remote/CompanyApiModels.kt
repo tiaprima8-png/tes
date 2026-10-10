@@ -2,6 +2,8 @@ package com.example.data.remote
 
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
 
 @JsonClass(generateAdapter = true)
 data class PostActivityReportRequest(
@@ -31,6 +33,7 @@ data class PostActivityReportRequest(
     @Json(name = "kendala_id") val kendala_id: String? = null,
     @Json(name = "kendala_nama") val kendala_nama: String? = null,
     @Json(name = "catatan_kendala") val catatan_kendala: String? = null,
+    @Json(name = "daftar_kendala") val daftar_kendala: List<KendalaItemPayload>? = null,
     @Json(name = "foto_bukti") val foto_bukti: String? = null,
     @Json(name = "foto") val foto: String? = null,
     @Json(name = "photo_base64") val photo_base64: String? = null,
@@ -84,6 +87,7 @@ data class PostActivityReportRequest(
             kendalaId: String? = null,
             kendalaNama: String? = null,
             catatanKendala: String? = null,
+            daftarKendala: List<KendalaItemPayload>? = null,
             photoBase64: String? = null,
             photoSizeKb: Long? = null,
             photoDimensions: String? = null,
@@ -116,6 +120,7 @@ data class PostActivityReportRequest(
                 kendala_id = kendalaId,
                 kendala_nama = kendalaNama,
                 catatan_kendala = catatanKendala,
+                daftar_kendala = daftarKendala,
                 foto_bukti = photoBase64,
                 foto = photoBase64,
                 photo_base64 = photoBase64,
@@ -144,6 +149,15 @@ data class PostActivityReportRequest(
         }
     }
 }
+
+@JsonClass(generateAdapter = true)
+data class KendalaItemPayload(
+    @Json(name = "id_kendala") val id_kendala: String? = null,
+    @Json(name = "nama_kendala") val nama_kendala: String? = null,
+    @Json(name = "waktu_mulai") val waktu_mulai: String? = null,
+    @Json(name = "waktu_selesai") val waktu_selesai: String? = null,
+    @Json(name = "durasi_menit") val durasi_menit: Int? = null
+)
 
 @JsonClass(generateAdapter = true)
 data class KendalaPayload(
@@ -429,6 +443,7 @@ data class PostHasilAktivitasRequest(
     @Json(name = "kendala_id") val kendala_id: String? = null,
     @Json(name = "kendala_nama") val kendala_nama: String? = null,
     @Json(name = "catatan_kendala") val catatan_kendala: String? = null,
+    @Json(name = "daftar_kendala") val daftar_kendala: List<KendalaItemPayload>? = null,
     @Json(name = "hasil_kerja") val hasil_kerja: Double? = 0.0,
     @Json(name = "keterangan") val keterangan: String? = null,
     @Json(name = "nama_pengawas") val nama_pengawas: String? = null,
@@ -441,4 +456,33 @@ data class AuthLoginRequest(
     @Json(name = "username") val username: String,
     @Json(name = "password") val password: String
 )
+
+object KendalaJsonConverter {
+    private val moshi by lazy {
+        Moshi.Builder().build()
+    }
+    private val listType by lazy {
+        Types.newParameterizedType(List::class.java, KendalaItemPayload::class.java)
+    }
+    private val adapter by lazy {
+        moshi.adapter<List<KendalaItemPayload>>(listType)
+    }
+
+    fun toJson(list: List<KendalaItemPayload>): String {
+        return try {
+            adapter.toJson(list)
+        } catch (_: Exception) {
+            "[]"
+        }
+    }
+
+    fun fromJson(json: String?): List<KendalaItemPayload> {
+        if (json.isNullOrBlank()) return emptyList()
+        return try {
+            adapter.fromJson(json) ?: emptyList()
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
+}
 

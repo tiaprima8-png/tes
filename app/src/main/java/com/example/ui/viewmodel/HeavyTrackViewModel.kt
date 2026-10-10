@@ -1,10 +1,14 @@
 package com.example.ui.viewmodel
 
 import android.app.DownloadManager
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
+import android.provider.MediaStore
+import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -20,6 +24,8 @@ import com.example.data.model.Supervisor
 import com.example.data.model.SupervisorDirectory
 import com.example.data.remote.ActivityPayload
 import com.example.data.remote.CompanyServerSimulator
+import com.example.data.remote.KendalaItemPayload
+import com.example.data.remote.KendalaJsonConverter
 import com.example.data.remote.OperatorPayload
 import com.example.data.remote.UnitPayload
 import com.example.data.repository.HeavyTrackRepository
@@ -83,7 +89,19 @@ class HeavyTrackViewModel(
 
     companion object {
         const val INTERNAL_WEB_ADMIN_URL = "https://1-portalce.ai.studio/"
-        const val APK_DIRECT_DOWNLOAD_URL = "https://1-portalce.ai.studio/downloads/RKCE.apk"
+        const val GITHUB_REPO_URL = "https://github.com/tiaprima8-png/tes"
+        const val APK_DIRECT_DOWNLOAD_URL = "https://github.com/tiaprima8-png/tes/releases/latest/download/app-release.apk"
+    }
+
+    // Configurable APK Download URL (dengan fallback ke GitHub Release resmi)
+    private val _customApkUrl = MutableStateFlow(APK_DIRECT_DOWNLOAD_URL)
+    val customApkUrl: StateFlow<String> = _customApkUrl.asStateFlow()
+
+    fun updateCustomApkUrl(newUrl: String) {
+        val trimmed = newUrl.trim()
+        if (trimmed.isNotEmpty()) {
+            _customApkUrl.value = trimmed
+        }
     }
 
     // Active Supervisor
@@ -730,13 +748,15 @@ class HeavyTrackViewModel(
 
         val (isValid, running, errorMsg) = validateHm(hmAwal, inputDouble)
         val isUnderMin = inputDouble != null && isValid && running > 0.0 && running < state.hmMinStandar
+        val kendalaList = if (isUnderMin && state.daftarKendala.isEmpty()) listOf(KendalaItemFormState()) else state.daftarKendala
 
         _realisasiFormState.value = state.copy(
             hmAkhirInput = cleanInput,
             isHmValid = isValid,
             hmHarianBerjalan = running,
             hmErrorMessage = errorMsg,
-            isUnderMinStandard = isUnderMin
+            isUnderMinStandard = isUnderMin,
+            daftarKendala = kendalaList
         )
         recalculateSolarConsumption()
     }
@@ -789,9 +809,57 @@ class HeavyTrackViewModel(
         )
     }
 
-    // Master Kendala Dropdown Selection
+    // Master Kendala Dropdown Selection (Multi-Kendala Support)
     fun selectRealisasiKendala(kendala: KendalaEntity) {
-        _realisasiFormState.value = _realisasiFormState.value.copy(selectedKendala = kendala)
+        updateKendalaSelection(0, kendala)
+    }
+
+    fun addKendalaRow() {
+        val current = _realisasiFormState.value.daftarKendala
+        _realisasiFormState.value = _realisasiFormState.value.copy(
+            daftarKendala = current + KendalaItemFormState()
+        )
+    }
+
+    fun removeKendalaRow(index: Int) {
+        val current = _realisasiFormState.value.daftarKendala.toMutableList()
+        if (index in current.indices) {
+            current.removeAt(index)
+            if (current.isEmpty()) {
+                current.add(KendalaItemFormState())
+            }
+            _realisasiFormState.value = _realisasiFormState.value.copy(
+                daftarKendala = current,
+                selectedKendala = current.firstOrNull()?.selectedKendala
+            )
+        }
+    }
+
+    fun updateKendalaSelection(index: Int, kendala: KendalaEntity) {
+        val current = _realisasiFormState.value.daftarKendala.toMutableList()
+        if (index in current.indices) {
+            current[index] = current[index].copy(selectedKendala = kendala)
+            _realisasiFormState.value = _realisasiFormState.value.copy(
+                daftarKendala = current,
+                selectedKendala = current.firstOrNull()?.selectedKendala
+            )
+        }
+    }
+
+    fun updateKendalaWaktuMulai(index: Int, time: String) {
+        val current = _realisasiFormState.value.daftarKendala.toMutableList()
+        if (index in current.indices) {
+            current[index] = current[index].copy(waktuMulai = time)
+            _realisasiFormState.value = _realisasiFormState.value.copy(daftarKendala = current)
+        }
+    }
+
+    fun updateKendalaWaktuSelesai(index: Int, time: String) {
+        val current = _realisasiFormState.value.daftarKendala.toMutableList()
+        if (index in current.indices) {
+            current[index] = current[index].copy(waktuSelesai = time)
+            _realisasiFormState.value = _realisasiFormState.value.copy(daftarKendala = current)
+        }
     }
 
     fun setRealisasiCatatanKendala(notes: String) {
@@ -858,15 +926,26 @@ class HeavyTrackViewModel(
         }
 
         val runningHm = hmAkhir - state.hmAwal
+        val isUnderMin = runningHm > 0.0 && runningHm < state.hmMinStandar
 
-        // Validasi HM Kurang dari Standar Minimal: Wajib pilih penyebab kendala dari Master Kendala
-        if (runningHm > 0.0 && runningHm < state.hmMinStandar && state.selectedKendala == null) {
-            viewModelScope.launch {
-                _uiEvents.emit(
-                    UiMessage.Error("HM Berjalan (${String.format(Locale.US, "%.1f", runningHm)} HM) di bawah standar minimal (${state.hmMinStandar} HM). Wajib pilih kendala dari Master Kendala!")
-                )
+        // Validasi HM Kurang dari Standar Minimal:
+        // Wajib minimal 1 kendala lengkap dengan waktu mulai & selesai (waktu selesai > waktu mulai)
+        if (isUnderMin) {
+            if (state.daftarKendala.isEmpty() || !state.daftarKendala.all { it.isValid }) {
+                viewModelScope.launch {
+                    val invalidReason = when {
+                        state.daftarKendala.isEmpty() -> "Wajib mencatat minimal 1 kendala lapangan."
+                        state.daftarKendala.any { it.selectedKendala == null } -> "Penyebab kendala wajib dipilih dari Master Kendala."
+                        state.daftarKendala.any { it.waktuMulai.isBlank() || it.waktuSelesai.isBlank() } -> "Waktu mulai dan selesai kendala wajib diisi (JJ:MM)."
+                        state.daftarKendala.any { !it.isTimeRangeValid } -> "Waktu selesai kendala harus lebih besar dari waktu mulai."
+                        else -> "Lengkapi data kendala dan rentang waktu kejadian."
+                    }
+                    _uiEvents.emit(
+                        UiMessage.Error("HM Berjalan (${String.format(Locale.US, "%.1f", runningHm)} HM) di bawah standar (${state.hmMinStandar} HM). $invalidReason")
+                    )
+                }
+                return
             }
-            return
         }
 
         val fuelLiters = if (state.isIsiSolar) {
@@ -899,6 +978,43 @@ class HeavyTrackViewModel(
         val stikAwal = state.stikSolarAwalInput.toDoubleOrNull() ?: 0.0
         val stikAkhir = state.stikSolarAkhirInput.toDoubleOrNull() ?: 0.0
 
+        val validKendalaList: List<KendalaItemFormState> = if (isUnderMin) {
+            state.daftarKendala.filter { it.isValid }
+        } else {
+            emptyList()
+        }
+
+        val kendalaPayloads = validKendalaList.map { item ->
+            KendalaItemPayload(
+                id_kendala = item.selectedKendala?.kodeKendala,
+                nama_kendala = item.selectedKendala?.namaKendala,
+                waktu_mulai = item.waktuMulai,
+                waktu_selesai = item.waktuSelesai,
+                durasi_menit = item.durasiMenit ?: 0
+            )
+        }
+
+        val daftarKendalaJson = if (kendalaPayloads.isNotEmpty()) {
+            KendalaJsonConverter.toJson(kendalaPayloads)
+        } else {
+            null
+        }
+
+        val primaryKendala = validKendalaList.firstOrNull()?.selectedKendala
+        val kendalaSummaryName = if (validKendalaList.isNotEmpty()) {
+            validKendalaList.joinToString(", ") { "${it.selectedKendala?.namaKendala} (${it.waktuMulai}-${it.waktuSelesai})" }
+        } else {
+            null
+        }
+        val kendalaSummaryCatatan = if (validKendalaList.isNotEmpty()) {
+            "Total ${validKendalaList.size} Kendala [Durasi: ${state.totalHambatanLabel}]: " +
+                    validKendalaList.joinToString("; ") {
+                        "${it.selectedKendala?.namaKendala} (${it.waktuMulai} - ${it.waktuSelesai}, ${it.durasiLabel})"
+                    }
+        } else {
+            null
+        }
+
         viewModelScope.launch {
             _realisasiFormState.value = _realisasiFormState.value.copy(isSubmitting = true)
 
@@ -923,9 +1039,10 @@ class HeavyTrackViewModel(
                 stikSolarAwal = stikAwal,
                 stikSolarAkhir = stikAkhir,
                 pemakaianSolar = state.pemakaianSolarOtomatis,
-                kendalaId = state.selectedKendala?.kodeKendala,
-                kendalaNama = state.selectedKendala?.namaKendala,
-                catatanKendala = state.catatanKendala,
+                kendalaId = primaryKendala?.kodeKendala,
+                kendalaNama = kendalaSummaryName,
+                catatanKendala = kendalaSummaryCatatan,
+                daftarKendalaJson = daftarKendalaJson,
                 hasilKerja = workOutput,
                 keterangan = state.keterangan,
                 photoPath = state.photoPath,
@@ -973,57 +1090,201 @@ class HeavyTrackViewModel(
     }
 
     // ==========================================
-    // MODUL DISTRIBUSI (DOWNLOAD & SHARE WHATSAPP)
+    // MODUL DISTRIBUSI & PEMASANGAN INSTALLER APK
     // ==========================================
-    fun downloadApk(context: Context) {
-        try {
-            val request = DownloadManager.Request(Uri.parse(APK_DIRECT_DOWNLOAD_URL))
-                .setTitle("RKCE.apk")
-                .setDescription("Mengunduh installer RKCE (Rencana Kerja Unit Civil Engineering)...")
-                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "RKCE.apk")
-                .setAllowedOverMetered(true)
-                .setAllowedOverRoaming(true)
+    fun getOrExtractApkFile(context: Context): File? {
+        return try {
+            val sourcePath = context.applicationInfo.sourceDir
+            if (sourcePath.isNullOrEmpty()) return null
+            val sourceApk = File(sourcePath)
+            if (!sourceApk.exists() || sourceApk.length() == 0L) return null
 
-            val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
-            dm?.enqueue(request)
-            viewModelScope.launch {
-                _uiEvents.emit(UiMessage.Success("Mengunduh RKCE.apk ke folder Download perangkat..."))
+            val cacheShareDir = File(context.cacheDir, "apk_share").apply { mkdirs() }
+            val targetApk = File(cacheShareDir, "RKCE_Installer_v1.0.apk")
+            if (!targetApk.exists() || targetApk.length() != sourceApk.length()) {
+                sourceApk.copyTo(targetApk, overwrite = true)
             }
-        } catch (e: Exception) {
-            viewModelScope.launch {
-                _uiEvents.emit(UiMessage.Error("Gagal mengunduh: ${e.localizedMessage ?: "Periksa izin penyimpanan"}"))
+            targetApk
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun downloadApk(context: Context) {
+        viewModelScope.launch {
+            try {
+                var savedLocally = false
+                val sourcePath = context.applicationInfo.sourceDir
+                val sourceApk = if (!sourcePath.isNullOrEmpty()) File(sourcePath) else null
+
+                if (sourceApk != null && sourceApk.exists() && sourceApk.length() > 0L) {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        val contentValues = ContentValues().apply {
+                            put(MediaStore.MediaColumns.DISPLAY_NAME, "RKCE_Installer_v1.0.apk")
+                            put(MediaStore.MediaColumns.MIME_TYPE, "application/vnd.android.package-archive")
+                            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                        }
+                        val uri = context.contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                        if (uri != null) {
+                            context.contentResolver.openOutputStream(uri)?.use { output ->
+                                sourceApk.inputStream().use { input -> input.copyTo(output) }
+                            }
+                            savedLocally = true
+                        }
+                    } else {
+                        @Suppress("DEPRECATION")
+                        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                        downloadsDir.mkdirs()
+                        val destFile = File(downloadsDir, "RKCE_Installer_v1.0.apk")
+                        sourceApk.copyTo(destFile, overwrite = true)
+                        savedLocally = true
+                    }
+                }
+
+                if (savedLocally) {
+                    _uiEvents.emit(
+                        UiMessage.Success(
+                            "Installer asli 'RKCE_Installer_v1.0.apk' berhasil disimpan di folder Download! Berkas utuh dan siap dipasang atau dikirim ke HP lain."
+                        )
+                    )
+                } else {
+                    // Fallback unduh via DownloadManager dari URL resmi
+                    val downloadUrl = _customApkUrl.value.ifEmpty { APK_DIRECT_DOWNLOAD_URL }
+                    val request = DownloadManager.Request(Uri.parse(downloadUrl))
+                        .setTitle("RKCE_Installer_v1.0.apk")
+                        .setDescription("Mengunduh installer resmi RKCE (Rencana Kerja Civil Engineering)...")
+                        .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                        .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "RKCE_Installer_v1.0.apk")
+                        .setAllowedOverMetered(true)
+                        .setAllowedOverRoaming(true)
+
+                    val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
+                    dm?.enqueue(request)
+                    _uiEvents.emit(UiMessage.Success("Memulai unduhan berkas APK resmi ke folder Download perangkat..."))
+                }
+            } catch (e: Exception) {
+                _uiEvents.emit(UiMessage.Error("Gagal menyimpan installer: ${e.localizedMessage ?: "Periksa izin penyimpanan"}"))
             }
         }
     }
 
     fun shareApkViaWhatsApp(context: Context) {
-        val shareMessage = "Halo, silakan unduh dan pasang aplikasi RKCE (Rencana Kerja Unit Civil Engineering) melalui tautan berikut: $APK_DIRECT_DOWNLOAD_URL"
-        try {
-            val intent = Intent(Intent.ACTION_SEND).apply {
-                type = "text/plain"
-                putExtra(Intent.EXTRA_TEXT, shareMessage)
-                setPackage("com.whatsapp")
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            context.startActivity(intent)
-        } catch (_: Exception) {
-            // Fallback ke general share sheet jika WhatsApp tidak terpasang
+        shareApk(context, targetWhatsAppOnly = true)
+    }
+
+    fun shareApkGeneral(context: Context) {
+        shareApk(context, targetWhatsAppOnly = false)
+    }
+
+    private fun shareApk(context: Context, targetWhatsAppOnly: Boolean) {
+        viewModelScope.launch {
             try {
-                val chooser = Intent.createChooser(
-                    Intent(Intent.ACTION_SEND).apply {
+                val apkFile = getOrExtractApkFile(context)
+                val downloadUrl = _customApkUrl.value.ifEmpty { APK_DIRECT_DOWNLOAD_URL }
+                val shareCaption = """
+*Aplikasi RKCE (Rencana Kerja Unit Civil Engineering) v1.0*
+
+Halo Rekan Pengawas, berkas installer APK resmi terlampir. Anda dapat langsung memasang aplikasi ini di HP Android Anda.
+
+*PANDUAN AGAR BISA DIINSTAL DI HP LAIN:*
+1. Buka atau klik berkas *RKCE_Installer_v1.0.apk* yang terlampir.
+2. Jika muncul peringatan keamanan sistem Android, pilih *'Setelan' / 'Pengaturan'* lalu aktifkan *'Izinkan dari sumber ini'*.
+3. Jika muncul notifikasi Google Play Protect ('Aplikasi tidak dikenal' / 'Blocked by Play Protect'):
+   👉 Klik *'Detail Lainnya'* (More details)
+   👉 Pilih *'Tetap Instal'* (Install anyway).
+4. Jika sebelumnya sudah ada versi RKCE yang terpasang namun gagal update, copot (uninstall) dulu versi lama tersebut lalu pasang kembali berkas ini.
+
+*Tautan Unduh Resmi (GitHub):*
+$downloadUrl
+                """.trimIndent()
+
+                if (apkFile != null && apkFile.exists()) {
+                    val apkUri = FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider",
+                        apkFile
+                    )
+
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = "application/vnd.android.package-archive"
+                        putExtra(Intent.EXTRA_STREAM, apkUri)
+                        putExtra(Intent.EXTRA_TEXT, shareCaption)
+                        putExtra(Intent.EXTRA_SUBJECT, "Installer RKCE Mobile v1.0")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                        if (targetWhatsAppOnly) {
+                            setPackage("com.whatsapp")
+                        }
+                    }
+
+                    try {
+                        context.startActivity(intent)
+                    } catch (_: Exception) {
+                        val chooser = Intent.createChooser(
+                            Intent(Intent.ACTION_SEND).apply {
+                                type = "application/vnd.android.package-archive"
+                                putExtra(Intent.EXTRA_STREAM, apkUri)
+                                putExtra(Intent.EXTRA_TEXT, shareCaption)
+                                putExtra(Intent.EXTRA_SUBJECT, "Installer RKCE Mobile v1.0")
+                                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                            },
+                            "Bagikan Berkas Installer RKCE"
+                        ).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(chooser)
+                    }
+                } else {
+                    // Fallback kirim link teks jika berkas tidak dapat diekstrak
+                    val intent = Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, shareMessage)
-                    },
-                    "Bagikan Aplikasi RKCE"
-                ).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        putExtra(Intent.EXTRA_TEXT, shareCaption)
+                        if (targetWhatsAppOnly) {
+                            setPackage("com.whatsapp")
+                        }
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    try {
+                        context.startActivity(intent)
+                    } catch (_: Exception) {
+                        val chooser = Intent.createChooser(
+                            Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, shareCaption)
+                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            },
+                            "Bagikan Tautan Unduh RKCE"
+                        ).apply {
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(chooser)
+                    }
                 }
-                context.startActivity(chooser)
             } catch (e: Exception) {
-                viewModelScope.launch {
-                    _uiEvents.emit(UiMessage.Error("Tidak dapat membuka aplikasi berbagi: ${e.message}"))
+                _uiEvents.emit(UiMessage.Error("Tidak dapat membagikan installer: ${e.message}"))
+            }
+        }
+    }
+
+    fun launchApkInstaller(context: Context) {
+        viewModelScope.launch {
+            try {
+                val apkFile = getOrExtractApkFile(context)
+                if (apkFile != null && apkFile.exists()) {
+                    val apkUri = FileProvider.getUriForFile(
+                        context,
+                        "${context.packageName}.fileprovider",
+                        apkFile
+                    )
+                    val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                        setDataAndType(apkUri, "application/vnd.android.package-archive")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(installIntent)
+                } else {
+                    _uiEvents.emit(UiMessage.Error("Berkas installer belum siap diekstrak."))
                 }
+            } catch (e: Exception) {
+                _uiEvents.emit(UiMessage.Error("Gagal membuka penginstal: ${e.message}"))
             }
         }
     }

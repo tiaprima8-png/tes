@@ -18,18 +18,27 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudDownload
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Engineering
+import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PrecisionManufacturing
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Sync
@@ -39,10 +48,12 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
@@ -58,9 +69,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -80,11 +95,16 @@ import com.example.ui.theme.Emerald700
 import com.example.ui.theme.Emerald900
 import com.example.ui.theme.ErrorRose
 import com.example.ui.theme.ErrorRose50
+import com.example.ui.theme.Slate100
 import com.example.ui.theme.Slate200
 import com.example.ui.theme.Slate400
 import com.example.ui.theme.Slate500
+import com.example.ui.theme.Slate600
 import com.example.ui.theme.Slate700
+import com.example.ui.theme.Slate800
 import com.example.ui.theme.Slate900
+import com.example.ui.theme.WarningAmber
+import com.example.ui.theme.WarningAmber50
 import com.example.ui.viewmodel.HeavyTrackViewModel
 
 @Composable
@@ -285,17 +305,31 @@ fun MasterDataScreen(
         }
     }
 
+    val customApkUrl by viewModel.customApkUrl.collectAsState()
+
     // Modal Dialog Distribusi APK & Share WhatsApp
     if (showDistributionDialog) {
         DistributionDialog(
             onDismiss = { showDistributionDialog = false },
-            onDownload = {
+            currentApkUrl = customApkUrl,
+            onSaveApkLocally = {
                 viewModel.downloadApk(context)
                 showDistributionDialog = false
             },
             onShareWhatsApp = {
                 viewModel.shareApkViaWhatsApp(context)
                 showDistributionDialog = false
+            },
+            onShareGeneral = {
+                viewModel.shareApkGeneral(context)
+                showDistributionDialog = false
+            },
+            onInstallLocalApk = {
+                viewModel.launchApkInstaller(context)
+                showDistributionDialog = false
+            },
+            onUpdateApkUrl = { newUrl ->
+                viewModel.updateCustomApkUrl(newUrl)
             }
         )
     }
@@ -553,82 +587,227 @@ fun CleanSyncLogsTab(logs: List<SyncLogItem>) {
 }
 
 /**
- * Dialog Distribusi Aplikasi (Download APK & Bagikan WhatsApp)
+ * Dialog Distribusi & Pemasangan Aplikasi (Download APK, Bagikan WhatsApp, & Solusi Instalasi)
  */
 @Composable
 fun DistributionDialog(
     onDismiss: () -> Unit,
-    onDownload: () -> Unit,
-    onShareWhatsApp: () -> Unit
+    currentApkUrl: String,
+    onSaveApkLocally: () -> Unit,
+    onShareWhatsApp: () -> Unit,
+    onShareGeneral: () -> Unit,
+    onInstallLocalApk: () -> Unit,
+    onUpdateApkUrl: (String) -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
+    val clipboardManager = LocalClipboardManager.current
+    var isEditingUrl by remember { mutableStateOf(false) }
+    var urlInput by remember(currentApkUrl) { mutableStateOf(currentApkUrl) }
+    var isCopied by remember { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
         Card(
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .padding(vertical = 16.dp)
         ) {
-            Column(modifier = Modifier.padding(22.dp)) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .verticalScroll(scrollState)
+            ) {
+                // Header
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
                         modifier = Modifier
-                            .size(38.dp)
-                            .background(Emerald50, RoundedCornerShape(10.dp)),
+                            .size(42.dp)
+                            .background(Emerald50, RoundedCornerShape(12.dp)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.CloudDownload,
                             contentDescription = null,
                             tint = Emerald600,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(12.dp))
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Distribusi Aplikasi RKCE Mobile",
+                            text = "Distribusi RKCE Mobile",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
+                            fontSize = 17.sp,
                             color = Slate900
                         )
                         Text(
-                            text = "Unduh atau bagikan installer ke sesama pengawas",
+                            text = "Kirim berkas installer APK utuh ke HP lain & panduan instalasi",
                             fontSize = 11.sp,
-                            color = Slate500
+                            color = Slate500,
+                            lineHeight = 15.sp
                         )
                     }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Info Box Tautan Download
+                // Info Box Tautan Download Resmi (GitHub / Cloud)
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
-                    color = Color(0xFFF1F5F9),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Slate100,
                     border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text(
-                            text = "Tautan Langsung File APK:",
-                            fontSize = 11.sp,
-                            color = Slate500,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = HeavyTrackViewModel.APK_DIRECT_DOWNLOAD_URL,
-                            fontSize = 11.sp,
-                            color = Emerald900,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Tautan Installer Resmi (GitHub):",
+                                fontSize = 11.sp,
+                                color = Slate700,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (isCopied) {
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = Emerald50
+                                    ) {
+                                        Text(
+                                            text = "Tersalin!",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Emerald600,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                }
+                                IconButton(
+                                    onClick = {
+                                        clipboardManager.setText(AnnotatedString(currentApkUrl))
+                                        isCopied = true
+                                    },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.ContentCopy,
+                                        contentDescription = "Salin Tautan",
+                                        tint = Slate600,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                IconButton(
+                                    onClick = { isEditingUrl = !isEditingUrl },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Edit Tautan",
+                                        tint = Slate600,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+
+                        if (isEditingUrl) {
+                            Spacer(modifier = Modifier.height(6.dp))
+                            OutlinedTextField(
+                                value = urlInput,
+                                onValueChange = { urlInput = it },
+                                label = { Text("URL Download APK Kustom", fontSize = 11.sp) },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                OutlinedButton(
+                                    onClick = {
+                                        urlInput = currentApkUrl
+                                        isEditingUrl = false
+                                    },
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Text("Batal", fontSize = 11.sp)
+                                }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Button(
+                                    onClick = {
+                                        onUpdateApkUrl(urlInput)
+                                        isEditingUrl = false
+                                    },
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Emerald600)
+                                ) {
+                                    Text("Simpan", fontSize = 11.sp)
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = currentApkUrl,
+                                fontSize = 10.sp,
+                                color = Emerald900,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(14.dp))
 
-                // Tombol 1: Unduh APK
+                // Tombol Aksi Utama 1: Bagikan File APK Asli via WhatsApp (Rekomendasi Utama)
                 Button(
-                    onClick = onDownload,
+                    onClick = onShareWhatsApp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp)
+                        .testTag("btn_share_whatsapp"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366))
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(20.dp), tint = Color.White)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text("Kirim Berkas APK via WhatsApp", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
+                        Text("Langsung kirim file .apk asli ke chat (Paling Praktis)", fontSize = 10.sp, color = Color.White.copy(alpha = 0.9f))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Tombol Aksi 2: Bagikan Berkas APK ke Aplikasi Lain
+                Button(
+                    onClick = onShareGeneral,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("btn_share_general"),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Slate800)
+                ) {
+                    Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Kirim File APK ke Aplikasi Lain (Bluetooth / Drive)", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = Color.White)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Tombol Aksi 3: Simpan / Ekstrak APK ke Folder Download HP Ini
+                Button(
+                    onClick = onSaveApkLocally,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)
@@ -638,34 +817,77 @@ fun DistributionDialog(
                 ) {
                     Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Unduh File APK ke Perangkat", fontWeight = FontWeight.Bold)
+                    Text("Simpan File APK ke Folder Download HP Ini", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                 }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // Tombol 2: Bagikan via WhatsApp
-                Button(
-                    onClick = onShareWhatsApp,
+                // Tombol Aksi 4: Coba Buka / Pasang Installer di HP Ini
+                OutlinedButton(
+                    onClick = onInstallLocalApk,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
-                        .testTag("btn_share_whatsapp"),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366)) // WhatsApp Brand Green
+                        .height(44.dp)
+                        .testTag("btn_install_test"),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
-                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Bagikan via WhatsApp", fontWeight = FontWeight.Bold, color = Color.White)
+                    Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp), tint = Slate700)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Coba Pasang / Buka Penginstal Paket di HP Ini", fontSize = 12.sp, color = Slate700)
                 }
 
                 Spacer(modifier = Modifier.height(14.dp))
+
+                // KARTU PANDUAN: SOLUSI MENGAPA GAGAL DIINSTAL DI HP LAIN
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = WarningAmber50,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, WarningAmber.copy(alpha = 0.4f)),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Security,
+                                contentDescription = null,
+                                tint = WarningAmber,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Panduan Jika Gagal Diinstal di HP Lain:",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = Slate900
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "1. Peringatan Play Protect / Tidak Dikenal:\n" +
+                                   "   Aplikasi didistribusikan langsung tanpa Play Store. Jika HP penerima memblokir, klik 'Detail Lainnya' (More details) lalu pilih 'Tetap Instal' (Install anyway).\n\n" +
+                                   "2. Izin Sumber Tidak Dikenal:\n" +
+                                   "   Saat membuka berkas di WhatsApp atau File Manager, masuk ke 'Setelan' dan aktifkan 'Izinkan dari sumber ini'.\n\n" +
+                                   "3. Copot Versi Lama Terlebih Dahulu:\n" +
+                                   "   Jika di HP tujuan pernah terpasang APK versi uji coba sebelumnya, hapus (uninstall) aplikasi lama terlebih dahulu sebelum memasang yang baru.\n\n" +
+                                   "4. Berkas Asli 100% Utuh:\n" +
+                                   "   Gunakan tombol 'Kirim Berkas APK via WhatsApp' di atas. Sistem mengirim berkas biner asli aplikasi yang sedang berjalan, sehingga berkas dijamin lengkap dan tidak rusak (bukan 0 byte).",
+                            fontSize = 11.sp,
+                            color = Slate700,
+                            lineHeight = 16.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 OutlinedButton(
                     onClick = onDismiss,
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Tutup", color = Slate700)
+                    Text("Tutup", color = Slate700, fontWeight = FontWeight.SemiBold)
                 }
             }
         }

@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import coil.compose.AsyncImage
+import com.example.data.remote.KendalaJsonConverter
 import coil.request.ImageRequest
 import com.example.data.local.entity.ActivityReportEntity
 import java.io.File
@@ -230,7 +231,64 @@ fun ReportDetailDialog(
                     }
                 }
 
-                if (!report.kendalaNama.isNullOrBlank()) {
+                val parsedKendalaList = KendalaJsonConverter.fromJson(report.daftarKendalaJson)
+                if (parsedKendalaList.isNotEmpty()) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp),
+                        shape = RoundedCornerShape(10.dp),
+                        color = Color(0xFFFEF2F2),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFCA5A5))
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "Daftar Kendala Lapangan (${parsedKendalaList.size} Kendala)",
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF991B1B),
+                                fontSize = 13.sp
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            parsedKendalaList.forEachIndexed { index, k ->
+                                val durasiStr = if ((k.durasi_menit ?: 0) > 0) {
+                                    val hrs = (k.durasi_menit ?: 0) / 60
+                                    val mins = (k.durasi_menit ?: 0) % 60
+                                    when {
+                                        hrs > 0 && mins > 0 -> "$hrs Jam $mins Menit"
+                                        hrs > 0 -> "$hrs Jam"
+                                        else -> "$mins Menit"
+                                    }
+                                } else {
+                                    ""
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Color.White,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFECACA)),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 3.dp)
+                                ) {
+                                    Column(modifier = Modifier.padding(8.dp)) {
+                                        Text(
+                                            text = "#${index + 1} ${k.nama_kendala ?: "Kendala"} [${k.id_kendala ?: "-"}]",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp,
+                                            color = Color(0xFF991B1B)
+                                        )
+                                        if (!k.waktu_mulai.isNullOrBlank() || !k.waktu_selesai.isNullOrBlank()) {
+                                            Text(
+                                                text = "Waktu: ${k.waktu_mulai ?: "-"} s/d ${k.waktu_selesai ?: "-"}${if (durasiStr.isNotBlank()) " (Total Hambatan: $durasiStr)" else ""}",
+                                                fontSize = 11.sp,
+                                                color = Color(0xFFB91C1C)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else if (!report.kendalaNama.isNullOrBlank()) {
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()

@@ -11,6 +11,7 @@ import com.example.data.local.entity.RencanaKerjaEntity
 import com.example.data.local.entity.UnitEntity
 import com.example.data.remote.ApiClientManager
 import com.example.data.remote.CompanyServerSimulator
+import com.example.data.remote.KendalaJsonConverter
 import com.example.data.remote.PostActivityReportRequest
 import com.example.data.remote.PostHasilAktivitasRequest
 import com.example.data.remote.PostRencanaKerjaRequest
@@ -318,6 +319,8 @@ class HeavyTrackRepository(
                 CompanyServerSimulator.markRencanaRealized(savedHasil.rencanaId)
             }
 
+            val kendalaPayloads = KendalaJsonConverter.fromJson(savedHasil.daftarKendalaJson)
+
             // Also mirror into ActivityReportEntity for historical compatibility and analytics
             val reportMirror = ActivityReportEntity(
                 reportDate = savedHasil.tanggalFormat.ifBlank { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date()) },
@@ -345,6 +348,7 @@ class HeavyTrackRepository(
                 kendalaId = savedHasil.kendalaId,
                 kendalaNama = savedHasil.kendalaNama,
                 catatanKendala = savedHasil.catatanKendala,
+                daftarKendalaJson = savedHasil.daftarKendalaJson,
                 photoPath = savedHasil.photoPath,
                 photoBase64 = savedHasil.photoBase64,
                 photoSizeKb = savedHasil.photoSizeKb,
@@ -369,6 +373,7 @@ class HeavyTrackRepository(
                 kendala_id = savedHasil.kendalaId,
                 kendala_nama = savedHasil.kendalaNama,
                 catatan_kendala = savedHasil.catatanKendala,
+                daftar_kendala = if (kendalaPayloads.isNotEmpty()) kendalaPayloads else null,
                 hasil_kerja = savedHasil.hasilKerja,
                 keterangan = savedHasil.keterangan,
                 nama_pengawas = savedHasil.supervisorName,
@@ -376,14 +381,50 @@ class HeavyTrackRepository(
                 foto_bukti = savedHasil.photoBase64
             )
 
+            val apiActivityReq = PostActivityReportRequest.create(
+                clientUuid = reportMirror.clientUuid,
+                reportDate = reportMirror.reportDate,
+                supervisorName = reportMirror.supervisorName,
+                unitCode = reportMirror.unitCode,
+                unitType = reportMirror.unitType,
+                activityName = reportMirror.activityName,
+                sapCode = reportMirror.sapCode,
+                unitOfMeasure = reportMirror.unitOfMeasure,
+                operatorName = reportMirror.operatorName,
+                workLocation = reportMirror.workLocation,
+                shift = reportMirror.shift,
+                workDurationHours = reportMirror.workDurationHours,
+                hmAwal = reportMirror.hmAwal,
+                hmAkhir = reportMirror.hmAkhir,
+                hmDailyRunning = reportMirror.hmDailyRunning,
+                workOutput = reportMirror.workOutput,
+                notes = reportMirror.notes,
+                unitStatus = reportMirror.unitStatus,
+                isRefueled = reportMirror.isRefueled,
+                fuelLiters = reportMirror.fuelLiters,
+                stikSolarAwal = reportMirror.stikSolarAwal,
+                stikSolarAkhir = reportMirror.stikSolarAkhir,
+                pemakaianSolar = reportMirror.pemakaianSolar,
+                kendalaId = reportMirror.kendalaId,
+                kendalaNama = reportMirror.kendalaNama,
+                catatanKendala = reportMirror.catatanKendala,
+                daftarKendala = if (kendalaPayloads.isNotEmpty()) kendalaPayloads else null,
+                photoBase64 = reportMirror.photoBase64,
+                photoSizeKb = reportMirror.photoSizeKb,
+                photoDimensions = reportMirror.photoDimensions,
+                photoPath = reportMirror.photoPath
+            )
+
             try {
+                try { apiClientManager.postActivityReport(apiActivityReq) } catch (_: Exception) {}
                 val respMsg = apiClientManager.postHasilAktivitas(apiReq)
                 hasilDao.markAsSynced(insertedId)
                 _lastSyncTimeMillis.value = System.currentTimeMillis()
-                addLog("POST /api/hasil-aktivitas", "POST", "200 OK", "Realisasi Unit ${savedHasil.kodeUnit} (HM ${savedHasil.hmAkhir})", true)
+                val kendalaTag = if (kendalaPayloads.isNotEmpty()) " [Kendala: ${kendalaPayloads.size} item]" else ""
+                addLog("POST /api/aktivitas-unit", "POST", "200 OK", "Realisasi Unit ${savedHasil.kodeUnit} (HM ${savedHasil.hmAkhir})$kendalaTag", true)
                 Result.success(savedHasil.copy(isSynced = true, syncedAt = System.currentTimeMillis()))
             } catch (netEx: Exception) {
-                addLog("POST /api/hasil-aktivitas", "POST", "OFFLINE/PENDING", "Realisasi Unit ${savedHasil.kodeUnit} disimpan lokal", false)
+                addLog("POST /api/aktivitas-unit", "POST", "OFFLINE/PENDING", "Realisasi Unit ${savedHasil.kodeUnit} disimpan lokal", false)
                 Result.success(savedHasil.copy(isSynced = false))
             }
         } catch (e: Exception) {
@@ -395,6 +436,7 @@ class HeavyTrackRepository(
         try {
             val insertedId = reportDao.insertReport(report.copy(isSynced = false))
             val savedReport = report.copy(id = insertedId)
+            val kendalaPayloads = KendalaJsonConverter.fromJson(savedReport.daftarKendalaJson)
 
             val apiReq = PostActivityReportRequest.create(
                 clientUuid = savedReport.clientUuid,
@@ -417,6 +459,10 @@ class HeavyTrackRepository(
                 unitStatus = savedReport.unitStatus,
                 isRefueled = savedReport.isRefueled,
                 fuelLiters = savedReport.fuelLiters,
+                kendalaId = savedReport.kendalaId,
+                kendalaNama = savedReport.kendalaNama,
+                catatanKendala = savedReport.catatanKendala,
+                daftarKendala = if (kendalaPayloads.isNotEmpty()) kendalaPayloads else null,
                 photoBase64 = savedReport.photoBase64,
                 photoSizeKb = savedReport.photoSizeKb,
                 photoDimensions = savedReport.photoDimensions,
@@ -451,6 +497,7 @@ class HeavyTrackRepository(
             var successCount = 0
             for (report in pending) {
                 try {
+                    val kendalaPayloads = KendalaJsonConverter.fromJson(report.daftarKendalaJson)
                     val apiReq = PostActivityReportRequest.create(
                         clientUuid = report.clientUuid,
                         reportDate = report.reportDate,
@@ -472,6 +519,10 @@ class HeavyTrackRepository(
                         unitStatus = report.unitStatus,
                         isRefueled = report.isRefueled,
                         fuelLiters = report.fuelLiters,
+                        kendalaId = report.kendalaId,
+                        kendalaNama = report.kendalaNama,
+                        catatanKendala = report.catatanKendala,
+                        daftarKendala = if (kendalaPayloads.isNotEmpty()) kendalaPayloads else null,
                         photoBase64 = report.photoBase64,
                         photoSizeKb = report.photoSizeKb,
                         photoDimensions = report.photoDimensions,
@@ -521,6 +572,7 @@ class HeavyTrackRepository(
             val pendingHasil = hasilDao.getUnsyncedHasilList()
             for (hasil in pendingHasil) {
                 try {
+                    val kendalaPayloads = KendalaJsonConverter.fromJson(hasil.daftarKendalaJson)
                     val req = PostHasilAktivitasRequest(
                         id = hasil.id,
                         rencana_id = hasil.rencanaId,
@@ -531,6 +583,10 @@ class HeavyTrackRepository(
                         hm_harian_berjalan = hasil.hmHarianBerjalan,
                         is_isi_solar = hasil.isIsiSolar,
                         jumlah_liter_solar = hasil.jumlahLiterSolar,
+                        kendala_id = hasil.kendalaId,
+                        kendala_nama = hasil.kendalaNama,
+                        catatan_kendala = hasil.catatanKendala,
+                        daftar_kendala = if (kendalaPayloads.isNotEmpty()) kendalaPayloads else null,
                         hasil_kerja = hasil.hasilKerja,
                         keterangan = hasil.keterangan,
                         nama_pengawas = hasil.supervisorName,

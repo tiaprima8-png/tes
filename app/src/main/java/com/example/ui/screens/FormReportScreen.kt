@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import android.app.TimePickerDialog
 import android.net.Uri
 import java.util.Locale
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -27,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Bolt
@@ -35,6 +37,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.EditLocation
 import androidx.compose.material.icons.filled.Engineering
+import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.LocationOn
@@ -92,6 +95,7 @@ import com.example.data.local.entity.KendalaEntity
 import com.example.data.local.entity.LokasiEntity
 import com.example.data.local.entity.OperatorEntity
 import com.example.data.local.entity.RencanaKerjaEntity
+import com.example.ui.viewmodel.KendalaItemFormState
 import com.example.ui.components.ActivitySearchableSelectorSheet
 import com.example.ui.components.KendalaSearchableSelectorSheet
 import com.example.ui.components.LokasiSearchableSelectorSheet
@@ -148,6 +152,7 @@ fun FormReportScreen(
     var isRealisasiActivitySheetOpen by remember { mutableStateOf(false) }
     var isRealisasiLokasiSheetOpen by remember { mutableStateOf(false) }
     var isKendalaSheetOpen by remember { mutableStateOf(false) }
+    var activeKendalaIndex by remember { mutableStateOf<Int?>(null) }
 
     // Confirmation dialog for Over-HM (> max standard)
     var showOverHmConfirmDialog by remember { mutableStateOf(false) }
@@ -1326,66 +1331,258 @@ fun FormReportScreen(
 
                                 // ==========================================
                                 // VALIDASI HM KURANG DARI STANDAR MINIMAL
-                                // Wajib pilih penyebab kendala dari Master Kendala
+                                // DUKUNGAN MULTI-KENDALA & INPUT WAKTU KEJADIAN
                                 // ==========================================
                                 if (isUnderMin) {
                                     Spacer(modifier = Modifier.height(10.dp))
                                     Surface(
-                                        shape = RoundedCornerShape(10.dp),
+                                        shape = RoundedCornerShape(12.dp),
                                         color = Color(0xFFFFFBEB),
                                         border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B)),
-                                        modifier = Modifier.fillMaxWidth()
+                                        modifier = Modifier.fillMaxWidth().testTag("container_multi_kendala")
                                     ) {
-                                        Column(modifier = Modifier.padding(12.dp)) {
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFD97706), modifier = Modifier.size(18.dp))
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text(
-                                                    text = "Wajib Memilih Data Master Kendala",
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontSize = 12.sp,
-                                                    color = Color(0xFF92400E)
-                                                )
+                                        Column(modifier = Modifier.padding(14.dp)) {
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Icon(
+                                                        Icons.Default.Warning,
+                                                        contentDescription = null,
+                                                        tint = Color(0xFFD97706),
+                                                        modifier = Modifier.size(20.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = "Wajib Mencatat Kendala Lapangan",
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 13.sp,
+                                                        color = Color(0xFF92400E)
+                                                    )
+                                                }
+                                                if (realisasiState.totalHambatanMenit > 0) {
+                                                    Surface(
+                                                        shape = RoundedCornerShape(6.dp),
+                                                        color = Color(0xFFFDE68A)
+                                                    ) {
+                                                        Text(
+                                                            text = realisasiState.totalHambatanLabel,
+                                                            fontSize = 11.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = Color(0xFF92400E),
+                                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                                        )
+                                                    }
+                                                }
                                             }
                                             Text(
-                                                text = "HM berjalan kurang dari batas minimal (${realisasiState.hmMinStandar} HM). Pilih penyebab hambatan dari data master kendala Web Admin:",
+                                                text = "HM berjalan (${String.format(Locale.US, "%.1f", realisasiState.hmHarianBerjalan)} HM) kurang dari batas minimal (${realisasiState.hmMinStandar} HM). Catat jenis hambatan dan rentang waktu kejadian secara akurat:",
                                                 fontSize = 11.sp,
                                                 color = Color(0xFF78350F),
-                                                modifier = Modifier.padding(top = 2.dp, bottom = 8.dp)
+                                                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
                                             )
 
-                                            // Searchable Dropdown Master Kendala
-                                            SelectorFieldTrigger(
-                                                label = "Penyebab Kendala (Master Kendala)",
-                                                selectedValue = realisasiState.selectedKendala?.let {
-                                                    "${it.kodeKendala} - ${it.namaKendala} (${it.kategori})"
-                                                },
-                                                placeholder = "Pilih kendala (Hujan, Breakdown, dll)...",
-                                                leadingIcon = Icons.Default.ReportProblem,
-                                                badgeText = realisasiState.selectedKendala?.kategori,
-                                                isError = realisasiState.selectedKendala == null,
-                                                errorMessage = if (realisasiState.selectedKendala == null) "Wajib dipilih untuk membuka tombol kirim" else null,
-                                                testTag = "selector_master_kendala",
-                                                onClick = { isKendalaSheetOpen = true }
-                                            )
+                                            // Daftar Kartu Kendala (Multi-Kendala)
+                                            realisasiState.daftarKendala.forEachIndexed { index, item ->
+                                                Card(
+                                                    shape = RoundedCornerShape(10.dp),
+                                                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                                                    border = androidx.compose.foundation.BorderStroke(
+                                                        1.dp,
+                                                        if (item.isValid) Color(0xFFE2E8F0) else Color(0xFFFCA5A5)
+                                                    ),
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .padding(bottom = 10.dp)
+                                                        .testTag("card_kendala_${index + 1}")
+                                                ) {
+                                                    Column(modifier = Modifier.padding(12.dp)) {
+                                                        // Header Baris Kendala
+                                                        Row(
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                                            verticalAlignment = Alignment.CenterVertically
+                                                        ) {
+                                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                                Surface(
+                                                                    shape = CircleShape,
+                                                                    color = Color(0xFFFEF3C7),
+                                                                    modifier = Modifier.size(22.dp)
+                                                                ) {
+                                                                    Box(contentAlignment = Alignment.Center) {
+                                                                        Text(
+                                                                            text = "${index + 1}",
+                                                                            fontSize = 11.sp,
+                                                                            fontWeight = FontWeight.Bold,
+                                                                            color = Color(0xFF92400E)
+                                                                        )
+                                                                    }
+                                                                }
+                                                                Spacer(modifier = Modifier.width(6.dp))
+                                                                Text(
+                                                                    text = "Kendala #${index + 1}",
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    fontSize = 12.sp,
+                                                                    color = Slate900
+                                                                )
+                                                            }
 
-                                            Spacer(modifier = Modifier.height(8.dp))
+                                                            // Tombol Hapus (Ikon Tempat Sampah) jika baris > 1
+                                                            if (realisasiState.daftarKendala.size > 1) {
+                                                                IconButton(
+                                                                    onClick = { viewModel.removeKendalaRow(index) },
+                                                                    modifier = Modifier
+                                                                        .size(28.dp)
+                                                                        .testTag("btn_hapus_kendala_${index + 1}")
+                                                                ) {
+                                                                    Icon(
+                                                                        imageVector = Icons.Default.DeleteOutline,
+                                                                        contentDescription = "Hapus Kendala #${index + 1}",
+                                                                        tint = Color(0xFFDC2626),
+                                                                        modifier = Modifier.size(18.dp)
+                                                                    )
+                                                                }
+                                                            }
+                                                        }
 
-                                            // Kolom Opsional Catatan Tambahan Kendala
-                                            OutlinedTextField(
-                                                value = realisasiState.catatanKendala,
-                                                onValueChange = { viewModel.setRealisasiCatatanKendala(it) },
-                                                placeholder = { Text("Keterangan spesifik kendala di lapangan (opsional)...", fontSize = 12.sp, color = Slate400) },
-                                                minLines = 2,
-                                                colors = OutlinedTextFieldDefaults.colors(
-                                                    focusedBorderColor = Emerald600,
-                                                    unfocusedBorderColor = Slate200,
-                                                    focusedContainerColor = Color.White,
-                                                    unfocusedContainerColor = Color.White
-                                                ),
+                                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                                        // a. Dropdown Penyebab Kendala (Searchable Selector)
+                                                        SelectorFieldTrigger(
+                                                            label = "Penyebab Kendala (Master Kendala)",
+                                                            selectedValue = item.selectedKendala?.let {
+                                                                "${it.kodeKendala} - ${it.namaKendala} (${it.kategori})"
+                                                            },
+                                                            placeholder = "Pilih penyebab kendala (Hujan, Breakdown, dll)...",
+                                                            leadingIcon = Icons.Default.ReportProblem,
+                                                            badgeText = item.selectedKendala?.kategori,
+                                                            isError = item.selectedKendala == null,
+                                                            errorMessage = if (item.selectedKendala == null) "Penyebab kendala wajib dipilih" else null,
+                                                            testTag = "selector_kendala_${index + 1}",
+                                                            onClick = {
+                                                                activeKendalaIndex = index
+                                                                isKendalaSheetOpen = true
+                                                            }
+                                                        )
+
+                                                        Spacer(modifier = Modifier.height(10.dp))
+
+                                                        // b. Dua Kolom Waktu (Time Picker / Format JJ:MM)
+                                                        Row(
+                                                            modifier = Modifier.fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                                        ) {
+                                                            KendalaTimeInputField(
+                                                                label = "Waktu Mulai Kendala",
+                                                                value = item.waktuMulai,
+                                                                onValueChange = { viewModel.updateKendalaWaktuMulai(index, it) },
+                                                                placeholder = "08:00",
+                                                                isError = item.waktuMulai.isBlank() || KendalaItemFormState.parseTimeToMinutes(item.waktuMulai) == null,
+                                                                errorMessage = if (item.waktuMulai.isNotBlank() && KendalaItemFormState.parseTimeToMinutes(item.waktuMulai) == null) "Format salah (JJ:MM)" else null,
+                                                                modifier = Modifier.weight(1f),
+                                                                testTag = "input_waktu_mulai_${index + 1}"
+                                                            )
+
+                                                            KendalaTimeInputField(
+                                                                label = "Waktu Selesai Kendala",
+                                                                value = item.waktuSelesai,
+                                                                onValueChange = { viewModel.updateKendalaWaktuSelesai(index, it) },
+                                                                placeholder = "10:15",
+                                                                isError = item.waktuSelesai.isBlank() || KendalaItemFormState.parseTimeToMinutes(item.waktuSelesai) == null || (item.waktuMulai.isNotBlank() && !item.isTimeRangeValid),
+                                                                errorMessage = if (item.waktuSelesai.isNotBlank() && KendalaItemFormState.parseTimeToMinutes(item.waktuSelesai) == null) "Format salah (JJ:MM)" else null,
+                                                                modifier = Modifier.weight(1f),
+                                                                testTag = "input_waktu_selesai_${index + 1}"
+                                                            )
+                                                        }
+
+                                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                                        // c. Perhitungan Durasi Otomatis
+                                                        if (item.waktuMulai.isNotBlank() && item.waktuSelesai.isNotBlank()) {
+                                                            if (item.isTimeRangeValid) {
+                                                                Surface(
+                                                                    shape = RoundedCornerShape(8.dp),
+                                                                    color = Color(0xFFFEF3C7),
+                                                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFDE68A)),
+                                                                    modifier = Modifier.fillMaxWidth().testTag("durasi_kendala_${index + 1}")
+                                                                ) {
+                                                                    Row(
+                                                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                                                        verticalAlignment = Alignment.CenterVertically
+                                                                    ) {
+                                                                        Icon(
+                                                                            Icons.Default.Schedule,
+                                                                            contentDescription = null,
+                                                                            tint = Color(0xFFD97706),
+                                                                            modifier = Modifier.size(16.dp)
+                                                                        )
+                                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                                        Text(
+                                                                            text = "Total Hambatan: ${item.durasiLabel} (${item.durasiMenit} Menit)",
+                                                                            fontSize = 12.sp,
+                                                                            fontWeight = FontWeight.Bold,
+                                                                            color = Color(0xFF92400E)
+                                                                        )
+                                                                    }
+                                                                }
+                                                            } else {
+                                                                Surface(
+                                                                    shape = RoundedCornerShape(8.dp),
+                                                                    color = Color(0xFFFEF2F2),
+                                                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFECACA)),
+                                                                    modifier = Modifier.fillMaxWidth().testTag("error_waktu_kendala_${index + 1}")
+                                                                ) {
+                                                                    Row(
+                                                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                                                        verticalAlignment = Alignment.CenterVertically
+                                                                    ) {
+                                                                        Icon(
+                                                                            Icons.Default.ErrorOutline,
+                                                                            contentDescription = null,
+                                                                            tint = Color(0xFFDC2626),
+                                                                            modifier = Modifier.size(16.dp)
+                                                                        )
+                                                                        Spacer(modifier = Modifier.width(6.dp))
+                                                                        Text(
+                                                                            text = "Waktu Selesai harus lebih besar dari Waktu Mulai (JJ:MM)",
+                                                                            fontSize = 11.sp,
+                                                                            fontWeight = FontWeight.Medium,
+                                                                            color = Color(0xFFB91C1C)
+                                                                        )
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+
+                                            // Tombol Tambah Kendala Lain
+                                            OutlinedButton(
+                                                onClick = { viewModel.addKendalaRow() },
                                                 shape = RoundedCornerShape(10.dp),
-                                                modifier = Modifier.fillMaxWidth().testTag("input_catatan_kendala")
-                                            )
+                                                colors = ButtonDefaults.outlinedButtonColors(
+                                                    contentColor = Color(0xFF92400E)
+                                                ),
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B)),
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .testTag("btn_tambah_kendala")
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Add,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = "+ Tambah Kendala Lain",
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 12.sp
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -1677,10 +1874,14 @@ fun FormReportScreen(
 
                         Spacer(modifier = Modifier.height(20.dp))
 
-                        // Validasi penguncian tombol kirim jika HM kurang dari standar dan kendala belum dipilih
-                        val isLockedDueToKendala = realisasiState.hmHarianBerjalan > 0.0 &&
-                                realisasiState.hmHarianBerjalan < realisasiState.hmMinStandar &&
-                                realisasiState.selectedKendala == null
+                        // Validasi penguncian tombol kirim jika HM kurang dari standar dan kendala belum lengkap
+                        val isUnderMinLimit = realisasiState.hmHarianBerjalan > 0.0 &&
+                                realisasiState.hmHarianBerjalan < realisasiState.hmMinStandar
+                        val isLockedDueToKendala = if (isUnderMinLimit) {
+                            realisasiState.daftarKendala.isEmpty() || !realisasiState.daftarKendala.all { it.isValid }
+                        } else {
+                            false
+                        }
 
                         val isSubmitEnabled = !realisasiState.isSubmitting &&
                                 realisasiState.selectedRencana != null &&
@@ -1716,10 +1917,17 @@ fun FormReportScreen(
                                 Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = if (isLockedDueToKendala)
-                                        "Pilih Kendala Terlebih Dahulu"
-                                    else
-                                        "Kirim Realisasi Kerja (Selesai)",
+                                    text = if (isLockedDueToKendala) {
+                                        val firstInvalid = realisasiState.daftarKendala.firstOrNull { !it.isValid }
+                                        when {
+                                            firstInvalid == null -> "Lengkapi Data Kendala"
+                                            firstInvalid.selectedKendala == null -> "Pilih Kendala Terlebih Dahulu"
+                                            !firstInvalid.isTimeRangeValid -> "Waktu Selesai Harus > Waktu Mulai"
+                                            else -> "Lengkapi Data Kendala"
+                                        }
+                                    } else {
+                                        "Kirim Realisasi Kerja (Selesai)"
+                                    },
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp,
                                     color = if (isSubmitEnabled) Color.White else Slate500
@@ -1899,10 +2107,92 @@ fun FormReportScreen(
         isOpen = isKendalaSheetOpen,
         onDismissRequest = { isKendalaSheetOpen = false },
         kendalaList = kendalaList,
-        selectedKendala = realisasiState.selectedKendala,
-        onKendalaSelected = {
-            viewModel.selectRealisasiKendala(it)
+        selectedKendala = activeKendalaIndex?.let { realisasiState.daftarKendala.getOrNull(it)?.selectedKendala },
+        onKendalaSelected = { kendala ->
+            activeKendalaIndex?.let { idx ->
+                viewModel.updateKendalaSelection(idx, kendala)
+            }
             isKendalaSheetOpen = false
         }
     )
+}
+
+@Composable
+fun KendalaTimeInputField(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    placeholder: String = "JJ:MM",
+    isError: Boolean = false,
+    errorMessage: String? = null,
+    testTag: String = ""
+) {
+    val context = LocalContext.current
+    val parsedHour = value.split(":").getOrNull(0)?.toIntOrNull() ?: 8
+    val parsedMinute = value.split(":").getOrNull(1)?.toIntOrNull() ?: 0
+
+    val timePickerDialog = remember(context, value) {
+        TimePickerDialog(
+            context,
+            { _, hourOfDay, minute ->
+                val formatted = String.format(Locale.US, "%02d:%02d", hourOfDay, minute)
+                onValueChange(formatted)
+            },
+            parsedHour.coerceIn(0, 23),
+            parsedMinute.coerceIn(0, 59),
+            true // 24-hour format
+        )
+    }
+
+    Column(modifier = modifier) {
+        Text(
+            text = label,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = if (isError) Color(0xFFDC2626) else Slate700,
+            modifier = Modifier.padding(bottom = 4.dp)
+        )
+        OutlinedTextField(
+            value = value,
+            onValueChange = { input ->
+                val filtered = input.take(5)
+                onValueChange(filtered)
+            },
+            placeholder = { Text(placeholder, fontSize = 12.sp, color = Slate400) },
+            singleLine = true,
+            isError = isError,
+            trailingIcon = {
+                IconButton(
+                    onClick = { timePickerDialog.show() },
+                    modifier = Modifier.size(24.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccessTime,
+                        contentDescription = "Pilih Waktu",
+                        tint = if (isError) Color(0xFFDC2626) else Emerald600,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            },
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = Emerald600,
+                unfocusedBorderColor = if (isError) Color(0xFFEF4444) else Slate200,
+                focusedContainerColor = Color.White,
+                unfocusedContainerColor = Color.White
+            ),
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag(testTag)
+        )
+        if (errorMessage != null) {
+            Text(
+                text = errorMessage,
+                fontSize = 10.sp,
+                color = Color(0xFFDC2626),
+                modifier = Modifier.padding(top = 2.dp, start = 2.dp)
+            )
+        }
+    }
 }
