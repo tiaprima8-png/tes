@@ -99,6 +99,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Schedule WorkManager background auto-retry synchronization
+        com.example.worker.OfflineSyncWorker.scheduleAutoSync(this)
         setContent {
             HeavyTrackTheme {
                 HeavyTrackApp()
@@ -205,7 +207,7 @@ fun HeavyTrackApp() {
                                         )
                                     )
                                     Text(
-                                        text = "Rencana Kerja Unit Civil Engineering",
+                                        text = "Rencana Kerja Civil Engineering",
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             color = Slate500,
                                             fontSize = 10.sp
@@ -349,7 +351,7 @@ fun HeavyTrackApp() {
                                             color = Emerald100
                                         ) {
                                             Text(
-                                                text = supervisorSession?.roleTitle ?: "Civil Engineering Supervisor",
+                                                text = supervisorSession?.roleTitle ?: "Supervisor",
                                                 color = Emerald900,
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 9.sp,
@@ -358,7 +360,7 @@ fun HeavyTrackApp() {
                                         }
                                     }
                                     Text(
-                                        text = "${supervisorSession?.assignedSector ?: "Sektor Operasional Civil"} • Shift ${supervisorSession?.defaultShift ?: "SIANG"} • NIK: ${supervisorSession?.nik ?: "-"}",
+                                        text = "${supervisorSession?.assignedSector ?: "Sektor Operasional"} • Shift ${supervisorSession?.defaultShift ?: "SIANG"} • NIK: ${supervisorSession?.nik ?: "-"}",
                                         fontSize = 10.sp,
                                         color = Slate500
                                     )
@@ -377,7 +379,10 @@ fun HeavyTrackApp() {
                     // Tab 0: Formulir (Rencana & Realisasi)
                     NavigationBarItem(
                         selected = currentTab == 0,
-                        onClick = { currentTab = 0 },
+                        onClick = {
+                            currentTab = 0
+                            viewModel.autoFetchMasterDataOnResume()
+                        },
                         icon = {
                             Icon(
                                 imageVector = Icons.Default.Assignment,

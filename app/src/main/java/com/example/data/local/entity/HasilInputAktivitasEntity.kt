@@ -115,5 +115,11 @@ data class HasilInputAktivitasEntity(
     val isHmAwalCorrected: Boolean = false,
 
     @ColumnInfo(name = "alasan_koreksi_hm")
-    val alasanKoreksiHm: String? = null
+    val alasanKoreksiHm: String? = null,
+
+    @ColumnInfo(name = "client_transaction_id", defaultValue = "''")
+    val clientTransactionId: String = "",
+
+    @ColumnInfo(name = "status_kirim", defaultValue = "'PENDING'")
+    val statusKirim: String = "PENDING"
 )

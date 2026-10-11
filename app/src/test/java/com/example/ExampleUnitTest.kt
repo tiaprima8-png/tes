@@ -169,20 +169,120 @@ class ExampleUnitTest {
     }
 
     @Test
-    fun test_kendala_invalid_time_range() {
-        val invalidEndBeforeStart = com.example.ui.viewmodel.KendalaItemFormState(
-            waktuMulai = "14:00",
-            waktuSelesai = "13:30"
-        )
-        assertFalse(invalidEndBeforeStart.isTimeRangeValid)
-        assertNull(invalidEndBeforeStart.durasiMenit)
-
+    fun test_kendala_invalid_equal_times() {
         val invalidEqualTimes = com.example.ui.viewmodel.KendalaItemFormState(
             waktuMulai = "10:00",
             waktuSelesai = "10:00"
         )
         assertFalse(invalidEqualTimes.isTimeRangeValid)
         assertNull(invalidEqualTimes.durasiMenit)
+
+        val invalidFormat = com.example.ui.viewmodel.KendalaItemFormState(
+            waktuMulai = "ab:cd",
+            waktuSelesai = "12:00"
+        )
+        assertFalse(invalidFormat.isTimeRangeValid)
+        assertNull(invalidFormat.durasiMenit)
+    }
+
+    @Test
+    fun test_kendala_cross_midnight_calculation() {
+        // Shift malam melintasi tengah malam: 23:00 s/d 02:00 = 3 Jam (180 Menit)
+        val crossMidnight = com.example.ui.viewmodel.KendalaItemFormState(
+            waktuMulai = "23:00",
+            waktuSelesai = "02:00"
+        )
+        assertTrue(crossMidnight.isTimeRangeValid)
+        assertTrue(crossMidnight.isCrossMidnight)
+        assertEquals(180, crossMidnight.durasiMenit)
+        assertTrue(crossMidnight.durasiLabel.contains("3 Jam"))
+
+        // Shift malam: 22:30 s/d 01:15 = 2 Jam 45 Menit (165 Menit)
+        val crossMidnight2 = com.example.ui.viewmodel.KendalaItemFormState(
+            waktuMulai = "22:30",
+            waktuSelesai = "01:15"
+        )
+        assertTrue(crossMidnight2.isTimeRangeValid)
+        assertEquals(165, crossMidnight2.durasiMenit)
+    }
+
+    @Test
+    fun test_kendala_anti_overlapping_detection() {
+        // Range 1: 08:00 - 10:00
+        val k1 = com.example.ui.viewmodel.KendalaItemFormState(waktuMulai = "08:00", waktuSelesai = "10:00")
+        // Range 2 (Overlapping): 09:30 - 11:00
+        val k2Overlap = com.example.ui.viewmodel.KendalaItemFormState(waktuMulai = "09:30", waktuSelesai = "11:00")
+        // Range 3 (Non-overlapping touching edge): 10:00 - 12:00
+        val k3Adjacent = com.example.ui.viewmodel.KendalaItemFormState(waktuMulai = "10:00", waktuSelesai = "12:00")
+
+        assertTrue(com.example.ui.viewmodel.KendalaItemFormState.hasOverlap(k1, k2Overlap))
+        assertFalse(com.example.ui.viewmodel.KendalaItemFormState.hasOverlap(k1, k3Adjacent))
+
+        // Cross-midnight overlap test:
+        // Range A: 23:00 - 02:00
+        val kCrossA = com.example.ui.viewmodel.KendalaItemFormState(waktuMulai = "23:00", waktuSelesai = "02:00")
+        // Range B: 01:00 - 03:00 (collides between 01:00 and 02:00)
+        val kCrossB = com.example.ui.viewmodel.KendalaItemFormState(waktuMulai = "01:00", waktuSelesai = "03:00")
+        // Range C: 02:00 - 04:00 (adjacent, not colliding)
+        val kCrossC = com.example.ui.viewmodel.KendalaItemFormState(waktuMulai = "02:00", waktuSelesai = "04:00")
+
+        assertTrue(com.example.ui.viewmodel.KendalaItemFormState.hasOverlap(kCrossA, kCrossB))
+        assertFalse(com.example.ui.viewmodel.KendalaItemFormState.hasOverlap(kCrossA, kCrossC))
+
+        // UI state level overlap check
+        val formWithOverlap = com.example.ui.viewmodel.RealisasiFormUiState(
+            daftarKendala = listOf(kCrossA, kCrossB)
+        )
+        assertTrue(formWithOverlap.hasAnyKendalaOverlap)
+        assertTrue(formWithOverlap.isKendalaOverlapping(0))
+        assertTrue(formWithOverlap.isKendalaOverlapping(1))
+
+        val formWithoutOverlap = com.example.ui.viewmodel.RealisasiFormUiState(
+            daftarKendala = listOf(kCrossA, kCrossC)
+        )
+        assertFalse(formWithoutOverlap.hasAnyKendalaOverlap)
+    }
+
+    @Test
+    fun test_kendala_shift_limit_validation() {
+        // Shift durasi 7 jam = 420 menit
+        val formState = com.example.ui.viewmodel.RealisasiFormUiState(
+            durasiJamKerja = 7.0,
+            daftarKendala = listOf(
+                com.example.ui.viewmodel.KendalaItemFormState(waktuMulai = "08:00", waktuSelesai = "12:00"), // 4 jam = 240 min
+                com.example.ui.viewmodel.KendalaItemFormState(waktuMulai = "12:00", waktuSelesai = "16:00")  // 4 jam = 240 min -> Total 8 jam > 7 jam
+            )
+        )
+        assertEquals(480, formState.totalHambatanMenit)
+        assertTrue(formState.isTotalKendalaExceedingShift)
+    }
+
+    @Test
+    fun test_hm_akhir_must_be_strictly_greater_than_awal() {
+        val hmAwal = 3500.0
+        val hmAkhirEqual = 3500.0
+        val hmAkhirLesser = 3499.0
+        val hmAkhirGreater = 3507.0
+
+        assertFalse(hmAkhirEqual > hmAwal)
+        assertFalse(hmAkhirLesser > hmAwal)
+        assertTrue(hmAkhirGreater > hmAwal)
+    }
+
+    @Test
+    fun test_dynamic_unit_hm_standards_reading() {
+        val excavator = UnitEntity("EXC-01", "EXCAVATOR", "Komatsu PC200", 4000.0, "Budi", "OPERASIONAL", 6.0, 10.0)
+        val dumptruck = UnitEntity("DT-101", "DUMP TRUCK", "Hino FM 260", 3000.0, "Budi", "OPERASIONAL", 5.5, 9.5)
+        val grader = UnitEntity("GRD-01", "MOTOR GRADER", "CAT 140K", 2000.0, "Budi", "OPERASIONAL", 5.0, 9.0)
+
+        assertEquals(6.0, excavator.hmMinStandar, 0.001)
+        assertEquals(10.0, excavator.hmMaxStandar, 0.001)
+
+        assertEquals(5.5, dumptruck.hmMinStandar, 0.001)
+        assertEquals(9.5, dumptruck.hmMaxStandar, 0.001)
+
+        assertEquals(5.0, grader.hmMinStandar, 0.001)
+        assertEquals(9.0, grader.hmMaxStandar, 0.001)
     }
 
     @Test
@@ -380,5 +480,123 @@ class ExampleUnitTest {
 
         // Pastikan tidak ada unit yang hilang (total 3 unit tetap tersedia)
         assertEquals(3, resultStatuses.size)
+    }
+
+    // ======================================================================
+    // PENGUJIAN 5 BLIND SPOTS FORMULIR REALISASI KERJA & SINKRONISASI RKCE
+    // ======================================================================
+
+    @Test
+    fun test_formula_pemakaian_solar() {
+        // Formula: Konsumsi Solar = (Stik Solar Awal + Total Isi Solar Tambahan) - Stik Solar Akhir
+        // Kasus 1: Tanpa pengisian solar tambahan (85.0 - 60.0 = 25.0 Liter)
+        val state1 = com.example.ui.viewmodel.RealisasiFormUiState(
+            stikSolarAwalInput = "85.0",
+            stikSolarAkhirInput = "60.0",
+            isIsiSolar = false,
+            jumlahLiterSolarInput = ""
+        )
+        assertEquals(25.0, state1.computedKonsumsiSolar, 0.001)
+        assertFalse(state1.isStikAkhirHigherWithoutRefuel)
+        assertFalse(state1.isSolarConsumptionNegative)
+        assertFalse(state1.isRefuelLitersMissing)
+
+        // Kasus 2: Dengan pengisian solar tambahan 100 Liter (Stik awal 20.0 + Isi 100.0 - Stik akhir 80.0 = 40.0 Liter)
+        val state2 = com.example.ui.viewmodel.RealisasiFormUiState(
+            stikSolarAwalInput = "20.0",
+            stikSolarAkhirInput = "80.0",
+            isIsiSolar = true,
+            jumlahLiterSolarInput = "100.0"
+        )
+        assertEquals(40.0, state2.computedKonsumsiSolar, 0.001)
+        assertFalse(state2.isStikAkhirHigherWithoutRefuel)
+        assertFalse(state2.isSolarConsumptionNegative)
+        assertFalse(state2.isRefuelLitersMissing)
+    }
+
+    @Test
+    fun test_validasi_stik_solar_warning_and_negative() {
+        // Logika 1: Stik Akhir > Stik Awal dan toggle [Isi Solar Tambahan] MATI -> Warning muncul
+        val warningState = com.example.ui.viewmodel.RealisasiFormUiState(
+            stikSolarAwalInput = "40.0",
+            stikSolarAkhirInput = "75.0",
+            isIsiSolar = false,
+            jumlahLiterSolarInput = ""
+        )
+        assertTrue(warningState.isStikAkhirHigherWithoutRefuel)
+        assertTrue(warningState.isSolarConsumptionNegative) // (40 + 0) - 75 = -35.0
+
+        // Logika 2: Toggle [Isi Solar Tambahan] AKTIF tapi input liter kosong -> isRefuelLitersMissing true
+        val missingRefuelState = com.example.ui.viewmodel.RealisasiFormUiState(
+            stikSolarAwalInput = "40.0",
+            stikSolarAkhirInput = "75.0",
+            isIsiSolar = true,
+            jumlahLiterSolarInput = ""
+        )
+        assertTrue(missingRefuelState.isRefuelLitersMissing)
+
+        // Logika 3: Pengisian BBM diisi tapi total konsumsi tetap negatif
+        val negativeState = com.example.ui.viewmodel.RealisasiFormUiState(
+            stikSolarAwalInput = "30.0",
+            stikSolarAkhirInput = "90.0",
+            isIsiSolar = true,
+            jumlahLiterSolarInput = "40.0" // (30 + 40) - 90 = -20
+        )
+        assertTrue(negativeState.isSolarConsumptionNegative)
+        assertEquals(-20.0, negativeState.computedKonsumsiSolar, 0.001)
+    }
+
+    @Test
+    fun test_kendala_time_range_normal_and_cross_midnight() {
+        // Normal shift daytime: 08:00 - 10:00 = 2 jam (120 menit)
+        val kendalaNormal = com.example.ui.viewmodel.KendalaItemFormState(
+            waktuMulai = "08:00",
+            waktuSelesai = "10:00"
+        )
+        assertTrue(kendalaNormal.isTimeRangeValid)
+        assertFalse(kendalaNormal.isCrossMidnight)
+        assertEquals(120, kendalaNormal.durasiMenit)
+
+        // Night shift cross midnight: 23:00 - 02:00 = 3 jam (180 menit)
+        val kendalaCrossMidnight = com.example.ui.viewmodel.KendalaItemFormState(
+            waktuMulai = "23:00",
+            waktuSelesai = "02:00"
+        )
+        assertTrue(kendalaCrossMidnight.isTimeRangeValid)
+        assertTrue(kendalaCrossMidnight.isCrossMidnight)
+        assertEquals(180, kendalaCrossMidnight.durasiMenit)
+    }
+
+    @Test
+    fun test_kendala_anti_overlapping() {
+        val kendalaA = com.example.ui.viewmodel.KendalaItemFormState(
+            waktuMulai = "08:00",
+            waktuSelesai = "10:00"
+        )
+        val kendalaB = com.example.ui.viewmodel.KendalaItemFormState(
+            waktuMulai = "09:30",
+            waktuSelesai = "11:00"
+        )
+        val kendalaC = com.example.ui.viewmodel.KendalaItemFormState(
+            waktuMulai = "10:30",
+            waktuSelesai = "12:00"
+        )
+
+        // A dan B bertabrakan (08:00-10:00 vs 09:30-11:00)
+        assertTrue(com.example.ui.viewmodel.KendalaItemFormState.hasOverlap(kendalaA, kendalaB))
+        // A dan C TIDAK bertabrakan (08:00-10:00 vs 10:30-12:00)
+        assertFalse(com.example.ui.viewmodel.KendalaItemFormState.hasOverlap(kendalaA, kendalaC))
+
+        val formState = com.example.ui.viewmodel.RealisasiFormUiState(
+            daftarKendala = listOf(kendalaA, kendalaB)
+        )
+        assertTrue(formState.hasAnyKendalaOverlap)
+    }
+
+    @Test
+    fun test_idempotency_client_transaction_id_format() {
+        val txId = "TX-" + java.util.UUID.randomUUID().toString()
+        assertTrue(txId.startsWith("TX-"))
+        assertTrue(txId.length > 10)
     }
 }

@@ -236,7 +236,7 @@ fun PhotoProofCard(
                             fontSize = 14.sp
                         )
                         Text(
-                            text = "Mengoptimalkan resolusi (max 1280px) & ukuran (100–250 KB)",
+                            text = "Mengoptimalkan resolusi (max 1080px) & kompresi JPEG 75-80% (anti-OOM)",
                             color = Slate500,
                             fontSize = 12.sp,
                             modifier = Modifier.padding(top = 2.dp)

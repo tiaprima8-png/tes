@@ -8,7 +8,7 @@ data class Supervisor(
     val defaultShift: String,
     val assignedSector: String,
     val phone: String,
-    val roleTitle: String = "Civil Engineering Supervisor"
+    val roleTitle: String = "Supervisor"
 )
 
 object SupervisorDirectory {

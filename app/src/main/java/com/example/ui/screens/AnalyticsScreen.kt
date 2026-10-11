@@ -124,14 +124,14 @@ fun AnalyticsScreen(
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
                                 Text(
-                                    text = "Analitik Operasional Fleet",
+                                    text = "Analitik Operasional",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = Slate900
                                     )
                                 )
                                 Text(
-                                    text = "Armada Pengawas: $activeSupervisor",
+                                    text = "Pengawas: $activeSupervisor",
                                     style = MaterialTheme.typography.bodySmall.copy(color = Slate500)
                                 )
                             }
@@ -281,6 +281,9 @@ fun AnalyticsScreen(
         // 2. TOP KPI CARDS (Agregasi Sesuai Filter)
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                val totalOutputVolumeAll = analyticsState.activitySummaries.sumOf { it.totalOutputVolume }
+
+                // Baris 1: Total Solar & Total HM Berjalan
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -308,83 +311,124 @@ fun AnalyticsScreen(
                     )
                 }
 
-                // KPI 3: Rata-rata Rasio Konsumsi Solar (Liter/HM)
+                // Baris 2: Panel Terpadu Rata-Rata Rasio Solar & Total Hasil Kerja
                 Card(
                     shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
-                    modifier = Modifier.fillMaxWidth().testTag("kpi_rasio_solar")
+                    modifier = Modifier.fillMaxWidth().testTag("card_rasio_solar_hasil_kerja")
                 ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(Emerald50, RoundedCornerShape(10.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(Icons.Default.Timeline, contentDescription = null, tint = Emerald600, modifier = Modifier.size(22.dp))
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text("Rata-rata Rasio Konsumsi Solar", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Slate900)
-                                Text("Total Liter BBM dibagi Total HM Berjalan", fontSize = 11.sp, color = Slate500)
-                            }
-                        }
-
-                        Surface(shape = RoundedCornerShape(10.dp), color = Emerald100) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Text(
-                                text = "${String.format(Locale.US, "%.2f", analyticsState.avgFuelConsumptionRatio)} L/HM",
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Emerald900,
-                                fontSize = 15.sp,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                text = "Efisiensi BBM & Total Hasil Kerja",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                color = Slate900
                             )
-                        }
-                    }
-                }
-
-                // KPI 4: Total Volume Hasil Kerja Seluruh Aktivitas
-                val totalOutputVolumeAll = analyticsState.activitySummaries.sumOf { it.totalOutputVolume }
-                Card(
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
-                    modifier = Modifier.fillMaxWidth().testTag("kpi_volume_output")
-                ) {
-                    Row(
-                        modifier = Modifier.padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(40.dp)
-                                    .background(Emerald50, RoundedCornerShape(10.dp)),
-                                contentAlignment = Alignment.Center
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = Emerald50
                             ) {
-                                Icon(Icons.Default.PrecisionManufacturing, contentDescription = null, tint = Emerald600, modifier = Modifier.size(22.dp))
-                            }
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column {
-                                Text("Total Volume Hasil Kerja", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Slate900)
-                                Text("Akumulasi volume seluruh aktivitas lapangan", fontSize = 11.sp, color = Slate500)
+                                Text(
+                                    text = "${analyticsState.activitySummaries.size} Aktivitas",
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Emerald700,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
                             }
                         }
 
-                        Surface(shape = RoundedCornerShape(10.dp), color = Emerald100) {
-                            Text(
-                                text = "${String.format(Locale.US, "%.1f", totalOutputVolumeAll)} Vol",
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Emerald900,
-                                fontSize = 15.sp,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
-                            )
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            // Box Left: Rata-Rata Rasio Solar
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFFFFFBEB),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFDE68A)),
+                                modifier = Modifier.weight(1f).testTag("kpi_rasio_solar")
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            Icons.Default.LocalGasStation,
+                                            contentDescription = null,
+                                            tint = Color(0xFFD97706),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Rasio Konsumsi Solar",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color(0xFF92400E)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "${String.format(Locale.US, "%.2f", analyticsState.avgFuelConsumptionRatio)} L/HM",
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Color(0xFF78350F),
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                    Text(
+                                        text = "Rumus: ${String.format(Locale.US, "%.0f", analyticsState.totalSolarLiters)} L ÷ ${String.format(Locale.US, "%.1f", analyticsState.totalHmRunning)} HM",
+                                        fontSize = 10.sp,
+                                        color = Color(0xFFB45309)
+                                    )
+                                }
+                            }
+
+                            // Box Right: Total Hasil Kerja
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Emerald50,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Emerald100),
+                                modifier = Modifier.weight(1f).testTag("kpi_volume_output")
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            Icons.Default.PrecisionManufacturing,
+                                            contentDescription = null,
+                                            tint = Emerald700,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Total Hasil Kerja",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Emerald900
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(6.dp))
+                                    Text(
+                                        text = "${String.format(Locale.US, "%.1f", totalOutputVolumeAll)} Vol",
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = Emerald900,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                    Spacer(modifier = Modifier.height(3.dp))
+                                    Text(
+                                        text = "Total Capaian Hasil Produksi",
+                                        fontSize = 10.sp,
+                                        color = Emerald700
+                                    )
+                                }
+                            }
                         }
                     }
                 }

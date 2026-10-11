@@ -31,6 +31,7 @@ import com.example.data.remote.UnitPayload
 import com.example.data.repository.HeavyTrackRepository
 import com.example.data.repository.SyncLogItem
 import com.example.util.ImageCompressor
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -181,6 +182,11 @@ class HeavyTrackViewModel(
         .flatMapLatest { supervisor -> repository.getReportsForSupervisor(supervisor) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Hasil Realisasi list
+    val hasilAktivitasList: StateFlow<List<HasilInputAktivitasEntity>> = _activeSupervisor
+        .flatMapLatest { supervisor -> repository.getHasilForSupervisor(supervisor) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // Active Rencana Kerja (shift today / active and NOT yet realized)
     val activeRencanaList: StateFlow<List<RencanaKerjaEntity>> = _activeSupervisor
         .flatMapLatest { supervisor -> repository.getActiveRencanaForSupervisor(supervisor) }
@@ -195,11 +201,18 @@ class HeavyTrackViewModel(
         units,
         allRencanaList
     ) { unitList, rencanaList ->
-        val todayStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
-        val yesterdayStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(System.currentTimeMillis() - 24 * 60 * 60 * 1000L))
+        val nowMs = System.currentTimeMillis()
+        val oneDayMs = 24 * 60 * 60 * 1000L
+        val todayStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(nowMs))
+        val yesterdayStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(nowMs - oneDayMs))
+        val twoDaysAgoStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(nowMs - 2 * oneDayMs))
 
         unitList.map { u ->
-            // Rencana kerja unit untuk kemarin & hari ini
+            // Rencana kerja unit untuk H-2, H-1 (Kemarin), & Hari Ini
+            val plansTwoDaysAgo = rencanaList.filter {
+                it.kodeUnit.equals(u.unitCode, ignoreCase = true) &&
+                it.tanggalFormat == twoDaysAgoStr
+            }
             val plansYesterday = rencanaList.filter {
                 it.kodeUnit.equals(u.unitCode, ignoreCase = true) &&
                 it.tanggalFormat == yesterdayStr
@@ -210,15 +223,26 @@ class HeavyTrackViewModel(
             }
 
             when {
+                plansTwoDaysAgo.isEmpty() -> {
+                    // Kasus A1 (Backlog H-2): Wajib diisi terlebih dahulu
+                    UnitPlanStatus(
+                        unit = u,
+                        targetDate = twoDaysAgoStr,
+                        isBacklog = true,
+                        isSusulan = false,
+                        existingPlanCount = plansToday.size,
+                        labelText = "${u.unitCode} [H-2 ($twoDaysAgoStr): Belum Diisi]"
+                    )
+                }
                 plansYesterday.isEmpty() -> {
-                    // Kasus A (Backlog Kemarin): Wajib diisi dulu
+                    // Kasus A2 (Backlog H-1 Kemarin): Wajib diisi
                     UnitPlanStatus(
                         unit = u,
                         targetDate = yesterdayStr,
                         isBacklog = true,
                         isSusulan = false,
                         existingPlanCount = plansToday.size,
-                        labelText = "${u.unitCode} [Tgl Kemarin: Belum Diisi]"
+                        labelText = "${u.unitCode} [H-1 ($yesterdayStr): Belum Diisi]"
                     )
                 }
                 plansToday.isEmpty() -> {
@@ -229,7 +253,7 @@ class HeavyTrackViewModel(
                         isBacklog = false,
                         isSusulan = false,
                         existingPlanCount = 0,
-                        labelText = "${u.unitCode} [Hari Ini: Belum Ada Rencana]"
+                        labelText = "${u.unitCode} [Hari Ini ($todayStr): Belum Ada Rencana]"
                     )
                 }
                 else -> {
@@ -248,9 +272,10 @@ class HeavyTrackViewModel(
         }.sortedWith(
             compareBy<UnitPlanStatus> {
                 when {
-                    it.isBacklog -> 0 // Kasus A di atas (prioritas backlog)
-                    !it.isSusulan -> 1 // Kasus B di tengah
-                    else -> 2 // Kasus C berikutnya
+                    it.isBacklog && it.targetDate == twoDaysAgoStr -> 0 // Prioritas 1: Backlog H-2 (Paling lama)
+                    it.isBacklog -> 1 // Prioritas 2: Backlog H-1
+                    !it.isSusulan -> 2 // Prioritas 3: Hari ini baru
+                    else -> 3 // Prioritas 4: Hari ini susulan
                 }
             }.thenBy { it.unit.unitCode }
         )
@@ -264,6 +289,54 @@ class HeavyTrackViewModel(
     // Unsynced count
     val unsyncedCount: StateFlow<Int> = repository.getUnsyncedCount()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    // ==========================================
+    // 4. KARTU RINGKASAN PROGRES HARIAN (SHIFT PROGRESS TRACKER)
+    // ==========================================
+    val fleetShiftProgress: StateFlow<FleetShiftProgressState> = combine(
+        units,
+        allRencanaList,
+        hasilList
+    ) { unitList, rencanaList, realisasiList ->
+        val todayStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
+        val plansToday = rencanaList.filter { it.tanggalFormat == todayStr }
+        val resultsToday = realisasiList.filter { it.tanggalFormat == todayStr }
+
+        // Unit yang masuk dalam perhitungan: semua unit yang beroperasi / memiliki rencana hari ini, atau seluruh unit terdaftar
+        val baseUnits = if (unitList.isNotEmpty()) unitList else plansToday.map {
+            UnitEntity(unitCode = it.kodeUnit, unitType = "HEAVY", brandModel = "Standard", lastHm = 0.0, supervisorAssigned = "", status = it.statusUnit)
+        }.distinctBy { it.unitCode }
+
+        val items = baseUnits.map { u ->
+            val uPlans = plansToday.filter { it.kodeUnit.equals(u.unitCode, ignoreCase = true) }
+            val uResults = resultsToday.filter { it.kodeUnit.equals(u.unitCode, ignoreCase = true) }
+            // Unit terealisasi jika memiliki hasil realisasi hari ini atau rencana telah ditandai isRealized
+            val isRealized = uResults.isNotEmpty() || uPlans.any { it.isRealized }
+            val latestPlan = uPlans.maxByOrNull { it.createdAt }
+            UnitShiftProgressItem(
+                unitCode = u.unitCode,
+                isRealized = isRealized,
+                rencanaCount = uPlans.size,
+                latestActivity = latestPlan?.namaAktivitas?.ifBlank { latestPlan.sapCode } ?: u.unitType,
+                latestOperator = latestPlan?.operator ?: "",
+                spk = latestPlan?.nomorSpk ?: ""
+            )
+        }
+
+        val total = items.size
+        val realized = items.count { it.isRealized }
+        val pending = total - realized
+        val pct = if (total > 0) (realized.toFloat() / total.toFloat()) else 0f
+
+        FleetShiftProgressState(
+            realizedUnitsCount = realized,
+            totalUnitsCount = total,
+            pendingUnitsCount = pending,
+            progressPercentage = pct,
+            isAllCompleted = total > 0 && realized == total,
+            unitItems = items
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), FleetShiftProgressState())
 
     // ==========================================
     // TAHAP FORMULIR (SUB-TAB: 0 RENCANA, 1 REALISASI)
@@ -439,6 +512,34 @@ class HeavyTrackViewModel(
                 _uiEvents.emit(UiMessage.Success("Auto-Sync: $msg"))
             }.onFailure { err ->
                 _uiEvents.emit(UiMessage.Info("Offline: ${err.message ?: "Data dimuat dari SQLite lokal"}"))
+            }
+        }
+    }
+
+    // 5. AUTO-FETCH DATA MASTER SAAT HALAMAN DIBUKA (ONRESUME / ONENTER)
+    fun autoFetchMasterDataOnResume() {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                // Non-blocking background sync: updates master kendala & unit standards (hm_min_standar / hm_max_standar)
+                repository.fetchMasterData(_activeSupervisor.value)
+
+                // If a unit is currently selected in form, refresh dynamic standards from the latest DB
+                val currentSelectedUnitCode = _realisasiFormState.value.selectedRencana?.kodeUnit
+                if (!currentSelectedUnitCode.isNullOrBlank()) {
+                    val updatedDbUnit = repository.getUnitByCode(currentSelectedUnitCode)
+                    if (updatedDbUnit != null) {
+                        val state = _realisasiFormState.value
+                        val cleanAkhir = state.hmAkhirInput.replace(',', '.').toDoubleOrNull()
+                        val (isValid, running, errorMsg) = validateHm(state.hmAwal, cleanAkhir)
+                        _realisasiFormState.value = state.copy(
+                            hmMinStandar = updatedDbUnit.hmMinStandar,
+                            hmMaxStandar = updatedDbUnit.hmMaxStandar,
+                            isUnderMinStandard = cleanAkhir != null && isValid && running > 0.0 && running < updatedDbUnit.hmMinStandar
+                        )
+                    }
+                }
+            } catch (_: Exception) {
+                // Fallback non-blocking: data lokal SQLite tetap aktif
             }
         }
     }
@@ -709,7 +810,17 @@ class HeavyTrackViewModel(
     // ==========================================
     fun selectRencanaForRealisasi(rencana: RencanaKerjaEntity) {
         val unitEntity = units.value.find { it.unitCode.equals(rencana.kodeUnit, ignoreCase = true) }
-        val hmAwalVal = unitEntity?.lastHm ?: 0.0
+
+        // 2. KESINAMBUNGAN HM PADA MULTI-RENCANA DALAM 1 UNIT (SEQUENTIAL HM)
+        // Cek riwayat realisasi in-memory pada unit yang sama di shift/sesi ini
+        val memoryLatestHasil = hasilAktivitasList.value
+            .filter { it.kodeUnit.equals(rencana.kodeUnit, ignoreCase = true) }
+            .maxByOrNull { it.createdAt }
+        val isSeqMem = memoryLatestHasil != null && memoryLatestHasil.hmAkhir > 0.0
+        val sequentialAwalMem = if (isSeqMem) memoryLatestHasil!!.hmAkhir else null
+        val hmAwalVal = sequentialAwalMem ?: unitEntity?.lastHm ?: 0.0
+        val sequentialTextMem = if (isSeqMem) "HM Akhir Rencana Sebelumnya: ${String.format(Locale.US, "%.1f", hmAwalVal)}" else ""
+
         val minStd = unitEntity?.hmMinStandar ?: 6.0
         val maxStd = unitEntity?.hmMaxStandar ?: 10.0
 
@@ -748,6 +859,9 @@ class HeavyTrackViewModel(
             hmAwalInput = String.format(Locale.US, "%.1f", hmAwalVal),
             isHmAwalCorrected = false,
             alasanKoreksiHm = "",
+            isSequentialHmFromPreviousPlan = isSeqMem,
+            sequentialSourcePlanText = sequentialTextMem,
+            clientTransactionId = "TX-" + java.util.UUID.randomUUID().toString(),
             hmAkhirInput = "",
             hmHarianBerjalan = 0.0,
             isHmValid = true,
@@ -763,6 +877,100 @@ class HeavyTrackViewModel(
             jumlahLiterSolarInput = "",
             pemakaianSolarOtomatis = 0.0
         )
+
+        // Query database lokal secara asinkron untuk memastikan kesinambungan HM berantai dan auto-restore draft
+        viewModelScope.launch {
+            val dbUnit = repository.getUnitByCode(rencana.kodeUnit)
+            val latestRealizedHm = repository.getLatestRealizedHmForUnit(rencana.kodeUnit)
+            val isSeqDb = latestRealizedHm != null && latestRealizedHm > 0.0 && (dbUnit == null || latestRealizedHm >= dbUnit.lastHm)
+            val resolvedAwal = latestRealizedHm ?: dbUnit?.lastHm ?: hmAwalVal
+            val seqTextDb = if (isSeqDb) "HM Akhir Rencana Sebelumnya: ${String.format(Locale.US, "%.1f", resolvedAwal)}" else ""
+
+            val curState = _realisasiFormState.value
+            val effectiveMinStd = dbUnit?.hmMinStandar ?: curState.hmMinStandar
+            val effectiveMaxStd = dbUnit?.hmMaxStandar ?: curState.hmMaxStandar
+
+            // Cek apakah terdapat Auto-Save Draft di database lokal untuk rencana/unit ini
+            val savedDraft = repository.getDraftForRencana(rencana.id)
+            if (savedDraft != null) {
+                val restoredAwal = if (savedDraft.isHmAwalCorrected) {
+                    savedDraft.hmAwalInput.replace(',', '.').toDoubleOrNull() ?: resolvedAwal
+                } else resolvedAwal
+
+                val cleanAkhir = savedDraft.hmAkhirInput.replace(',', '.').toDoubleOrNull()
+                val (isValid, running, errorMsg) = validateHm(restoredAwal, cleanAkhir)
+
+                val restoredKendala = if (savedDraft.daftarKendalaJson.isNotBlank()) {
+                    val payloads = KendalaJsonConverter.fromJson(savedDraft.daftarKendalaJson)
+                    if (payloads.isNotEmpty()) {
+                        payloads.map { p ->
+                            val kndCode = p.id_kendala ?: ""
+                            val kndName = p.nama_kendala ?: ""
+                            val matched = kendalaList.value.find { it.kodeKendala.equals(kndCode, ignoreCase = true) }
+                            KendalaItemFormState(
+                                selectedKendala = matched ?: KendalaEntity(
+                                    kodeKendala = kndCode,
+                                    namaKendala = kndName,
+                                    kategori = "OPERASIONAL"
+                                ),
+                                waktuMulai = p.waktu_mulai ?: "",
+                                waktuSelesai = p.waktu_selesai ?: ""
+                            )
+                        }
+                    } else listOf(KendalaItemFormState())
+                } else listOf(KendalaItemFormState())
+
+                _realisasiFormState.value = curState.copy(
+                    hmMinStandar = effectiveMinStd,
+                    hmMaxStandar = effectiveMaxStd,
+                    hmAwalOriginal = resolvedAwal,
+                    hmAwal = restoredAwal,
+                    hmAwalInput = savedDraft.hmAwalInput.ifBlank { String.format(Locale.US, "%.1f", restoredAwal) },
+                    isHmAwalCorrected = savedDraft.isHmAwalCorrected,
+                    alasanKoreksiHm = savedDraft.alasanKoreksiHm,
+                    hmAkhirInput = savedDraft.hmAkhirInput,
+                    stikSolarAwalInput = savedDraft.stikSolarAwalInput,
+                    stikSolarAkhirInput = savedDraft.stikSolarAkhirInput,
+                    isIsiSolar = savedDraft.isIsiSolar,
+                    jumlahLiterSolarInput = savedDraft.jumlahLiterSolarInput,
+                    daftarKendala = restoredKendala,
+                    selectedKendala = restoredKendala.firstOrNull()?.selectedKendala,
+                    hasilKerjaInput = savedDraft.hasilKerjaInput,
+                    keterangan = savedDraft.keterangan,
+                    photoPath = savedDraft.photoPath,
+                    photoBase64 = savedDraft.photoBase64,
+                    photoSizeKb = savedDraft.photoSizeKb,
+                    photoDimensions = savedDraft.photoDimensions,
+                    clientTransactionId = savedDraft.clientTransactionId.ifBlank { curState.clientTransactionId },
+                    isSequentialHmFromPreviousPlan = isSeqDb || curState.isSequentialHmFromPreviousPlan,
+                    sequentialSourcePlanText = if (seqTextDb.isNotBlank()) seqTextDb else curState.sequentialSourcePlanText,
+                    isHmValid = isValid,
+                    hmHarianBerjalan = running,
+                    hmErrorMessage = errorMsg,
+                    isUnderMinStandard = cleanAkhir != null && isValid && running > 0.0 && running < effectiveMinStd
+                )
+                recalculateSolarConsumption()
+                _uiEvents.emit(UiMessage.Info("Draft inputan formulir ${rencana.kodeUnit} berhasil dipulihkan otomatis."))
+            } else {
+                val updatedAwal = if (!curState.isHmAwalCorrected) resolvedAwal else curState.hmAwal
+                val cleanAkhir = curState.hmAkhirInput.replace(',', '.').toDoubleOrNull()
+                val (isValid, running, errorMsg) = validateHm(updatedAwal, cleanAkhir)
+
+                _realisasiFormState.value = curState.copy(
+                    hmMinStandar = effectiveMinStd,
+                    hmMaxStandar = effectiveMaxStd,
+                    hmAwalOriginal = resolvedAwal,
+                    hmAwal = updatedAwal,
+                    hmAwalInput = if (!curState.isHmAwalCorrected) String.format(Locale.US, "%.1f", resolvedAwal) else curState.hmAwalInput,
+                    isSequentialHmFromPreviousPlan = isSeqDb || curState.isSequentialHmFromPreviousPlan,
+                    sequentialSourcePlanText = if (seqTextDb.isNotBlank()) seqTextDb else curState.sequentialSourcePlanText,
+                    isHmValid = isValid,
+                    hmHarianBerjalan = running,
+                    hmErrorMessage = errorMsg,
+                    isUnderMinStandard = cleanAkhir != null && isValid && running > 0.0 && running < effectiveMinStd
+                )
+            }
+        }
     }
 
     // Fitur Koreksi Manual HM Awal & Logika Pergantian Shift
@@ -871,6 +1079,7 @@ class HeavyTrackViewModel(
             daftarKendala = kendalaList
         )
         recalculateSolarConsumption()
+        autoSaveDraftCurrentRealisasi()
     }
 
     fun quickAddRealisasiHours(hours: Double) {
@@ -885,6 +1094,7 @@ class HeavyTrackViewModel(
             stikSolarAwalInput = input.replace(',', '.')
         )
         recalculateSolarConsumption()
+        autoSaveDraftCurrentRealisasi()
     }
 
     fun setRealisasiStikAkhir(input: String) {
@@ -892,6 +1102,7 @@ class HeavyTrackViewModel(
             stikSolarAkhirInput = input.replace(',', '.')
         )
         recalculateSolarConsumption()
+        autoSaveDraftCurrentRealisasi()
     }
 
     fun setRealisasiIsiSolar(isIsi: Boolean) {
@@ -900,6 +1111,7 @@ class HeavyTrackViewModel(
             jumlahLiterSolarInput = if (!isIsi) "" else _realisasiFormState.value.jumlahLiterSolarInput
         )
         recalculateSolarConsumption()
+        autoSaveDraftCurrentRealisasi()
     }
 
     fun setRealisasiJumlahSolar(liters: String) {
@@ -907,15 +1119,16 @@ class HeavyTrackViewModel(
             jumlahLiterSolarInput = liters.replace(',', '.')
         )
         recalculateSolarConsumption()
+        autoSaveDraftCurrentRealisasi()
     }
 
     private fun recalculateSolarConsumption() {
         val state = _realisasiFormState.value
-        val awal = state.stikSolarAwalInput.toDoubleOrNull() ?: 0.0
-        val akhir = state.stikSolarAkhirInput.toDoubleOrNull() ?: 0.0
-        val isi = if (state.isIsiSolar) (state.jumlahLiterSolarInput.toDoubleOrNull() ?: 0.0) else 0.0
-        val delta = (awal - akhir).coerceAtLeast(0.0)
-        val total = delta + isi
+        val awal = state.parsedStikAwal ?: 0.0
+        val akhir = state.parsedStikAkhir ?: 0.0
+        val isi = if (state.isIsiSolar) (state.parsedJumlahLiterSolar ?: 0.0) else 0.0
+        // Formula: Konsumsi Solar = (Stik Solar Awal + Total Isi Solar Tambahan) - Stik Solar Akhir
+        val total = (awal + isi) - akhir
         _realisasiFormState.value = _realisasiFormState.value.copy(
             pemakaianSolarOtomatis = total
         )
@@ -931,6 +1144,7 @@ class HeavyTrackViewModel(
         _realisasiFormState.value = _realisasiFormState.value.copy(
             daftarKendala = current + KendalaItemFormState()
         )
+        autoSaveDraftCurrentRealisasi()
     }
 
     fun removeKendalaRow(index: Int) {
@@ -944,6 +1158,7 @@ class HeavyTrackViewModel(
                 daftarKendala = current,
                 selectedKendala = current.firstOrNull()?.selectedKendala
             )
+            autoSaveDraftCurrentRealisasi()
         }
     }
 
@@ -955,6 +1170,7 @@ class HeavyTrackViewModel(
                 daftarKendala = current,
                 selectedKendala = current.firstOrNull()?.selectedKendala
             )
+            autoSaveDraftCurrentRealisasi()
         }
     }
 
@@ -963,6 +1179,7 @@ class HeavyTrackViewModel(
         if (index in current.indices) {
             current[index] = current[index].copy(waktuMulai = time)
             _realisasiFormState.value = _realisasiFormState.value.copy(daftarKendala = current)
+            autoSaveDraftCurrentRealisasi()
         }
     }
 
@@ -971,19 +1188,23 @@ class HeavyTrackViewModel(
         if (index in current.indices) {
             current[index] = current[index].copy(waktuSelesai = time)
             _realisasiFormState.value = _realisasiFormState.value.copy(daftarKendala = current)
+            autoSaveDraftCurrentRealisasi()
         }
     }
 
     fun setRealisasiCatatanKendala(notes: String) {
         _realisasiFormState.value = _realisasiFormState.value.copy(catatanKendala = notes)
+        autoSaveDraftCurrentRealisasi()
     }
 
     fun setRealisasiHasilKerja(hasil: String) {
         _realisasiFormState.value = _realisasiFormState.value.copy(hasilKerjaInput = hasil)
+        autoSaveDraftCurrentRealisasi()
     }
 
     fun setRealisasiKeterangan(ket: String) {
         _realisasiFormState.value = _realisasiFormState.value.copy(keterangan = ket)
+        autoSaveDraftCurrentRealisasi()
     }
 
     fun processAndCompressRealisasiPhoto(context: Context, imageUri: Uri) {
@@ -998,6 +1219,7 @@ class HeavyTrackViewModel(
                     photoSizeKb = compressed.sizeKb,
                     photoDimensions = compressed.dimensionsText
                 )
+                autoSaveDraftCurrentRealisasi()
                 _uiEvents.emit(
                     UiMessage.Success("Foto bukti terkompresi: ${compressed.sizeKb} KB (${compressed.dimensionsText})")
                 )
@@ -1018,29 +1240,93 @@ class HeavyTrackViewModel(
             photoSizeKb = null,
             photoDimensions = null
         )
+        autoSaveDraftCurrentRealisasi()
+    }
+
+    // ======================================================================
+    // 1. AUTO-SAVE DRAFT FORMULIR REALISASI (ANTI-HILANG DATA)
+    // ======================================================================
+    fun autoSaveDraftCurrentRealisasi() {
+        val state = _realisasiFormState.value
+        val ren = state.selectedRencana ?: return
+        viewModelScope.launch {
+            val kendalaPayloads = state.daftarKendala
+                .filter { it.selectedKendala != null || it.waktuMulai.isNotBlank() || it.waktuSelesai.isNotBlank() }
+                .map { item ->
+                    KendalaItemPayload(
+                        id_kendala = item.selectedKendala?.kodeKendala ?: "",
+                        nama_kendala = item.selectedKendala?.namaKendala ?: "",
+                        waktu_mulai = item.waktuMulai,
+                        waktu_selesai = item.waktuSelesai,
+                        durasi_menit = item.durasiMenit ?: 0
+                    )
+                }
+            val jsonKendala = if (kendalaPayloads.isNotEmpty()) KendalaJsonConverter.toJson(kendalaPayloads) else ""
+
+            val draft = com.example.data.local.entity.DraftRealisasiEntity(
+                rencanaId = ren.id,
+                kodeUnit = ren.kodeUnit,
+                hmAwalInput = state.hmAwalInput,
+                isHmAwalCorrected = state.isHmAwalCorrected,
+                alasanKoreksiHm = state.alasanKoreksiHm,
+                hmAkhirInput = state.hmAkhirInput,
+                stikSolarAwalInput = state.stikSolarAwalInput,
+                stikSolarAkhirInput = state.stikSolarAkhirInput,
+                isIsiSolar = state.isIsiSolar,
+                jumlahLiterSolarInput = state.jumlahLiterSolarInput,
+                daftarKendalaJson = jsonKendala,
+                hasilKerjaInput = state.hasilKerjaInput,
+                keterangan = state.keterangan,
+                photoPath = state.photoPath,
+                photoBase64 = state.photoBase64,
+                photoSizeKb = state.photoSizeKb,
+                photoDimensions = state.photoDimensions,
+                clientTransactionId = state.clientTransactionId,
+                updatedAt = System.currentTimeMillis()
+            )
+            repository.saveDraftForRencana(draft)
+        }
+    }
+
+    fun resetRealisasiFormManual() {
+        val currentRencana = _realisasiFormState.value.selectedRencana
+        if (currentRencana != null) {
+            viewModelScope.launch {
+                repository.deleteDraftForRencana(currentRencana.id)
+                // Inisialisasi ulang form untuk rencana terpilih
+                selectRencanaForRealisasi(currentRencana)
+                _uiEvents.emit(UiMessage.Info("Formulir unit ${currentRencana.kodeUnit} berhasil direset."))
+            }
+        } else {
+            _realisasiFormState.value = RealisasiFormUiState(
+                clientTransactionId = "TX-" + java.util.UUID.randomUUID().toString()
+            )
+        }
     }
 
     fun submitRealisasiKerja() {
         val state = _realisasiFormState.value
-        val rencana = state.selectedRencana
+        // Kunci tombol kirim setelah 1x klik (loading state & anti-duplikasi)
+        if (state.isSubmitting) return
 
+        val rencana = state.selectedRencana
         if (rencana == null) {
             viewModelScope.launch { _uiEvents.emit(UiMessage.Error("Pilih Rencana Kerja aktif terlebih dahulu")) }
             return
         }
 
-        val hmAkhir = state.hmAkhirInput.toDoubleOrNull()
-        if (hmAkhir == null || hmAkhir < state.hmAwal) {
+        val hmAkhir = state.hmAkhirInput.replace(',', '.').toDoubleOrNull()
+        if (hmAkhir == null || hmAkhir <= state.hmAwal) {
             viewModelScope.launch {
-                _uiEvents.emit(UiMessage.Error("HM Akhir wajib diisi dan >= HM Awal (${String.format(Locale.US, "%.1f", state.hmAwal)})"))
+                _uiEvents.emit(UiMessage.Error("HM Akhir wajib diisi dan lebih besar dari HM Awal (${String.format(Locale.US, "%.1f", state.hmAwal)})"))
             }
             return
         }
 
         // Validasi Alasan Koreksi HM Awal jika diedit manual
-        if (state.isHmAwalCorrected && state.hmAwal != state.hmAwalOriginal && state.alasanKoreksiHm.isBlank()) {
+        if (state.isHmAwalCorrected && state.alasanKoreksiHm.isBlank()) {
             viewModelScope.launch {
-                _uiEvents.emit(UiMessage.Error("Alasan koreksi HM Awal wajib diisi (misal: salah input shift sebelumnya / pergantian meteran alat)"))
+                _uiEvents.emit(UiMessage.Error("Alasan koreksi HM Awal wajib diisi jika koreksi manual HM Awal diaktifkan."))
             }
             return
         }
@@ -1048,7 +1334,7 @@ class HeavyTrackViewModel(
         // Validasi Tumpang Tindih (Anti-Overlapping) Jam Kendala
         if (state.hasAnyKendalaOverlap) {
             viewModelScope.launch {
-                _uiEvents.emit(UiMessage.Error("Jam kendala bertabrakan dengan kendala sebelumnya! Perbaiki jam input kendala."))
+                _uiEvents.emit(UiMessage.Error("Jam kendala bertabrakan dengan kendala lainnya! Perbaiki jam input kendala."))
             }
             return
         }
@@ -1061,11 +1347,26 @@ class HeavyTrackViewModel(
             return
         }
 
+        // 1. Validasi Pemakaian Solar BBM
+        if (state.isRefuelLitersMissing) {
+            viewModelScope.launch {
+                _uiEvents.emit(UiMessage.Error("Pengisian BBM tambahan aktif: Wajib mengisi Jumlah Liter Pengisian BBM (> 0)"))
+            }
+            return
+        }
+
+        if (state.isSolarConsumptionNegative) {
+            viewModelScope.launch {
+                _uiEvents.emit(UiMessage.Error("Konsumsi solar tidak boleh bernilai negatif (${String.format(Locale.US, "%.1f", state.computedKonsumsiSolar)} L). Periksa kembali stik solar dan pengisian BBM."))
+            }
+            return
+        }
+
         val runningHm = hmAkhir - state.hmAwal
         val isUnderMin = runningHm > 0.0 && runningHm < state.hmMinStandar
 
         // Validasi HM Kurang dari Standar Minimal:
-        // Wajib minimal 1 kendala lengkap dengan waktu mulai & selesai (waktu selesai > waktu mulai)
+        // Wajib minimal 1 kendala lengkap dengan waktu mulai & selesai
         if (isUnderMin) {
             if (state.daftarKendala.isEmpty() || !state.daftarKendala.all { it.isValid }) {
                 viewModelScope.launch {
@@ -1073,7 +1374,7 @@ class HeavyTrackViewModel(
                         state.daftarKendala.isEmpty() -> "Wajib mencatat minimal 1 kendala lapangan."
                         state.daftarKendala.any { it.selectedKendala == null } -> "Penyebab kendala wajib dipilih dari Master Kendala."
                         state.daftarKendala.any { it.waktuMulai.isBlank() || it.waktuSelesai.isBlank() } -> "Waktu mulai dan selesai kendala wajib diisi (JJ:MM)."
-                        state.daftarKendala.any { !it.isTimeRangeValid } -> "Waktu selesai kendala harus lebih besar dari waktu mulai."
+                        state.daftarKendala.any { !it.isTimeRangeValid } -> "Rentang jam kendala tidak valid (JJ:MM)."
                         else -> "Lengkapi data kendala dan rentang waktu kejadian."
                     }
                     _uiEvents.emit(
@@ -1085,7 +1386,7 @@ class HeavyTrackViewModel(
         }
 
         val fuelLiters = if (state.isIsiSolar) {
-            val parsed = state.jumlahLiterSolarInput.toDoubleOrNull()
+            val parsed = state.parsedJumlahLiterSolar
             if (parsed == null || parsed <= 0.0) {
                 viewModelScope.launch { _uiEvents.emit(UiMessage.Error("Pengisian solar aktif: Isi Jumlah Liter Solar (> 0)")) }
                 return
@@ -1111,14 +1412,10 @@ class HeavyTrackViewModel(
         val lokasiAktual = state.selectedLokasi?.kodeLokasi
             ?: rencana.kodeLokasi
 
-        val stikAwal = state.stikSolarAwalInput.toDoubleOrNull() ?: 0.0
-        val stikAkhir = state.stikSolarAkhirInput.toDoubleOrNull() ?: 0.0
+        val stikAwal = state.parsedStikAwal ?: 0.0
+        val stikAkhir = state.parsedStikAkhir ?: 0.0
 
-        val validKendalaList: List<KendalaItemFormState> = if (isUnderMin) {
-            state.daftarKendala.filter { it.isValid }
-        } else {
-            emptyList()
-        }
+        val validKendalaList: List<KendalaItemFormState> = state.daftarKendala.filter { it.isValid }
 
         val kendalaPayloads = validKendalaList.map { item ->
             KendalaItemPayload(
@@ -1151,8 +1448,11 @@ class HeavyTrackViewModel(
             null
         }
 
+        // Kunci tombol kirim secara langsung
+        _realisasiFormState.value = _realisasiFormState.value.copy(isSubmitting = true)
+
         viewModelScope.launch {
-            _realisasiFormState.value = _realisasiFormState.value.copy(isSubmitting = true)
+            val txId = state.clientTransactionId.ifBlank { "TX-" + java.util.UUID.randomUUID().toString() }
 
             val hasilEntity = HasilInputAktivitasEntity(
                 rencanaId = rencana.id,
@@ -1174,7 +1474,7 @@ class HeavyTrackViewModel(
                 jumlahLiterSolar = fuelLiters,
                 stikSolarAwal = stikAwal,
                 stikSolarAkhir = stikAkhir,
-                pemakaianSolar = state.pemakaianSolarOtomatis,
+                pemakaianSolar = state.computedKonsumsiSolar,
                 kendalaId = primaryKendala?.kodeKendala,
                 kendalaNama = kendalaSummaryName,
                 catatanKendala = kendalaSummaryCatatan,
@@ -1187,8 +1487,10 @@ class HeavyTrackViewModel(
                 photoDimensions = state.photoDimensions,
                 createdAt = System.currentTimeMillis(),
                 tanggalFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date()),
-                isHmAwalCorrected = state.isHmAwalCorrected && (state.hmAwal != state.hmAwalOriginal || state.alasanKoreksiHm.isNotBlank()),
-                alasanKoreksiHm = if (state.isHmAwalCorrected) state.alasanKoreksiHm.ifBlank { null } else null
+                isHmAwalCorrected = state.isHmAwalCorrected,
+                alasanKoreksiHm = if (state.isHmAwalCorrected) state.alasanKoreksiHm.trim().ifBlank { "Koreksi manual HM Awal" } else null,
+                clientTransactionId = txId,
+                statusKirim = "PENDING"
             )
 
             val result = repository.submitHasilAktivitas(hasilEntity)
@@ -1202,8 +1504,15 @@ class HeavyTrackViewModel(
                     UiMessage.Success("Realisasi Unit ${saved.kodeUnit}$spkTag$fuelTag$kendalaTag berhasil dikirim & disimpan!")
                 )
 
-                // Reset realisasi form
-                _realisasiFormState.value = RealisasiFormUiState()
+                // Bersihkan draft lokal jika berhasil dikirim ke server (status SYNCED)
+                if (saved.statusKirim == "SYNCED") {
+                    repository.deleteDraftForRencana(saved.rencanaId)
+                }
+
+                // Reset realisasi form dengan Client Transaction ID baru
+                _realisasiFormState.value = RealisasiFormUiState(
+                    clientTransactionId = "TX-" + java.util.UUID.randomUUID().toString()
+                )
             }.onFailure { err ->
                 _uiEvents.emit(UiMessage.Error("Gagal menyimpan realisasi: ${err.message}"))
             }
@@ -1214,16 +1523,29 @@ class HeavyTrackViewModel(
         if (hmAkhir == null) {
             return Triple(true, 0.0, null)
         }
-        return if (hmAkhir < hmAwal) {
+        return if (hmAkhir <= hmAwal) {
             val diff = hmAwal - hmAkhir
+            val msg = if (hmAkhir == hmAwal) {
+                "HM Akhir (${String.format(Locale.US, "%.1f", hmAkhir)}) harus lebih besar dari HM Awal (${String.format(Locale.US, "%.1f", hmAwal)})"
+            } else {
+                "HM Akhir (${String.format(Locale.US, "%.1f", hmAkhir)}) lebih kecil dari HM Awal (${String.format(Locale.US, "%.1f", hmAwal)}) selisih -${String.format(Locale.US, "%.1f", diff)}"
+            }
             Triple(
                 false,
                 0.0,
-                "HM Akhir (${String.format(Locale.US, "%.1f", hmAkhir)}) lebih kecil dari HM Awal (${String.format(Locale.US, "%.1f", hmAwal)}) selisih -${String.format(Locale.US, "%.1f", diff)}"
+                msg
             )
         } else {
             val running = hmAkhir - hmAwal
-            Triple(true, running, null)
+            if (running > 24.0) {
+                Triple(
+                    false,
+                    running,
+                    "Lonjakan HM melebihi 24 jam dalam 1 shift! Periksa kembali angka meteran HM Akhir."
+                )
+            } else {
+                Triple(true, running, null)
+            }
         }
     }
 
@@ -1233,9 +1555,9 @@ class HeavyTrackViewModel(
     fun getAppVersionName(context: Context): String {
         return try {
             val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            pInfo.versionName ?: "1.1"
+            pInfo.versionName ?: "1.2"
         } catch (_: Exception) {
-            "1.1"
+            "1.2"
         }
     }
 

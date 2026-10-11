@@ -65,12 +65,24 @@ data class KendalaItemFormState(
     val endMinutes: Int?
         get() = parseTimeToMinutes(waktuSelesai)
 
+    val isCrossMidnight: Boolean
+        get() {
+            val s = startMinutes ?: return false
+            val e = endMinutes ?: return false
+            return s > e
+        }
+
     val durasiMenit: Int?
         get() {
             val startMin = startMinutes ?: return null
             val endMin = endMinutes ?: return null
-            if (endMin <= startMin) return null
-            return endMin - startMin
+            if (endMin == startMin) return null
+            return if (endMin > startMin) {
+                endMin - startMin
+            } else {
+                // Shift malam melintasi tengah malam (misal: 23:00 - 02:00 = 3 jam / 180 menit)
+                (endMin + 1440) - startMin
+            }
         }
 
     val isTimeRangeValid: Boolean
@@ -78,7 +90,7 @@ data class KendalaItemFormState(
             if (waktuMulai.isBlank() || waktuSelesai.isBlank()) return false
             val startMin = startMinutes ?: return false
             val endMin = endMinutes ?: return false
-            return endMin > startMin
+            return startMin != endMin
         }
 
     val isValid: Boolean
@@ -89,10 +101,11 @@ data class KendalaItemFormState(
             val minutes = durasiMenit ?: return ""
             val hours = minutes / 60
             val remainingMins = minutes % 60
+            val crossBadge = if (isCrossMidnight) " (Shift Malam/Lintas Hari)" else ""
             return when {
-                hours > 0 && remainingMins > 0 -> "$hours Jam $remainingMins Menit"
-                hours > 0 -> "$hours Jam"
-                else -> "$remainingMins Menit"
+                hours > 0 && remainingMins > 0 -> "$hours Jam $remainingMins Menit$crossBadge"
+                hours > 0 -> "$hours Jam$crossBadge"
+                else -> "$remainingMins Menit$crossBadge"
             }
         }
 
@@ -108,17 +121,39 @@ data class KendalaItemFormState(
         }
 
         /**
+         * Mengurai rentang waktu menjadi potongan segmen dalam siklus 24 jam.
+         * Rentang normal (misal 08:00 - 10:00) menjadi 1 segmen [480, 600).
+         * Rentang lintas tengah malam (misal 23:00 - 02:00) menjadi 2 segmen:
+         * [1380, 1440) hari berjalan dan [0, 120) dini hari berikutnya.
+         */
+        fun getIntervalPieces(item: KendalaItemFormState): List<Pair<Int, Int>> {
+            val s = item.startMinutes ?: return emptyList()
+            val e = item.endMinutes ?: return emptyList()
+            if (s == e) return emptyList()
+            return if (s < e) {
+                listOf(Pair(s, e))
+            } else {
+                listOf(Pair(s, 1440), Pair(0, e))
+            }
+        }
+
+        /**
          * Validasi Tumpang Tindih (Anti-Overlapping):
-         * Dua rentang kendala [sA, eA) dan [sB, eB) saling bertubrukan jika:
-         * startA < endB DAN startB < endA (atau max(sA, sB) < min(eA, eB)).
+         * Rentang waktu kendala baru TIDAK BOLEH bertabrakan dengan rentang kendala lainnya.
+         * Mendukung perhitungan rentang normal maupun lintas tengah malam.
          */
         fun hasOverlap(itemA: KendalaItemFormState, itemB: KendalaItemFormState): Boolean {
-            val sA = itemA.startMinutes ?: return false
-            val eA = itemA.endMinutes ?: return false
-            val sB = itemB.startMinutes ?: return false
-            val eB = itemB.endMinutes ?: return false
-            if (eA <= sA || eB <= sB) return false
-            return maxOf(sA, sB) < minOf(eA, eB)
+            val piecesA = getIntervalPieces(itemA)
+            val piecesB = getIntervalPieces(itemB)
+            if (piecesA.isEmpty() || piecesB.isEmpty()) return false
+            for ((sA, eA) in piecesA) {
+                for ((sB, eB) in piecesB) {
+                    if (maxOf(sA, sB) < minOf(eA, eB)) {
+                        return true
+                    }
+                }
+            }
+            return false
         }
     }
 }
@@ -159,8 +194,55 @@ data class RealisasiFormUiState(
     val photoSizeKb: Long? = null,
     val photoDimensions: String? = null,
     val isCompressingPhoto: Boolean = false,
-    val isSubmitting: Boolean = false
+    val isSubmitting: Boolean = false,
+    // Kontrak Transaksi Unik & Anti-Duplikasi Offline (Idempotency)
+    val clientTransactionId: String = "TX-" + java.util.UUID.randomUUID().toString(),
+    // Kesinambungan HM Berantai (Sequential HM)
+    val isSequentialHmFromPreviousPlan: Boolean = false,
+    val sequentialSourcePlanText: String = ""
 ) {
+    val parsedStikAwal: Double?
+        get() = stikSolarAwalInput.trim().replace(',', '.').toDoubleOrNull()
+
+    val parsedStikAkhir: Double?
+        get() = stikSolarAkhirInput.trim().replace(',', '.').toDoubleOrNull()
+
+    val parsedJumlahLiterSolar: Double?
+        get() = if (isIsiSolar) jumlahLiterSolarInput.trim().replace(',', '.').toDoubleOrNull() else 0.0
+
+    // Formula: Konsumsi Solar = (Stik Solar Awal + Total Isi Solar Tambahan) - Stik Solar Akhir
+    val computedKonsumsiSolar: Double
+        get() {
+            val awal = parsedStikAwal ?: 0.0
+            val akhir = parsedStikAkhir ?: 0.0
+            val refuel = if (isIsiSolar) (parsedJumlahLiterSolar ?: 0.0) else 0.0
+            return (awal + refuel) - akhir
+        }
+
+    // 1. Jika Stik Solar Akhir > Stik Solar Awal dan toggle [Isi Solar Tambahan] MATI
+    val isStikAkhirHigherWithoutRefuel: Boolean
+        get() {
+            val awal = parsedStikAwal
+            val akhir = parsedStikAkhir
+            return awal != null && akhir != null && akhir > awal && !isIsiSolar
+        }
+
+    // 2. Jika toggle [Isi Solar Tambahan] AKTIF: wajibkan input Jumlah Liter Pengisian BBM
+    val isRefuelLitersMissing: Boolean
+        get() = isIsiSolar && (jumlahLiterSolarInput.isBlank() || (parsedJumlahLiterSolar ?: 0.0) <= 0.0)
+
+    // 3. Cegah hasil konsumsi bernilai negatif
+    val isSolarConsumptionNegative: Boolean
+        get() {
+            val awal = parsedStikAwal
+            val akhir = parsedStikAkhir
+            if (awal != null && akhir != null) {
+                val refuel = if (isIsiSolar) (parsedJumlahLiterSolar ?: 0.0) else 0.0
+                return ((awal + refuel) - akhir) < 0.0
+            }
+            return false
+        }
+
     val totalHambatanMenit: Int
         get() = daftarKendala.mapNotNull { it.durasiMenit }.sum()
 
@@ -182,7 +264,7 @@ data class RealisasiFormUiState(
         val current = daftarKendala.getOrNull(index) ?: return false
         if (!current.isTimeRangeValid) return false
         return daftarKendala.indices.any { j ->
-            j != index && KendalaItemFormState.hasOverlap(current, daftarKendala[j])
+            j != index && daftarKendala[j].isTimeRangeValid && KendalaItemFormState.hasOverlap(current, daftarKendala[j])
         }
     }
 
@@ -191,7 +273,7 @@ data class RealisasiFormUiState(
         val current = daftarKendala.getOrNull(index) ?: return false
         if (!current.isTimeRangeValid) return false
         return (0 until index).any { j ->
-            KendalaItemFormState.hasOverlap(current, daftarKendala[j])
+            daftarKendala[j].isTimeRangeValid && KendalaItemFormState.hasOverlap(current, daftarKendala[j])
         }
     }
 
@@ -199,7 +281,9 @@ data class RealisasiFormUiState(
     val hasAnyKendalaOverlap: Boolean
         get() {
             for (i in 0 until daftarKendala.size) {
+                if (!daftarKendala[i].isTimeRangeValid) continue
                 for (j in i + 1 until daftarKendala.size) {
+                    if (!daftarKendala[j].isTimeRangeValid) continue
                     if (KendalaItemFormState.hasOverlap(daftarKendala[i], daftarKendala[j])) {
                         return true
                     }
@@ -215,7 +299,43 @@ data class RealisasiFormUiState(
     // Akumulasi total jam kendala melebihi durasi kerja shift
     val isTotalKendalaExceedingShift: Boolean
         get() = totalHambatanMenit > (maxShiftHours * 60)
+
+    // ======================================================================
+    // 3. VALIDASI LONJAKAN HM EKSTREM (ANTI-TYPO FAT FINGER)
+    // ======================================================================
+    // Selisih HM berjalan: durasi_hm = hm_akhir - hm_awal
+    val isHmJumpExtreme24h: Boolean
+        get() {
+            val akhir = hmAkhirInput.trim().replace(',', '.').toDoubleOrNull() ?: return false
+            val durasi = akhir - hmAwal
+            return durasi > 24.0
+        }
+
+    val isHmWarningExceed14h: Boolean
+        get() {
+            val akhir = hmAkhirInput.trim().replace(',', '.').toDoubleOrNull() ?: return false
+            val durasi = akhir - hmAwal
+            return durasi > 14.0 && durasi <= 24.0
+        }
 }
+
+data class UnitShiftProgressItem(
+    val unitCode: String,
+    val isRealized: Boolean,
+    val rencanaCount: Int,
+    val latestActivity: String = "",
+    val latestOperator: String = "",
+    val spk: String = ""
+)
+
+data class FleetShiftProgressState(
+    val realizedUnitsCount: Int = 0,
+    val totalUnitsCount: Int = 0,
+    val pendingUnitsCount: Int = 0,
+    val progressPercentage: Float = 0f,
+    val isAllCompleted: Boolean = false,
+    val unitItems: List<UnitShiftProgressItem> = emptyList()
+)
 
 data class UnitAnalyticsRow(
     val unitCode: String,

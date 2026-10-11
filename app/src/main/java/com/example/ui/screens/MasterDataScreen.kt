@@ -721,7 +721,7 @@ fun DistributionDialog(
                                 color = Emerald100
                             ) {
                                 Text(
-                                    text = "v1.1 Update",
+                                    text = "v1.2 Update",
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Emerald700,
@@ -905,7 +905,7 @@ fun DistributionDialog(
                     Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(20.dp), tint = Color.White)
                     Spacer(modifier = Modifier.width(10.dp))
                     Column {
-                        Text("Kirim Berkas APK Pembaruan v1.1 via WhatsApp", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 12.sp)
+                        Text("Kirim Berkas APK Pembaruan v1.2 via WhatsApp", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 12.sp)
                         Text("Langsung kirim berkas .apk asli ke chat (Paling Praktis & Bebas Error)", fontSize = 10.sp, color = Color.White.copy(alpha = 0.9f))
                     }
                 }
@@ -990,13 +990,13 @@ fun DistributionDialog(
 
                         Text(
                             text = "1. PENTING - Solusi Jika Gagal Update ('Aplikasi Tidak Terpasang'):\n" +
-                                   "   Jika di HP tujuan sebelumnya sudah pernah terpasang aplikasi RKCE versi lama, Android dapat memblokir pembaruan karena perbedaan tanda tangan (signature). Solusinya: Hapus / copot (UNINSTALL) versi lama terlebih dahulu, lalu pasang berkas pembaruan v1.1 ini.\n\n" +
+                                   "   Jika di HP tujuan sebelumnya sudah pernah terpasang aplikasi RKCE versi lama, Android dapat memblokir pembaruan karena perbedaan tanda tangan (signature). Solusinya: Hapus / copot (UNINSTALL) versi lama terlebih dahulu, lalu pasang berkas pembaruan v1.2 ini.\n\n" +
                                    "2. Peringatan Play Protect / 'Aplikasi Tidak Dikenal':\n" +
                                    "   Aplikasi didistribusikan langsung tanpa Play Store. Jika Play Protect memblokir, klik 'Detail Lainnya' (More details) lalu pilih 'Tetap Instal' (Install anyway).\n\n" +
                                    "3. Izin 'Sumber Tidak Dikenal':\n" +
                                    "   Saat membuka berkas dari WhatsApp atau File Manager, masuk ke 'Setelan' dan aktifkan 'Izinkan dari sumber ini'.\n\n" +
                                    "4. Berkas Asli 100% Utuh & Terkini:\n" +
-                                   "   Gunakan tombol 'Kirim Berkas APK via WhatsApp' di atas. Sistem mengirim berkas biner asli aplikasi yang sedang berjalan (v1.1) sehingga berkas dijamin lengkap dan tidak rusak (bukan 0 byte).",
+                                   "   Gunakan tombol 'Kirim Berkas APK via WhatsApp' di atas. Sistem mengirim berkas biner asli aplikasi yang sedang berjalan (v1.2) sehingga berkas dijamin lengkap dan tidak rusak (bukan 0 byte).",
                             fontSize = 11.sp,
                             color = Slate700,
                             lineHeight = 16.sp

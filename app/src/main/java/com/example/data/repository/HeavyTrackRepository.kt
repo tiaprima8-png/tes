@@ -46,6 +46,7 @@ class HeavyTrackRepository(
     private val rencanaDao = database.rencanaKerjaDao()
     private val hasilDao = database.hasilInputAktivitasDao()
     private val kendalaDao = database.kendalaDao()
+    private val draftDao = database.draftRealisasiDao()
 
     private val _syncLogs = MutableStateFlow<List<SyncLogItem>>(emptyList())
     val syncLogs: StateFlow<List<SyncLogItem>> = _syncLogs.asStateFlow()
@@ -106,6 +107,15 @@ class HeavyTrackRepository(
 
     suspend fun getUnitByCode(unitCode: String): UnitEntity? =
         unitDao.getUnitByCode(unitCode)
+
+    suspend fun getLatestRealizedHmForUnit(unitCode: String): Double? = withContext(Dispatchers.IO) {
+        val latestHasil = hasilDao.getLatestHasilForUnit(unitCode)
+        if (latestHasil != null && latestHasil.hmAkhir > 0.0) {
+            return@withContext latestHasil.hmAkhir
+        }
+        val unit = unitDao.getUnitByCode(unitCode)
+        return@withContext unit?.lastHm
+    }
 
     suspend fun seedInitialDataIfEmpty(activeSupervisor: String) = withContext(Dispatchers.IO) {
         try {
@@ -370,6 +380,9 @@ class HeavyTrackRepository(
                 isSynced = false
             )
             reportDao.insertReport(reportMirror)
+            savedHasil.hmAkhir?.let { hmAkhir ->
+                unitDao.updateUnitHm(savedHasil.kodeUnit, hmAkhir)
+            }
 
             val apiReq = PostHasilAktivitasRequest(
                 id = insertedId,
@@ -394,7 +407,8 @@ class HeavyTrackRepository(
                 kode_unit = savedHasil.kodeUnit,
                 foto_bukti = savedHasil.photoBase64,
                 is_hm_awal_corrected = savedHasil.isHmAwalCorrected,
-                alasan_koreksi_hm = savedHasil.alasanKoreksiHm
+                alasan_koreksi_hm = savedHasil.alasanKoreksiHm,
+                client_transaction_id = savedHasil.clientTransactionId
             )
 
             val apiActivityReq = PostActivityReportRequest.create(
@@ -430,20 +444,22 @@ class HeavyTrackRepository(
                 photoDimensions = reportMirror.photoDimensions,
                 photoPath = reportMirror.photoPath,
                 isHmAwalCorrected = savedHasil.isHmAwalCorrected,
-                alasanKoreksiHm = savedHasil.alasanKoreksiHm
+                alasanKoreksiHm = savedHasil.alasanKoreksiHm,
+                clientTransactionId = savedHasil.clientTransactionId
             )
 
             try {
                 try { apiClientManager.postActivityReport(apiActivityReq) } catch (_: Exception) {}
                 val respMsg = apiClientManager.postHasilAktivitas(apiReq)
                 hasilDao.markAsSynced(insertedId)
+                draftDao.deleteDraftByRencanaId(savedHasil.rencanaId)
                 _lastSyncTimeMillis.value = System.currentTimeMillis()
                 val kendalaTag = if (kendalaPayloads.isNotEmpty()) " [Kendala: ${kendalaPayloads.size} item]" else ""
                 addLog("POST /api/aktivitas-unit", "POST", "200 OK", "Realisasi Unit ${savedHasil.kodeUnit} (HM ${savedHasil.hmAkhir})$kendalaTag", true)
-                Result.success(savedHasil.copy(isSynced = true, syncedAt = System.currentTimeMillis()))
+                Result.success(savedHasil.copy(isSynced = true, statusKirim = "SYNCED", syncedAt = System.currentTimeMillis()))
             } catch (netEx: Exception) {
                 addLog("POST /api/aktivitas-unit", "POST", "OFFLINE/PENDING", "Realisasi Unit ${savedHasil.kodeUnit} disimpan lokal", false)
-                Result.success(savedHasil.copy(isSynced = false))
+                Result.success(savedHasil.copy(isSynced = false, statusKirim = "PENDING"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -619,6 +635,7 @@ class HeavyTrackRepository(
                     )
                     apiClientManager.postHasilAktivitas(req)
                     hasilDao.markAsSynced(hasil.id)
+                    draftDao.deleteDraftByRencanaId(hasil.rencanaId)
                     totalSynced++
                 } catch (_: Exception) {}
             }
@@ -653,5 +670,17 @@ class HeavyTrackRepository(
 
     suspend fun deleteHasil(hasilId: Long) = withContext(Dispatchers.IO) {
         hasilDao.deleteHasil(hasilId)
+    }
+
+    suspend fun getDraftForRencana(rencanaId: Long): com.example.data.local.entity.DraftRealisasiEntity? = withContext(Dispatchers.IO) {
+        draftDao.getDraftByRencanaId(rencanaId)
+    }
+
+    suspend fun saveDraftForRencana(draft: com.example.data.local.entity.DraftRealisasiEntity) = withContext(Dispatchers.IO) {
+        draftDao.insertOrUpdateDraft(draft)
+    }
+
+    suspend fun deleteDraftForRencana(rencanaId: Long) = withContext(Dispatchers.IO) {
+        draftDao.deleteDraftByRencanaId(rencanaId)
     }
 }

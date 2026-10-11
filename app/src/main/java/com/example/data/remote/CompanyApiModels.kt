@@ -43,6 +43,7 @@ data class PostActivityReportRequest(
     // Audit log koreksi HM Awal manual
     @Json(name = "is_hm_awal_corrected") val is_hm_awal_corrected: Boolean? = false,
     @Json(name = "alasan_koreksi_hm") val alasan_koreksi_hm: String? = null,
+    @Json(name = "client_transaction_id") val client_transaction_id: String? = null,
 
     // Dual compatibility with standard camelCase/English keys
     @Json(name = "client_uuid") val client_uuid: String? = null,
@@ -96,7 +97,8 @@ data class PostActivityReportRequest(
             photoDimensions: String? = null,
             photoPath: String? = null,
             isHmAwalCorrected: Boolean = false,
-            alasanKoreksiHm: String? = null
+            alasanKoreksiHm: String? = null,
+            clientTransactionId: String? = null
         ): PostActivityReportRequest {
             return PostActivityReportRequest(
                 // Indonesian exact fields for 1-portalce.ai.studio
@@ -134,6 +136,7 @@ data class PostActivityReportRequest(
                 photo_dimensions = photoDimensions,
                 is_hm_awal_corrected = isHmAwalCorrected,
                 alasan_koreksi_hm = alasanKoreksiHm,
+                client_transaction_id = clientTransactionId,
 
                 // Fallbacks
                 client_uuid = clientUuid,
@@ -255,7 +258,13 @@ data class UnitPayload(
 
     @Json(name = "status") val status: String? = "OPERASIONAL",
     @Json(name = "hm_min_standar") val hm_min_standar: Double? = null,
-    @Json(name = "hm_max_standar") val hm_max_standar: Double? = null
+    @Json(name = "hm_max_standar") val hm_max_standar: Double? = null,
+    @Json(name = "hm_min") val hm_min: Double? = null,
+    @Json(name = "hm_max") val hm_max: Double? = null,
+    @Json(name = "min_standar") val min_standar: Double? = null,
+    @Json(name = "max_standar") val max_standar: Double? = null,
+    @Json(name = "hmMinStandar") val hmMinStandar: Double? = null,
+    @Json(name = "hmMaxStandar") val hmMaxStandar: Double? = null
 ) {
     constructor(
         unitCode: String,
@@ -293,8 +302,8 @@ data class UnitPayload(
     val resolvedLastHm: Double get() = hm_unit_terakhir_diinputkan ?: last_hm ?: lastHm ?: 0.0
     val resolvedSupervisor: String get() = nama_pengawas ?: supervisor_assigned ?: supervisorAssigned ?: ""
     val resolvedStatus: String get() = status ?: "OPERASIONAL"
-    val resolvedHmMinStandar: Double get() = hm_min_standar ?: 6.0
-    val resolvedHmMaxStandar: Double get() = hm_max_standar ?: 10.0
+    val resolvedHmMinStandar: Double get() = hm_min_standar ?: hm_min ?: min_standar ?: hmMinStandar ?: 6.0
+    val resolvedHmMaxStandar: Double get() = hm_max_standar ?: hm_max ?: max_standar ?: hmMaxStandar ?: 10.0
 }
 
 @JsonClass(generateAdapter = true)
@@ -478,7 +487,8 @@ data class PostHasilAktivitasRequest(
     @Json(name = "foto_bukti") val foto_bukti: String? = null,
     // Audit log koreksi HM Awal manual
     @Json(name = "is_hm_awal_corrected") val is_hm_awal_corrected: Boolean? = false,
-    @Json(name = "alasan_koreksi_hm") val alasan_koreksi_hm: String? = null
+    @Json(name = "alasan_koreksi_hm") val alasan_koreksi_hm: String? = null,
+    @Json(name = "client_transaction_id") val client_transaction_id: String? = null
 )
 
 @JsonClass(generateAdapter = true)

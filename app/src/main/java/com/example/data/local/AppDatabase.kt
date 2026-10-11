@@ -6,6 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.data.local.dao.ActivityMasterDao
 import com.example.data.local.dao.ActivityReportDao
+import com.example.data.local.dao.DraftRealisasiDao
 import com.example.data.local.dao.HasilInputAktivitasDao
 import com.example.data.local.dao.KendalaDao
 import com.example.data.local.dao.LokasiDao
@@ -14,6 +15,7 @@ import com.example.data.local.dao.RencanaKerjaDao
 import com.example.data.local.dao.UnitDao
 import com.example.data.local.entity.ActivityMasterEntity
 import com.example.data.local.entity.ActivityReportEntity
+import com.example.data.local.entity.DraftRealisasiEntity
 import com.example.data.local.entity.HasilInputAktivitasEntity
 import com.example.data.local.entity.KendalaEntity
 import com.example.data.local.entity.LokasiEntity
@@ -30,9 +32,10 @@ import com.example.data.local.entity.UnitEntity
         LokasiEntity::class,
         RencanaKerjaEntity::class,
         HasilInputAktivitasEntity::class,
-        KendalaEntity::class
+        KendalaEntity::class,
+        DraftRealisasiEntity::class
     ],
-    version = 10,
+    version = 12,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -44,6 +47,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun rencanaKerjaDao(): RencanaKerjaDao
     abstract fun hasilInputAktivitasDao(): HasilInputAktivitasDao
     abstract fun kendalaDao(): KendalaDao
+    abstract fun draftRealisasiDao(): DraftRealisasiDao
 
     companion object {
         @Volatile

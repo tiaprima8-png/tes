@@ -169,7 +169,7 @@ fun LoginScreen(
             )
 
             Text(
-                text = "Rencana Kerja Unit Civil Engineering",
+                text = "Rencana Kerja Civil Engineering",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = Slate500,
                     fontWeight = FontWeight.Bold
@@ -386,7 +386,7 @@ fun LoginScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             Text(
-                text = "RKCE • Rencana Kerja Unit Civil Engineering • Offline-First",
+                text = "RKCE • Rencana Kerja Civil Engineering • Offline-First",
                 style = MaterialTheme.typography.bodySmall.copy(color = Slate400, fontSize = 11.sp)
             )
         }

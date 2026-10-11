@@ -18,8 +18,11 @@ interface HasilInputAktivitasDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertHasil(hasil: HasilInputAktivitasEntity): Long
 
-    @Query("UPDATE hasil_input_aktivitas SET is_synced = 1, synced_at = :timestamp WHERE id = :id")
+    @Query("UPDATE hasil_input_aktivitas SET is_synced = 1, status_kirim = 'SYNCED', synced_at = :timestamp WHERE id = :id")
     suspend fun markAsSynced(id: Long, timestamp: Long = System.currentTimeMillis())
+
+    @Query("SELECT * FROM hasil_input_aktivitas WHERE kode_unit = :kodeUnit ORDER BY created_at DESC, id DESC LIMIT 1")
+    suspend fun getLatestHasilForUnit(kodeUnit: String): HasilInputAktivitasEntity?
 
     @Query("SELECT * FROM hasil_input_aktivitas WHERE is_synced = 0")
     suspend fun getUnsyncedHasilList(): List<HasilInputAktivitasEntity>

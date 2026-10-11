@@ -89,8 +89,9 @@ object ImageCompressor {
     }
 
     /**
-     * Reads image from Uri, handles EXIF orientation, resizes to max 1280px (maintaining aspect ratio),
-     * compresses to JPEG 72%, saves to local storage, and returns Base64 and metadata.
+     * Reads image from Uri, handles EXIF orientation, downsamples with inSampleSize,
+     * resizes to max 1080px (maintaining aspect ratio), compresses to JPEG 78% (75-80%),
+     * recycles intermediate bitmaps (anti-OOM), saves to local storage, and returns Base64 and metadata.
      */
     suspend fun compressImage(
         context: Context,

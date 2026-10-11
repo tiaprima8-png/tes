@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.EditLocation
 import androidx.compose.material.icons.filled.Engineering
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -46,6 +47,7 @@ import androidx.compose.material.icons.filled.LockClock
 import androidx.compose.material.icons.filled.NightlightRound
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PrecisionManufacturing
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Send
@@ -74,11 +76,16 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -139,6 +146,25 @@ fun FormReportScreen(
 
     val rencanaState by viewModel.rencanaFormState.collectAsState()
     val realisasiState by viewModel.realisasiFormState.collectAsState()
+    val fleetProgress by viewModel.fleetShiftProgress.collectAsState()
+
+    // 5. AUTO-FETCH DATA MASTER SAAT HALAMAN DIBUKA (ONRESUME / ONENTER)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.autoFetchMasterDataOnResume()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.autoFetchMasterDataOnResume()
+    }
 
     // Selector Sheets State
     var isUnitSheetOpen by remember { mutableStateOf(false) }
@@ -157,8 +183,10 @@ fun FormReportScreen(
     var isKendalaSheetOpen by remember { mutableStateOf(false) }
     var activeKendalaIndex by remember { mutableStateOf<Int?>(null) }
 
-    // Confirmation dialog for Over-HM (> max standard)
+    // Confirmation dialog for Over-HM (> max standard) & Extreme HM Warning (> 14 hours)
     var showOverHmConfirmDialog by remember { mutableStateOf(false) }
+    var showExtremeHmWarningConfirmDialog by remember { mutableStateOf(false) }
+    var showResetConfirmDialog by remember { mutableStateOf(false) }
 
     // Image Picker for Realisasi Photo Proof
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -177,6 +205,110 @@ fun FormReportScreen(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // ======================================================================
+        // 4. KARTU RINGKASAN PROGRES HARIAN DI BERANDA (SHIFT PROGRESS TRACKER)
+        // ======================================================================
+        item {
+            Card(
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                modifier = Modifier.fillMaxWidth().testTag("card_shift_progress_tracker")
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                shape = CircleShape,
+                                color = if (fleetProgress.isAllCompleted) Emerald100 else Color(0xFFFEF3C7),
+                                modifier = Modifier.size(36.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = if (fleetProgress.isAllCompleted) Icons.Default.CheckCircle else Icons.Default.PrecisionManufacturing,
+                                        contentDescription = null,
+                                        tint = if (fleetProgress.isAllCompleted) Emerald700 else Color(0xFFD97706),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Column {
+                                Text(
+                                    text = "Progres Input Unit",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp,
+                                    color = Slate900
+                                )
+                                Text(
+                                    text = "${fleetProgress.realizedUnitsCount} dari ${fleetProgress.totalUnitsCount} Unit Selesai Terealisasi",
+                                    fontSize = 11.sp,
+                                    color = Slate500
+                                )
+                            }
+                        }
+
+                        // Badge status progres
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (fleetProgress.isAllCompleted) Emerald100 else Color(0xFFFEF3C7)
+                        ) {
+                            Text(
+                                text = if (fleetProgress.isAllCompleted) "100% SELESAI" else "${(fleetProgress.progressPercentage * 100).toInt()}% TEREALISASI",
+                                color = if (fleetProgress.isAllCompleted) Emerald900 else Color(0xFF92400E),
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Progress bar visual (hijau jika 100% selesai, kuning jika masih ada unit tertunda)
+                    androidx.compose.material3.LinearProgressIndicator(
+                        progress = { fleetProgress.progressPercentage },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp)),
+                        color = if (fleetProgress.isAllCompleted) Emerald600 else Color(0xFFF59E0B),
+                        trackColor = Color(0xFFE2E8F0)
+                    )
+
+                    if (fleetProgress.pendingUnitsCount > 0) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        val pendingUnitNames = fleetProgress.unitItems
+                            .filter { !it.isRealized }
+                            .map { it.unitCode }
+                            .take(5)
+                            .joinToString(", ")
+                        val remainingCount = fleetProgress.pendingUnitsCount - 5
+                        val remainingText = if (remainingCount > 0) " +$remainingCount lainnya" else ""
+
+                        Text(
+                            text = "Unit belum realisasi: $pendingUnitNames$remainingText",
+                            fontSize = 11.sp,
+                            color = Color(0xFFB45309),
+                            fontWeight = FontWeight.Medium
+                        )
+                    } else if (fleetProgress.totalUnitsCount > 0) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "Seluruh unit telah dilaporkan lengkap sebelum pergantian shift.",
+                            fontSize = 11.sp,
+                            color = Emerald700,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
+
         // TAB HEADER DUA TAHAP (RENCANA VS REALISASI)
         item {
             Card(
@@ -267,39 +399,16 @@ fun FormReportScreen(
                             .fillMaxWidth()
                             .padding(18.dp)
                     ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "Persiapan Shift & Rencana Kerja",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = Slate900
-                                    )
-                                )
-                                Text(
-                                    text = "Seluruh unit wajib dibuatkan rencana harian tanpa terlewat",
-                                    style = MaterialTheme.typography.bodySmall.copy(color = Slate500)
-                                )
-                            }
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = Emerald100
-                            ) {
-                                Text(
-                                    text = "MENUNGGU SPK",
-                                    color = Emerald900,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 10.sp,
-                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                                )
-                            }
-                        }
+                        // Header Persiapan Rencana Kerja Bersih (Sesuai Permintaan)
+                        Text(
+                            text = "Seluruh unit wajib dibuatkan rencana kerja",
+                            style = MaterialTheme.typography.bodyMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                color = Slate700
+                            )
+                        )
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         // Banner Info Kasus C: Unit Sudah Memiliki Rencana Hari Ini (Rencana Susulan)
                         if (rencanaState.isSusulan && rencanaState.selectedUnit != null) {
@@ -858,19 +967,29 @@ fun FormReportScreen(
                             .fillMaxWidth()
                             .padding(18.dp)
                     ) {
-                        Text(
-                            text = "Pelaporan Realisasi Akhir Shift",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Slate900
-                            )
-                        )
-                        Text(
-                            text = "Diisi setelah pekerjaan selesai atau pada saat pergantian shift",
-                            style = MaterialTheme.typography.bodySmall.copy(color = Slate500)
-                        )
-
-                        Spacer(modifier = Modifier.height(14.dp))
+                        if (realisasiState.selectedRencana != null) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                androidx.compose.material3.OutlinedButton(
+                                    onClick = { showResetConfirmDialog = true },
+                                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                                        contentColor = Color(0xFFDC2626)
+                                    ),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFCA5A5)),
+                                    shape = RoundedCornerShape(8.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    modifier = Modifier.testTag("btn_reset_formulir")
+                                ) {
+                                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Reset Formulir", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
 
                         // Pemilih Rencana Kerja Aktif
                         Text(
@@ -1284,13 +1403,15 @@ fun FormReportScreen(
                                     }
 
                                     // Standar Unit Badge dari Master Unit
+                                    val minStdBadge = if (realisasiState.hmMinStandar % 1.0 == 0.0) realisasiState.hmMinStandar.toInt().toString() else String.format(Locale.US, "%.1f", realisasiState.hmMinStandar)
+                                    val maxStdBadge = if (realisasiState.hmMaxStandar % 1.0 == 0.0) realisasiState.hmMaxStandar.toInt().toString() else String.format(Locale.US, "%.1f", realisasiState.hmMaxStandar)
                                     Surface(
                                         shape = RoundedCornerShape(6.dp),
                                         color = Emerald50,
                                         border = androidx.compose.foundation.BorderStroke(0.5.dp, Emerald600)
                                     ) {
                                         Text(
-                                            text = "Standar: ${realisasiState.hmMinStandar} - ${realisasiState.hmMaxStandar} HM",
+                                            text = "Standar: $minStdBadge - $maxStdBadge HM",
                                             color = Emerald900,
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold,
@@ -1300,6 +1421,35 @@ fun FormReportScreen(
                                 }
 
                                 Spacer(modifier = Modifier.height(10.dp))
+
+                                // 2. KESINAMBUNGAN HM PADA MULTI-RENCANA DALAM 1 UNIT (SEQUENTIAL HM)
+                                if (realisasiState.isSequentialHmFromPreviousPlan) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = Emerald50,
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Emerald100),
+                                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).testTag("badge_sequential_hm")
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.TaskAlt,
+                                                contentDescription = null,
+                                                tint = Emerald700,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "HM Berantai Otomatis: HM Awal ${String.format(Locale.US, "%.1f", realisasiState.hmAwal)} tersambung langsung dari HM Akhir rencana sebelumnya.",
+                                                fontSize = 11.sp,
+                                                color = Emerald900,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                        }
+                                    }
+                                }
 
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -1417,14 +1567,14 @@ fun FormReportScreen(
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 Icon(
-                                                    imageVector = Icons.Default.WarningAmber,
+                                                    imageVector = Icons.Default.Warning,
                                                     contentDescription = null,
                                                     tint = Color(0xFFD97706),
                                                     modifier = Modifier.size(16.dp)
                                                 )
                                                 Spacer(modifier = Modifier.width(6.dp))
                                                 Text(
-                                                    text = "Anda mengubah HM Awal dari nilai riwayat sistem (${String.format(Locale.US, "%.1f", realisasiState.hmAwalOriginal)} ➔ ${String.format(Locale.US, "%.1f", realisasiState.hmAwal)})",
+                                                    text = "Peringatan: HM Awal telah diubah dari nilai riwayat sistem (${String.format(Locale.US, "%.1f", realisasiState.hmAwalOriginal)} ➔ ${String.format(Locale.US, "%.1f", realisasiState.hmAwal)})",
                                                     fontSize = 11.sp,
                                                     fontWeight = FontWeight.SemiBold,
                                                     color = Color(0xFF92400E)
@@ -1435,30 +1585,30 @@ fun FormReportScreen(
 
                                     Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                                         Text(
-                                            text = "Alasan Koreksi HM Awal (Wajib):",
+                                            text = "Alasan Koreksi HM Awal (wajib diisi jika dikoreksi):",
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
-                                            color = if (realisasiState.hmAwal != realisasiState.hmAwalOriginal && realisasiState.alasanKoreksiHm.isBlank()) Color(0xFFDC2626) else Slate700
+                                            color = if (realisasiState.alasanKoreksiHm.isBlank()) Color(0xFFDC2626) else Slate700
                                         )
                                         Spacer(modifier = Modifier.height(2.dp))
                                         OutlinedTextField(
                                             value = realisasiState.alasanKoreksiHm,
                                             onValueChange = { viewModel.setRealisasiAlasanKoreksiHm(it) },
-                                            placeholder = { Text("misal: salah input shift sebelumnya / pergantian meteran alat", fontSize = 12.sp, color = Slate400) },
+                                            placeholder = { Text("Contoh: Salah input shift sebelumnya / pergantian meteran alat", fontSize = 12.sp, color = Slate400) },
                                             singleLine = true,
-                                            isError = realisasiState.hmAwal != realisasiState.hmAwalOriginal && realisasiState.alasanKoreksiHm.isBlank(),
+                                            isError = realisasiState.alasanKoreksiHm.isBlank(),
                                             colors = OutlinedTextFieldDefaults.colors(
                                                 focusedBorderColor = Color(0xFFD97706),
-                                                unfocusedBorderColor = Slate200,
+                                                unfocusedBorderColor = if (realisasiState.alasanKoreksiHm.isBlank()) Color(0xFFFCA5A5) else Slate200,
                                                 focusedContainerColor = Color.White,
                                                 unfocusedContainerColor = Color.White
                                             ),
                                             shape = RoundedCornerShape(10.dp),
                                             modifier = Modifier.fillMaxWidth().testTag("input_alasan_koreksi_hm")
                                         )
-                                        if (realisasiState.hmAwal != realisasiState.hmAwalOriginal && realisasiState.alasanKoreksiHm.isBlank()) {
+                                        if (realisasiState.alasanKoreksiHm.isBlank()) {
                                             Text(
-                                                text = "Alasan koreksi HM Awal wajib diisi untuk audit log admin.",
+                                                text = "Alasan Koreksi HM Awal (wajib diisi jika dikoreksi)",
                                                 color = Color(0xFFDC2626),
                                                 fontSize = 10.sp,
                                                 fontWeight = FontWeight.Medium,
@@ -1532,11 +1682,13 @@ fun FormReportScreen(
                                                     else -> Emerald900
                                                 }
                                             )
+                                            val minStdLabel = if (realisasiState.hmMinStandar % 1.0 == 0.0) realisasiState.hmMinStandar.toInt().toString() else String.format(Locale.US, "%.1f", realisasiState.hmMinStandar)
+                                            val maxStdLabel = if (realisasiState.hmMaxStandar % 1.0 == 0.0) realisasiState.hmMaxStandar.toInt().toString() else String.format(Locale.US, "%.1f", realisasiState.hmMaxStandar)
                                             Text(
                                                 text = when {
-                                                    isUnderMin -> "Kurang dari standar minimal (${realisasiState.hmMinStandar} HM)"
-                                                    isOverMax -> "Melebihi standar maksimal (${realisasiState.hmMaxStandar} HM)"
-                                                    else -> "Sesuai standar operasional"
+                                                    isUnderMin -> "Kurang dari standar minimal ($minStdLabel HM)"
+                                                    isOverMax -> "Melebihi standar maksimal ($maxStdLabel HM)"
+                                                    else -> "Sesuai standar operasional ($minStdLabel - $maxStdLabel HM)"
                                                 },
                                                 fontSize = 10.sp,
                                                 color = when {
@@ -1565,6 +1717,7 @@ fun FormReportScreen(
                                 // DUKUNGAN MULTI-KENDALA & INPUT WAKTU KEJADIAN
                                 // ==========================================
                                 if (isUnderMin) {
+                                    val minStdNotice = if (realisasiState.hmMinStandar % 1.0 == 0.0) realisasiState.hmMinStandar.toInt().toString() else String.format(Locale.US, "%.1f", realisasiState.hmMinStandar)
                                     Spacer(modifier = Modifier.height(10.dp))
                                     Surface(
                                         shape = RoundedCornerShape(12.dp),
@@ -1609,7 +1762,7 @@ fun FormReportScreen(
                                                 }
                                             }
                                             Text(
-                                                text = "HM berjalan (${String.format(Locale.US, "%.1f", realisasiState.hmHarianBerjalan)} HM) kurang dari batas minimal (${realisasiState.hmMinStandar} HM). Catat jenis hambatan dan rentang waktu kejadian secara akurat:",
+                                                text = "HM berjalan (${String.format(Locale.US, "%.1f", realisasiState.hmHarianBerjalan)} HM) kurang dari batas minimal ($minStdNotice HM). Catat jenis hambatan dan rentang waktu kejadian secara akurat:",
                                                 fontSize = 11.sp,
                                                 color = Color(0xFF78350F),
                                                 modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
@@ -1753,7 +1906,11 @@ fun FormReportScreen(
                                                                         )
                                                                         Spacer(modifier = Modifier.width(6.dp))
                                                                         Text(
-                                                                            text = "Waktu Selesai harus lebih besar dari Waktu Mulai (JJ:MM)",
+                                                                            text = if (item.startMinutes == null || item.endMinutes == null) {
+                                                                                "Format jam salah (gunakan format JJ:MM, misal 08:00 atau 23:00)"
+                                                                            } else {
+                                                                                "Waktu Mulai dan Waktu Selesai kendala tidak boleh sama (JJ:MM)"
+                                                                            },
                                                                             fontSize = 11.sp,
                                                                             fontWeight = FontWeight.Medium,
                                                                             color = Color(0xFFB91C1C)
@@ -1780,7 +1937,7 @@ fun FormReportScreen(
                                                                         )
                                                                         Spacer(modifier = Modifier.width(6.dp))
                                                                         Text(
-                                                                            text = "Jam kendala bertabrakan dengan kendala sebelumnya!",
+                                                                            text = "Jam kendala bertabrakan dengan kendala lainnya!",
                                                                             fontSize = 11.sp,
                                                                             fontWeight = FontWeight.Bold,
                                                                             color = Color(0xFFB91C1C)
@@ -1834,7 +1991,7 @@ fun FormReportScreen(
                                                         Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(18.dp))
                                                         Spacer(modifier = Modifier.width(8.dp))
                                                         Text(
-                                                            text = "Jam kendala bertabrakan dengan kendala sebelumnya! Perbaiki rentang waktu kendala sebelum mengirim.",
+                                                            text = "Jam kendala bertabrakan dengan kendala lainnya! Perbaiki rentang waktu kendala sebelum mengirim.",
                                                             fontSize = 11.sp,
                                                             fontWeight = FontWeight.Bold,
                                                             color = Color(0xFFB91C1C)
@@ -1910,8 +2067,9 @@ fun FormReportScreen(
                                         ) {
                                             Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFFEA580C), modifier = Modifier.size(18.dp))
                                             Spacer(modifier = Modifier.width(8.dp))
+                                            val maxStdNotice = if (realisasiState.hmMaxStandar % 1.0 == 0.0) realisasiState.hmMaxStandar.toInt().toString() else String.format(Locale.US, "%.1f", realisasiState.hmMaxStandar)
                                             Text(
-                                                text = "HM Berjalan melebihi standar maksimal unit (${realisasiState.hmMaxStandar} HM). Dialog konfirmasi lembur operasional akan ditampilkan sebelum kirim.",
+                                                text = "HM Berjalan melebihi standar maksimal unit ($maxStdNotice HM). Dialog konfirmasi lembur operasional akan ditampilkan sebelum kirim.",
                                                 fontSize = 11.sp,
                                                 color = Color(0xFF9A3412),
                                                 fontWeight = FontWeight.Medium
@@ -1994,13 +2152,44 @@ fun FormReportScreen(
                                     }
                                 }
 
+                                // 1. Peringatan Oranye: Stik Akhir > Stik Awal tanpa toggle Isi Solar
+                                if (realisasiState.isStikAkhirHigherWithoutRefuel) {
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = Color(0xFFFFFBEB),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFDE68A)),
+                                        modifier = Modifier.fillMaxWidth().testTag("warning_stik_akhir_higher")
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(10.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Warning,
+                                                contentDescription = null,
+                                                tint = Color(0xFFD97706),
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            Text(
+                                                text = "Stik akhir lebih tinggi dari stik awal. Apakah ada pengisian BBM lapangan? Aktifkan pengisian jika unit baru diisi solar.",
+                                                fontSize = 12.sp,
+                                                color = Color(0xFFB45309),
+                                                fontWeight = FontWeight.SemiBold,
+                                                lineHeight = 16.sp
+                                            )
+                                        }
+                                    }
+                                }
+
                                 Spacer(modifier = Modifier.height(10.dp))
 
                                 // Toggle Switch Pengisian Solar BBM Tambahan
                                 Surface(
                                     shape = RoundedCornerShape(10.dp),
                                     color = Color.White,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (realisasiState.isRefuelLitersMissing) ErrorRose else Slate200),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
                                     Column(modifier = Modifier.padding(10.dp)) {
@@ -2013,7 +2202,7 @@ fun FormReportScreen(
                                                 Icon(Icons.Default.LocalGasStation, contentDescription = null, tint = Emerald600, modifier = Modifier.size(16.dp))
                                                 Spacer(modifier = Modifier.width(6.dp))
                                                 Text(
-                                                    text = "Pengisian Solar BBM Tambahan",
+                                                    text = "Pengisian Solar BBM Tambahan (Fuel Truck)",
                                                     fontWeight = FontWeight.Bold,
                                                     fontSize = 12.sp,
                                                     color = Slate900
@@ -2025,70 +2214,122 @@ fun FormReportScreen(
                                                 colors = SwitchDefaults.colors(
                                                     checkedThumbColor = Color.White,
                                                     checkedTrackColor = Emerald600
-                                                )
+                                                ),
+                                                modifier = Modifier.testTag("switch_isi_solar_tambahan")
                                             )
                                         }
 
                                         if (realisasiState.isIsiSolar) {
                                             Spacer(modifier = Modifier.height(8.dp))
+                                            Text(
+                                                text = "Jumlah Liter Pengisian BBM * (Wajib Diisi)",
+                                                fontSize = 11.sp,
+                                                color = if (realisasiState.isRefuelLitersMissing) ErrorRose else Slate700,
+                                                fontWeight = FontWeight.SemiBold,
+                                                modifier = Modifier.padding(bottom = 4.dp)
+                                            )
                                             OutlinedTextField(
                                                 value = realisasiState.jumlahLiterSolarInput,
                                                 onValueChange = { viewModel.setRealisasiJumlahSolar(it) },
-                                                placeholder = { Text("Jumlah Liter Fuel Truck (misal: 150)", fontSize = 12.sp) },
+                                                placeholder = { Text("Contoh: 150 (Wajib diisi)", fontSize = 12.sp) },
                                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                                isError = realisasiState.isRefuelLitersMissing,
                                                 trailingIcon = { Text("Liter", color = Slate500, fontSize = 12.sp, modifier = Modifier.padding(end = 12.dp)) },
                                                 singleLine = true,
                                                 colors = OutlinedTextFieldDefaults.colors(
                                                     focusedBorderColor = Emerald600,
-                                                    unfocusedBorderColor = Slate200,
+                                                    unfocusedBorderColor = if (realisasiState.isRefuelLitersMissing) ErrorRose else Slate200,
                                                     focusedContainerColor = Color(0xFFF8FAFC),
                                                     unfocusedContainerColor = Color(0xFFF8FAFC)
                                                 ),
                                                 shape = RoundedCornerShape(10.dp),
                                                 modifier = Modifier.fillMaxWidth().testTag("input_jumlah_solar")
                                             )
+                                            if (realisasiState.isRefuelLitersMissing) {
+                                                Text(
+                                                    text = "Wajib memasukkan jumlah liter pengisian BBM lapangan (> 0).",
+                                                    color = ErrorRose,
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Medium,
+                                                    modifier = Modifier.padding(top = 4.dp, start = 2.dp)
+                                                )
+                                            }
                                         }
                                     }
                                 }
 
                                 Spacer(modifier = Modifier.height(10.dp))
 
-                                // Kalkulasi Visual Pemakaian Solar Otomatis
+                                // Kalkulasi Visual Pemakaian Solar Otomatis:
+                                // Formula: Konsumsi Solar = (Stik Solar Awal + Total Isi Solar Tambahan) - Stik Solar Akhir
+                                val awalVal = realisasiState.parsedStikAwal ?: 0.0
+                                val akhirVal = realisasiState.parsedStikAkhir ?: 0.0
+                                val refuelVal = if (realisasiState.isIsiSolar) (realisasiState.parsedJumlahLiterSolar ?: 0.0) else 0.0
+                                val konsumsiTotal = realisasiState.computedKonsumsiSolar
+
                                 Surface(
                                     shape = RoundedCornerShape(10.dp),
-                                    color = Emerald50,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Emerald100),
-                                    modifier = Modifier.fillMaxWidth()
+                                    color = if (realisasiState.isSolarConsumptionNegative) Color(0xFFFEF2F2) else Emerald50,
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (realisasiState.isSolarConsumptionNegative) Color(0xFFFECACA) else Emerald100),
+                                    modifier = Modifier.fillMaxWidth().testTag("card_kalkulasi_solar")
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column {
+                                    Column(modifier = Modifier.padding(12.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column {
+                                                Text(
+                                                    text = "Formula Konsumsi Solar Otomatis:",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = if (realisasiState.isSolarConsumptionNegative) Color(0xFF991B1B) else Emerald900
+                                                )
+                                                Text(
+                                                    text = "(${String.format(Locale.US, "%.1f", awalVal)} Awal + ${String.format(Locale.US, "%.1f", refuelVal)} Isi) - ${String.format(Locale.US, "%.1f", akhirVal)} Akhir",
+                                                    fontSize = 10.sp,
+                                                    color = if (realisasiState.isSolarConsumptionNegative) Color(0xFFB91C1C) else Emerald700,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                            }
                                             Text(
-                                                text = "Kalkulasi Pemakaian Solar:",
-                                                fontSize = 11.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Emerald900
-                                            )
-                                            val awalVal = realisasiState.stikSolarAwalInput.toDoubleOrNull() ?: 0.0
-                                            val akhirVal = realisasiState.stikSolarAkhirInput.toDoubleOrNull() ?: 0.0
-                                            val delta = (awalVal - akhirVal).coerceAtLeast(0.0)
-                                            val refuel = if (realisasiState.isIsiSolar) (realisasiState.jumlahLiterSolarInput.toDoubleOrNull() ?: 0.0) else 0.0
-                                            Text(
-                                                text = "Selisih Stik (${String.format(Locale.US, "%.1f", delta)}) + Refuel (${String.format(Locale.US, "%.1f", refuel)} L)",
-                                                fontSize = 10.sp,
-                                                color = Emerald700
+                                                text = "${String.format(Locale.US, "%.1f", konsumsiTotal)} Liter",
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                fontFamily = FontFamily.Monospace,
+                                                color = if (realisasiState.isSolarConsumptionNegative) Color(0xFFB91C1C) else Emerald900
                                             )
                                         }
-                                        Text(
-                                            text = "${String.format(Locale.US, "%.1f", realisasiState.pemakaianSolarOtomatis)} Liter / cm",
-                                            fontSize = 15.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            fontFamily = FontFamily.Monospace,
-                                            color = Emerald900
-                                        )
+
+                                        // 3. Peringatan Konsumsi Negatif
+                                        if (realisasiState.isSolarConsumptionNegative) {
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = Color(0xFFFEE2E2),
+                                                modifier = Modifier.fillMaxWidth().testTag("alert_solar_negatif")
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Default.ErrorOutline,
+                                                        contentDescription = null,
+                                                        tint = ErrorRose,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                    Spacer(modifier = Modifier.width(6.dp))
+                                                    Text(
+                                                        text = "Konsumsi solar tidak boleh bernilai negatif (${String.format(Locale.US, "%.1f", konsumsiTotal)} L). Periksa kembali angka stik solar dan pengisian BBM.",
+                                                        fontSize = 11.sp,
+                                                        color = Color(0xFF991B1B),
+                                                        fontWeight = FontWeight.SemiBold
+                                                    )
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -2182,25 +2423,55 @@ fun FormReportScreen(
 
                         Spacer(modifier = Modifier.height(20.dp))
 
-                        // Validasi penguncian tombol kirim jika HM kurang dari standar dan kendala belum lengkap
+                        // Validasi penguncian tombol kirim:
+                        // 1. Standar HM minimal: jika HM kurang dari standar, kendala wajib diisi lengkap
                         val isUnderMinLimit = realisasiState.hmHarianBerjalan > 0.0 &&
                                 realisasiState.hmHarianBerjalan < realisasiState.hmMinStandar
-                        val isLockedDueToKendala = if (isUnderMinLimit) {
-                            realisasiState.daftarKendala.isEmpty() || !realisasiState.daftarKendala.all { it.isValid }
-                        } else {
-                            false
+
+                        // 2. Anti-Overlapping & Batas Jam Shift
+                        val hasAnyKendalaOverlap = realisasiState.hasAnyKendalaOverlap
+                        val isTotalKendalaExceedingShift = realisasiState.isTotalKendalaExceedingShift
+                        val hasIncompleteKendala = realisasiState.daftarKendala.any {
+                            (it.selectedKendala != null || it.waktuMulai.isNotBlank() || it.waktuSelesai.isNotBlank()) && !it.isValid
                         }
+
+                        val isLockedDueToKendala = if (isUnderMinLimit) {
+                            realisasiState.daftarKendala.isEmpty() ||
+                                    !realisasiState.daftarKendala.all { it.isValid } ||
+                                    hasAnyKendalaOverlap ||
+                                    isTotalKendalaExceedingShift
+                        } else {
+                            hasAnyKendalaOverlap || isTotalKendalaExceedingShift || hasIncompleteKendala
+                        }
+
+                        // 3. Koreksi Manual HM Awal: Alasan wajib diisi jika koreksi aktif
+                        val isLockedDueToHmAwalKoreksi = realisasiState.isHmAwalCorrected && realisasiState.alasanKoreksiHm.isBlank()
+
+                        // 4. HM Akhir wajib lebih besar dari HM Awal
+                        val isHmAkhirEntered = realisasiState.hmAkhirInput.isNotBlank()
+                        val isHmAkhirGreater = realisasiState.isHmValid && ((realisasiState.hmAkhirInput.replace(',', '.').toDoubleOrNull() ?: 0.0) > realisasiState.hmAwal)
+
+                        // 5. Validasi Solar BBM: Wajib isi liter jika toggle aktif & cegah konsumsi bernilai negatif
+                        val isLockedDueToSolar = realisasiState.isRefuelLitersMissing || realisasiState.isSolarConsumptionNegative
+
+                        // 6. Validasi Lonjakan HM Ekstrem (> 24.0 jam)
+                        val isLockedDueToExtremeHm24h = realisasiState.isHmJumpExtreme24h
 
                         val isSubmitEnabled = !realisasiState.isSubmitting &&
                                 realisasiState.selectedRencana != null &&
-                                realisasiState.isHmValid &&
-                                realisasiState.hmAkhirInput.isNotBlank() &&
-                                !isLockedDueToKendala
+                                isHmAkhirEntered &&
+                                isHmAkhirGreater &&
+                                !isLockedDueToExtremeHm24h &&
+                                !isLockedDueToKendala &&
+                                !isLockedDueToHmAwalKoreksi &&
+                                !isLockedDueToSolar
 
                         // Tombol Aksi: Kirim Realisasi Kerja (Selesai)
                         Button(
                             onClick = {
-                                if (realisasiState.hmHarianBerjalan > realisasiState.hmMaxStandar) {
+                                if (realisasiState.isHmWarningExceed14h) {
+                                    showExtremeHmWarningConfirmDialog = true
+                                } else if (realisasiState.hmHarianBerjalan > realisasiState.hmMaxStandar) {
                                     showOverHmConfirmDialog = true
                                 } else {
                                     viewModel.submitRealisasiKerja()
@@ -2225,16 +2496,21 @@ fun FormReportScreen(
                                 Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = if (isLockedDueToKendala) {
-                                        val firstInvalid = realisasiState.daftarKendala.firstOrNull { !it.isValid }
-                                        when {
-                                            firstInvalid == null -> "Lengkapi Data Kendala"
-                                            firstInvalid.selectedKendala == null -> "Pilih Kendala Terlebih Dahulu"
-                                            !firstInvalid.isTimeRangeValid -> "Waktu Selesai Harus > Waktu Mulai"
-                                            else -> "Lengkapi Data Kendala"
-                                        }
-                                    } else {
-                                        "Kirim Realisasi Kerja (Selesai)"
+                                    text = when {
+                                        realisasiState.selectedRencana == null -> "Pilih Unit / Rencana Kerja Terlebih Dahulu"
+                                        !isHmAkhirEntered -> "Masukkan HM Akhir Lapangan"
+                                        isLockedDueToExtremeHm24h -> "Lonjakan HM > 24 Jam! Periksa HM Akhir"
+                                        !isHmAkhirGreater -> realisasiState.hmErrorMessage ?: "HM Akhir Wajib Lebih Besar dari HM Awal"
+                                        isLockedDueToHmAwalKoreksi -> "Isi Alasan Koreksi HM Awal"
+                                        hasAnyKendalaOverlap -> "Jam Kendala Bertabrakan!"
+                                        isTotalKendalaExceedingShift -> "Durasi Kendala Melebihi Jam Shift!"
+                                        isUnderMinLimit && realisasiState.daftarKendala.isEmpty() -> "Wajib Tambah Data Kendala"
+                                        isUnderMinLimit && realisasiState.daftarKendala.any { it.selectedKendala == null } -> "Pilih Penyebab Kendala"
+                                        isUnderMinLimit && realisasiState.daftarKendala.any { !it.isTimeRangeValid } -> "Lengkapi Jam Kendala (JJ:MM)"
+                                        hasIncompleteKendala -> "Lengkapi Baris Kendala yang Diisi"
+                                        realisasiState.isRefuelLitersMissing -> "Isi Jumlah Liter Pengisian BBM"
+                                        realisasiState.isSolarConsumptionNegative -> "Konsumsi Solar Negatif (Periksa Stik)"
+                                        else -> "Kirim Realisasi Kerja (Selesai)"
                                     },
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 15.sp,
@@ -2246,6 +2522,94 @@ fun FormReportScreen(
                 }
             }
         }
+    }
+
+    // ==========================================
+    // DIALOG KONFIRMASI RESET FORMULIR MANUAL
+    // ==========================================
+    if (showResetConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirmDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Refresh, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Reset Formulir Realisasi?", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Text(
+                    text = "Seluruh draft inputan yang belum terkirim untuk unit ${realisasiState.selectedRencana?.kodeUnit ?: ""} akan dihapus dari cache lokal. Apakah Anda yakin?",
+                    fontSize = 13.sp,
+                    color = Slate700
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showResetConfirmDialog = false
+                        viewModel.resetRealisasiFormManual()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                ) {
+                    Text("Ya, Reset Formulir")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetConfirmDialog = false }) {
+                    Text("Batal", color = Slate700)
+                }
+            }
+        )
+    }
+
+    // ======================================================================
+    // DIALOG KONFIRMASI LONJAKAN HM > 14.0 JAM (DI ATAS JAM KERJA WAJAR SHIFT)
+    // ======================================================================
+    if (showExtremeHmWarningConfirmDialog) {
+        val durasiHmVal = String.format(Locale.US, "%.1f", realisasiState.hmHarianBerjalan)
+        AlertDialog(
+            onDismissRequest = { showExtremeHmWarningConfirmDialog = false },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Warning, contentDescription = null, tint = WarningAmber, modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Konfirmasi Lonjakan HM Shift", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "HM berjalan terdeteksi $durasiHmVal jam. Apakah angka meteran sudah benar?",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Slate900
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Durasi ini melebihi jam kerja normal shift (14 jam). Pastikan angka HM Akhir tidak salah ketik (typo).",
+                        fontSize = 12.sp,
+                        color = Slate600
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showExtremeHmWarningConfirmDialog = false
+                        viewModel.submitRealisasiKerja()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Emerald600)
+                ) {
+                    Text("Ya, Angka Sudah Benar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showExtremeHmWarningConfirmDialog = false }) {
+                    Text("Periksa Kembali", color = Slate700)
+                }
+            }
+        )
     }
 
     // ==========================================
@@ -2263,8 +2627,9 @@ fun FormReportScreen(
             },
             text = {
                 Column {
+                    val maxStdDialog = if (realisasiState.hmMaxStandar % 1.0 == 0.0) realisasiState.hmMaxStandar.toInt().toString() else String.format(Locale.US, "%.1f", realisasiState.hmMaxStandar)
                     Text(
-                        text = "HM Berjalan yang diinput adalah ${String.format(Locale.US, "%.1f", realisasiState.hmHarianBerjalan)} Jam, melebihi standar maksimal unit (${realisasiState.hmMaxStandar} Jam).",
+                        text = "HM Berjalan yang diinput adalah ${String.format(Locale.US, "%.1f", realisasiState.hmHarianBerjalan)} Jam, melebihi standar maksimal unit ($maxStdDialog Jam).",
                         fontSize = 13.sp,
                         color = Slate700
                     )
