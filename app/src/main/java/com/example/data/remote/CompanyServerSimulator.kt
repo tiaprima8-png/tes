@@ -159,6 +159,197 @@ object CompanyServerSimulator {
         )
     }
 
+    suspend fun fetchBootstrapData(pengawas: String, tanggal: String): ApiResponse<BootstrapDataPayload> {
+        delay(600)
+        if (isSimulatedOffline) {
+            throw java.io.IOException("Koneksi gagal: Perangkat berada di luar jangkauan jaringan (Offline Lapangan)")
+        }
+
+        // 1. Filter Master Data for supervisor
+        val filteredUnits = serverUnits.filter { it.resolvedSupervisor.equals(pengawas, ignoreCase = true) }
+        val filteredOperators = serverOperators.filter { it.resolvedSupervisor.equals(pengawas, ignoreCase = true) }
+        val activities = serverActivities.toList()
+        val lokasi = serverLokasi.toList()
+        val kendala = serverKendala.toList()
+        val masterData = MasterDataPayload(
+            units = filteredUnits,
+            activities = activities,
+            aktivitas = activities,
+            operators = filteredOperators,
+            lokasi = lokasi,
+            locations = lokasi,
+            kendala = kendala
+        )
+
+        // 2. Ensure initial work plans on server for this supervisor if none yet
+        if (serverRencanaKerja.none { it.nama_pengawas.equals(pengawas, ignoreCase = true) }) {
+            // Seed realistic work plans issued by Admin with SPK Terbit
+            serverRencanaKerja.addAll(
+                listOf(
+                    PostRencanaKerjaRequest(
+                        id = 101L,
+                        status_unit = "OPERASI",
+                        kode_unit = "HEH1",
+                        operator = "Ahmad Fauzi",
+                        sap_code = "ACT-SAP-101",
+                        nama_aktivitas = "Galian Tanah Lunak",
+                        satuan_aktivitas = "m3",
+                        kode_lokasi = "001A",
+                        shift_kerja = "SIANG",
+                        keterangan = "Prioritas penggalian front area utara cut site",
+                        nomor_spk = "SPK-2026-X101",
+                        status_spk = "TERBIT_SPK",
+                        status_tahap = "RENCANA",
+                        is_realized = false,
+                        nama_pengawas = pengawas
+                    ),
+                    PostRencanaKerjaRequest(
+                        id = 102L,
+                        status_unit = "OPERASI",
+                        kode_unit = "EXC-02",
+                        operator = "Bambang Sudrajat",
+                        sap_code = "ACT-SAP-102",
+                        nama_aktivitas = "Loading Overburden",
+                        satuan_aktivitas = "m3",
+                        kode_lokasi = "002B",
+                        shift_kerja = "SIANG",
+                        keterangan = "Pemuatan overburden ke fleet dump truck",
+                        nomor_spk = "SPK-2026-X102",
+                        status_spk = "TERBIT_SPK",
+                        status_tahap = "RENCANA",
+                        is_realized = false,
+                        nama_pengawas = pengawas
+                    ),
+                    PostRencanaKerjaRequest(
+                        id = 103L,
+                        status_unit = "OPERASI",
+                        kode_unit = "DT-101",
+                        operator = "Dedi Supriyadi",
+                        sap_code = "ACT-SAP-301",
+                        nama_aktivitas = "Hauling Material Subgrade",
+                        satuan_aktivitas = "ton",
+                        kode_lokasi = "MAINROAD-01",
+                        shift_kerja = "SIANG",
+                        keterangan = "Hauling subgrade perbaikan jalan hauling",
+                        nomor_spk = "SPK-2026-X103",
+                        status_spk = "TERBIT_SPK",
+                        status_tahap = "RENCANA",
+                        is_realized = false,
+                        nama_pengawas = pengawas
+                    )
+                )
+            )
+        }
+
+        // Active plans for supervisor
+        val activePlans = serverRencanaKerja.filter {
+            it.nama_pengawas.equals(pengawas, ignoreCase = true) &&
+            it.is_realized != true &&
+            it.status_tahap == "RENCANA"
+        }
+
+        // 3. Ensure initial historical activity reports on server for this supervisor if none yet
+        if (receivedReportsOnServer.none { it.nama_pengawas.equals(pengawas, ignoreCase = true) || it.supervisor_name.equals(pengawas, ignoreCase = true) }) {
+            receivedReportsOnServer.addAll(
+                listOf(
+                    PostActivityReportRequest(
+                        tanggal = tanggal,
+                        nama_pengawas = pengawas,
+                        kode_unit = "HEH1",
+                        jenis_unit = "EXCAVATOR",
+                        nama_aktivitas = "Galian Tanah Lunak",
+                        kode_sap = "ACT-SAP-101",
+                        satuan = "m3",
+                        nama_operator = "Ahmad Fauzi",
+                        lokasi_kerja = "001A",
+                        shift = "SIANG",
+                        durasi_jam_kerja = 7.0,
+                        hm_awal = 4118.0,
+                        hm_akhir = 4125.5,
+                        hm_harian_berjalan = 7.5,
+                        hasil_kerja = 450.0,
+                        keterangan = "Penggalian front cut berjalan lancar dan aman.",
+                        status_unit = "OPERASI",
+                        is_isi_solar = true,
+                        jumlah_liter_solar = 120.0,
+                        stik_solar_awal = 80.0,
+                        stik_solar_akhir = 48.0,
+                        pemakaian_solar = 152.0,
+                        client_uuid = "SRV-REP-$pengawas-HEH1-4125.5",
+                        client_transaction_id = "TX-SRV-001"
+                    ),
+                    PostActivityReportRequest(
+                        tanggal = tanggal,
+                        nama_pengawas = pengawas,
+                        kode_unit = "DZ-01",
+                        jenis_unit = "BULLDOZER",
+                        nama_aktivitas = "Dumping & Spreading",
+                        kode_sap = "ACT-SAP-201",
+                        satuan = "m2",
+                        nama_operator = "Bambang Sudrajat",
+                        lokasi_kerja = "002B",
+                        shift = "SIANG",
+                        durasi_jam_kerja = 7.0,
+                        hm_awal = 5123.0,
+                        hm_akhir = 5130.8,
+                        hm_harian_berjalan = 7.8,
+                        hasil_kerja = 620.0,
+                        keterangan = "Perataan disposal area utara selesai sesuai target.",
+                        status_unit = "OPERASI",
+                        is_isi_solar = true,
+                        jumlah_liter_solar = 140.0,
+                        stik_solar_awal = 75.0,
+                        stik_solar_akhir = 42.0,
+                        pemakaian_solar = 173.0,
+                        client_uuid = "SRV-REP-$pengawas-DZ01-5130.8",
+                        client_transaction_id = "TX-SRV-002"
+                    ),
+                    PostActivityReportRequest(
+                        tanggal = tanggal,
+                        nama_pengawas = pengawas,
+                        kode_unit = "GRD-01",
+                        jenis_unit = "MOTOR GRADER",
+                        nama_aktivitas = "Grading Mainroad Tambang",
+                        kode_sap = "ACT-SAP-202",
+                        satuan = "m",
+                        nama_operator = "Hendra Gunawan",
+                        lokasi_kerja = "MAINROAD-01",
+                        shift = "SIANG",
+                        durasi_jam_kerja = 6.5,
+                        hm_awal = 1863.5,
+                        hm_akhir = 1870.0,
+                        hm_harian_berjalan = 6.5,
+                        hasil_kerja = 1250.0,
+                        keterangan = "Perawatan dan grading mainroad hauling jalan lancar.",
+                        status_unit = "OPERASI",
+                        is_isi_solar = false,
+                        jumlah_liter_solar = 0.0,
+                        client_uuid = "SRV-REP-$pengawas-GRD01-1870.0",
+                        client_transaction_id = "TX-SRV-003"
+                    )
+                )
+            )
+        }
+
+        val supervisorReports = receivedReportsOnServer.filter {
+            it.nama_pengawas.equals(pengawas, ignoreCase = true) ||
+            it.supervisor_name.equals(pengawas, ignoreCase = true)
+        }
+
+        return ApiResponse(
+            status = "SUCCESS",
+            message = "Data bootstrap operasional pengawas $pengawas berhasil diambil (${activePlans.size} rencana, ${supervisorReports.size} riwayat)",
+            data = BootstrapDataPayload(
+                master_data = masterData,
+                masterData = masterData,
+                rencana_aktif = activePlans,
+                rencanaAktif = activePlans,
+                riwayat_aktivitas = supervisorReports,
+                riwayatAktivitas = supervisorReports
+            )
+        )
+    }
+
     suspend fun postRencanaKerja(request: PostRencanaKerjaRequest): ApiResponse<String> {
         delay(500)
         if (isSimulatedOffline) {

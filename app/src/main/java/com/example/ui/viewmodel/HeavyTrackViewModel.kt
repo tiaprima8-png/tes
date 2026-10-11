@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
@@ -152,6 +153,9 @@ class HeavyTrackViewModel(
 
     private val _isSyncingPending = MutableStateFlow(false)
     val isSyncingPending: StateFlow<Boolean> = _isSyncingPending.asStateFlow()
+
+    private val _isBootstrapping = MutableStateFlow(false)
+    val isBootstrapping: StateFlow<Boolean> = _isBootstrapping.asStateFlow()
 
     val lastSyncTimeMillis: StateFlow<Long> = repository.lastSyncTimeMillis
 
@@ -379,7 +383,7 @@ class HeavyTrackViewModel(
         viewModelScope.launch {
             repository.seedInitialDataIfEmpty(_activeSupervisor.value)
             repository.reconcileSyncStatus()
-            fetchMasterData()
+            fetchBootstrapData(showOverlay = false)
         }
 
         // Live WebSocket / Polling simulation listener for SPK_PUBLISHED events
@@ -420,7 +424,7 @@ class HeavyTrackViewModel(
         )
         viewModelScope.launch {
             _uiEvents.emit(UiMessage.Success("Selamat bertugas, Pengawas ${supervisor.name} (${supervisor.nik})"))
-            fetchMasterData()
+            fetchBootstrapData(showOverlay = true)
             syncPendingReports()
         }
     }
@@ -461,7 +465,7 @@ class HeavyTrackViewModel(
 
     fun switchSupervisor(newSupervisor: String) {
         _activeSupervisor.value = newSupervisor
-        fetchMasterData()
+        fetchBootstrapData(showOverlay = true)
     }
 
     fun toggleOfflineSimulation() {
@@ -479,8 +483,62 @@ class HeavyTrackViewModel(
     }
 
     // ==========================================
-    // AUTO-SYNC & MASTER DATA
+    // AUTO-SYNC & MASTER DATA / BOOTSTRAP HYDRATION
     // ==========================================
+    fun fetchBootstrapData(showOverlay: Boolean = true) {
+        viewModelScope.launch {
+            if (showOverlay) {
+                _isBootstrapping.value = true
+            }
+            _isSyncingMaster.value = true
+            val nowMs = System.currentTimeMillis()
+            val todayStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(nowMs))
+            val currentSupervisor = _activeSupervisor.value
+
+            val result = repository.fetchBootstrapData(currentSupervisor, todayStr)
+            _isSyncingMaster.value = false
+            if (showOverlay) {
+                _isBootstrapping.value = false
+            }
+
+            result.onSuccess { summary ->
+                _uiEvents.emit(UiMessage.Success("Sinkronisasi Selesai: $summary"))
+
+                // Auto-select kartu penugasan unit yang SPK-nya sudah terbit
+                if (_realisasiFormState.value.selectedRencana == null) {
+                    val activePlans = repository.getActiveRencanaForSupervisor(currentSupervisor).firstOrNull() ?: emptyList()
+                    val targetPlan = activePlans.find { it.statusSpk == "TERBIT_SPK" && !it.isRealized }
+                        ?: activePlans.firstOrNull { !it.isRealized }
+                    if (targetPlan != null) {
+                        selectRencanaForRealisasi(targetPlan)
+                    }
+                }
+            }.onFailure { err ->
+                _uiEvents.emit(UiMessage.Info("Mode Offline: ${err.message ?: "Data dimuat dari SQLite lokal"}"))
+                if (_realisasiFormState.value.selectedRencana == null) {
+                    val activePlans = repository.getActiveRencanaForSupervisor(currentSupervisor).firstOrNull() ?: emptyList()
+                    val targetPlan = activePlans.find { it.statusSpk == "TERBIT_SPK" && !it.isRealized }
+                        ?: activePlans.firstOrNull { !it.isRealized }
+                    if (targetPlan != null) {
+                        selectRencanaForRealisasi(targetPlan)
+                    }
+                }
+            }
+        }
+    }
+
+    fun triggerHeaderSync() {
+        viewModelScope.launch {
+            val pendingCount = repository.getUnsyncedCountValue()
+            if (pendingCount > 0) {
+                _isSyncingPending.value = true
+                repository.syncAllPendingOperationalData()
+                _isSyncingPending.value = false
+            }
+            fetchBootstrapData(showOverlay = false)
+        }
+    }
+
     fun fetchMasterData() {
         viewModelScope.launch {
             _isSyncingMaster.value = true

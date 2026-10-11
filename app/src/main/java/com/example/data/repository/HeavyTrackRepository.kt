@@ -306,6 +306,197 @@ class HeavyTrackRepository(
         }
     }
 
+    suspend fun fetchBootstrapData(supervisorName: String, tanggal: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val (payload, message) = apiClientManager.fetchBootstrapData(supervisorName, tanggal)
+
+            // 1. Process Master Data
+            val master = payload.resolvedMasterData
+
+            val incomingUnits = master.units ?: emptyList()
+            if (incomingUnits.isNotEmpty()) {
+                val unitEntities = incomingUnits.map {
+                    UnitEntity(
+                        unitCode = it.resolvedUnitCode,
+                        unitType = it.resolvedUnitType,
+                        brandModel = it.resolvedBrandModel,
+                        lastHm = it.resolvedLastHm,
+                        supervisorAssigned = if (it.resolvedSupervisor.isNotBlank()) it.resolvedSupervisor else supervisorName,
+                        status = it.resolvedStatus,
+                        hmMinStandar = it.resolvedHmMinStandar,
+                        hmMaxStandar = it.resolvedHmMaxStandar,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                }
+                unitDao.insertUnits(unitEntities)
+            }
+
+            val incomingActivities = master.resolvedActivities
+            if (incomingActivities.isNotEmpty()) {
+                val actEntities = incomingActivities.map {
+                    ActivityMasterEntity(
+                        sapCode = it.resolvedSapCode,
+                        activityName = it.resolvedActivityName,
+                        unitOfMeasure = it.resolvedUnitOfMeasure,
+                        description = it.resolvedDescription,
+                        category = it.resolvedCategory,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                }
+                activityDao.clearAllActivities()
+                activityDao.insertActivities(actEntities)
+            }
+
+            val incomingOperators = master.operators ?: emptyList()
+            if (incomingOperators.isNotEmpty()) {
+                val opEntities = incomingOperators.map {
+                    OperatorEntity(
+                        operatorId = it.resolvedOperatorId,
+                        name = it.resolvedName,
+                        badgeNumber = it.resolvedBadgeNumber,
+                        supervisorAssigned = if (it.resolvedSupervisor.isNotBlank()) it.resolvedSupervisor else supervisorName,
+                        skillLevel = it.resolvedSkillLevel,
+                        status = it.resolvedStatus,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                }
+                operatorDao.insertOperators(opEntities)
+            }
+
+            val incomingLokasi = master.resolvedLokasi
+            if (incomingLokasi.isNotEmpty()) {
+                val lokasiEntities = incomingLokasi.map {
+                    LokasiEntity(
+                        kodeLokasi = it.resolvedKode,
+                        wilayah = it.resolvedWilayah,
+                        luasBruto = it.resolvedLuasBruto,
+                        luasNetto = it.resolvedLuasNetto,
+                        keterangan = it.keterangan ?: "",
+                        updatedAt = System.currentTimeMillis()
+                    )
+                }
+                lokasiDao.insertLokasiList(lokasiEntities)
+            }
+
+            val incomingKendala = master.kendala ?: emptyList()
+            if (incomingKendala.isNotEmpty()) {
+                val kendalaEntities = incomingKendala.mapIndexed { index, it ->
+                    KendalaEntity(
+                        kodeKendala = it.resolveKode(index),
+                        namaKendala = it.resolvedNama,
+                        kategori = it.resolvedKategori,
+                        deskripsi = it.resolvedDeskripsi,
+                        updatedAt = System.currentTimeMillis()
+                    )
+                }
+                kendalaDao.clearAll()
+                kendalaDao.insertKendalaList(kendalaEntities)
+            }
+
+            // 2. Process Rencana Aktif -> Insert / Upsert into rencana_kerja
+            val incomingRencana = payload.resolvedRencanaAktif
+            var rencanaUpsertedCount = 0
+            for (renReq in incomingRencana) {
+                val kodeUnitVal = renReq.kode_unit ?: continue
+                val existing = rencanaDao.findRencana(supervisorName, kodeUnitVal, tanggal)
+                val entity = RencanaKerjaEntity(
+                    id = existing?.id ?: (renReq.id ?: 0L),
+                    supervisorName = supervisorName,
+                    statusUnit = renReq.status_unit ?: "OPERASI",
+                    kodeUnit = kodeUnitVal,
+                    operator = renReq.operator ?: "",
+                    sapCode = renReq.sap_code ?: "",
+                    namaAktivitas = renReq.nama_aktivitas ?: "",
+                    satuanAktivitas = renReq.satuan_aktivitas ?: "m3",
+                    kodeLokasi = renReq.kode_lokasi ?: "",
+                    shiftKerja = renReq.shift_kerja ?: "SIANG",
+                    keterangan = renReq.keterangan ?: "",
+                    nomorSpk = renReq.nomor_spk ?: "",
+                    statusSpk = renReq.status_spk ?: "TERBIT_SPK",
+                    statusTahap = renReq.status_tahap ?: "RENCANA",
+                    isRealized = renReq.is_realized ?: false,
+                    isSynced = true,
+                    createdAt = existing?.createdAt ?: System.currentTimeMillis(),
+                    tanggalFormat = tanggal
+                )
+                if (existing != null) {
+                    rencanaDao.updateRencana(entity)
+                } else {
+                    rencanaDao.insertRencana(entity)
+                }
+                rencanaUpsertedCount++
+            }
+
+            // 3. Process Riwayat Aktivitas -> Insert / Upsert into activity_reports dengan isSynced = true
+            val incomingReports = payload.resolvedRiwayatAktivitas
+            var reportsUpsertedCount = 0
+            for (repReq in incomingReports) {
+                val unitCodeVal = repReq.kode_unit ?: repReq.unit_code ?: continue
+                val hmAkhirVal = repReq.hm_akhir ?: 0.0
+                val reportDateVal = repReq.tanggal ?: repReq.report_date ?: tanggal
+                val clientUuidVal = repReq.client_uuid ?: repReq.client_transaction_id ?: "SRV-${supervisorName}-${unitCodeVal}-${hmAkhirVal}-${reportDateVal}"
+
+                val existingByUuid = reportDao.getReportByUuid(clientUuidVal)
+                val existingByMatch = if (existingByUuid == null) reportDao.findExistingReport(supervisorName, unitCodeVal, hmAkhirVal) else null
+                val existing = existingByUuid ?: existingByMatch
+
+                val entity = ActivityReportEntity(
+                    id = existing?.id ?: 0L,
+                    clientUuid = clientUuidVal,
+                    reportDate = reportDateVal,
+                    supervisorName = supervisorName,
+                    unitCode = unitCodeVal,
+                    unitType = repReq.jenis_unit ?: repReq.unit_type ?: "EXCAVATOR",
+                    activityName = repReq.nama_aktivitas ?: repReq.activity_name ?: "",
+                    sapCode = repReq.kode_sap ?: repReq.sap_code ?: "",
+                    unitOfMeasure = repReq.satuan ?: repReq.unit_of_measure ?: "m3",
+                    operatorName = repReq.nama_operator ?: repReq.operator_name ?: "",
+                    workLocation = repReq.lokasi_kerja ?: repReq.work_location ?: "",
+                    shift = repReq.shift ?: "SIANG",
+                    workDurationHours = repReq.durasi_jam_kerja ?: repReq.work_duration_hours ?: 7.0,
+                    hmAwal = repReq.hm_awal ?: 0.0,
+                    hmAkhir = hmAkhirVal,
+                    hmDailyRunning = repReq.hm_harian_berjalan ?: (hmAkhirVal - (repReq.hm_awal ?: 0.0)),
+                    workOutput = repReq.hasil_kerja ?: repReq.work_output ?: 0.0,
+                    notes = repReq.keterangan ?: repReq.notes ?: "",
+                    unitStatus = repReq.status_unit ?: repReq.unit_status ?: "OPERASI",
+                    isRefueled = repReq.is_isi_solar ?: repReq.is_refueled ?: false,
+                    fuelLiters = repReq.jumlah_liter_solar ?: repReq.fuel_liters ?: 0.0,
+                    stikSolarAwal = repReq.stik_solar_awal ?: 0.0,
+                    stikSolarAkhir = repReq.stik_solar_akhir ?: 0.0,
+                    pemakaianSolar = repReq.pemakaian_solar ?: 0.0,
+                    kendalaId = repReq.kendala_id,
+                    kendalaNama = repReq.kendala_nama,
+                    catatanKendala = repReq.catatan_kendala,
+                    daftarKendalaJson = if (repReq.daftar_kendala != null) KendalaJsonConverter.toJson(repReq.daftar_kendala) else null,
+                    photoPath = repReq.photo_path,
+                    photoBase64 = repReq.foto_bukti ?: repReq.photo_base64,
+                    photoSizeKb = repReq.photo_size_kb,
+                    photoDimensions = repReq.photo_dimensions,
+                    isSynced = true, // Flagged is_synced = true agar tidak dianggap tertunda sync
+                    isHmAwalCorrected = repReq.is_hm_awal_corrected ?: false,
+                    alasanKoreksiHm = repReq.alasan_koreksi_hm,
+                    createdAt = existing?.createdAt ?: System.currentTimeMillis(),
+                    syncedAt = System.currentTimeMillis()
+                )
+                if (existing != null) {
+                    reportDao.updateReport(entity)
+                } else {
+                    reportDao.insertReport(entity)
+                }
+                reportsUpsertedCount++
+            }
+
+            _lastSyncTimeMillis.value = System.currentTimeMillis()
+            val summary = "$rencanaUpsertedCount Rencana Aktif, $reportsUpsertedCount Riwayat disinkronkan"
+            addLog("GET /api/mobile/bootstrap-data", "GET", "200 OK", summary, true)
+            Result.success("$message ($summary)")
+        } catch (e: Exception) {
+            addLog("GET /api/mobile/bootstrap-data", "GET", "ERROR", e.localizedMessage ?: "Gagal", false)
+            Result.failure(e)
+        }
+    }
+
     suspend fun submitRencanaKerja(rencana: RencanaKerjaEntity): Result<RencanaKerjaEntity> = withContext(Dispatchers.IO) {
         try {
             val insertedId = rencanaDao.insertRencana(rencana.copy(isSynced = false))

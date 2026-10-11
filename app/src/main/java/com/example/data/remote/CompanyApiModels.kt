@@ -235,6 +235,40 @@ data class MasterDataPayload(
 }
 
 @JsonClass(generateAdapter = true)
+data class BootstrapDataPayload(
+    @Json(name = "master_data") val master_data: MasterDataPayload? = null,
+    @Json(name = "masterData") val masterData: MasterDataPayload? = null,
+    @Json(name = "rencana_aktif") val rencana_aktif: List<PostRencanaKerjaRequest>? = emptyList(),
+    @Json(name = "rencanaAktif") val rencanaAktif: List<PostRencanaKerjaRequest>? = emptyList(),
+    @Json(name = "riwayat_aktivitas") val riwayat_aktivitas: List<PostActivityReportRequest>? = emptyList(),
+    @Json(name = "riwayatAktivitas") val riwayatAktivitas: List<PostActivityReportRequest>? = emptyList(),
+
+    // Flat fallbacks if server returns master fields directly:
+    val units: List<UnitPayload>? = emptyList(),
+    val aktivitas: List<ActivityPayload>? = emptyList(),
+    val activities: List<ActivityPayload>? = emptyList(),
+    val operators: List<OperatorPayload>? = emptyList(),
+    val lokasi: List<LokasiPayload>? = emptyList(),
+    val kendala: List<KendalaPayload>? = emptyList()
+) {
+    val resolvedRencanaAktif: List<PostRencanaKerjaRequest>
+        get() = if (!rencana_aktif.isNullOrEmpty()) rencana_aktif else (rencanaAktif ?: emptyList())
+
+    val resolvedRiwayatAktivitas: List<PostActivityReportRequest>
+        get() = if (!riwayat_aktivitas.isNullOrEmpty()) riwayat_aktivitas else (riwayatAktivitas ?: emptyList())
+
+    val resolvedMasterData: MasterDataPayload
+        get() = master_data ?: masterData ?: MasterDataPayload(
+            units = units,
+            aktivitas = aktivitas,
+            activities = activities,
+            operators = operators,
+            lokasi = lokasi,
+            kendala = kendala
+        )
+}
+
+@JsonClass(generateAdapter = true)
 data class UnitPayload(
     @Json(name = "kode_unit") val kode_unit: String? = null,
     @Json(name = "unit_code") val unit_code: String? = null,

@@ -18,6 +18,12 @@ import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
 
 interface CompanyApiService {
+    @GET("api/mobile/bootstrap-data")
+    suspend fun getBootstrapData(
+        @Query("pengawas") pengawas: String,
+        @Query("tanggal") tanggal: String
+    ): Response<ApiResponse<BootstrapDataPayload>>
+
     @GET("api/master-data")
     suspend fun getMasterData(
         @Query("supervisor") supervisor: String? = null
@@ -181,6 +187,32 @@ class ApiClientManager(context: Context) {
         // Fallback to local simulator
         val simResponse = CompanyServerSimulator.fetchMasterData(supervisor)
         Pair(simResponse.data ?: MasterDataPayload(), "Data master berhasil disinkronkan.")
+    }
+
+    suspend fun fetchBootstrapData(pengawas: String, tanggal: String): Pair<BootstrapDataPayload, String> = withContext(Dispatchers.IO) {
+        if (CompanyServerSimulator.isSimulatedOffline) {
+            throw java.io.IOException("Mode Offline Lapangan aktif: Menggunakan data SQLite lokal")
+        }
+
+        try {
+            val response = apiService.getBootstrapData(pengawas, tanggal)
+            if (response.isSuccessful && response.body()?.data != null) {
+                val data = response.body()!!.data!!
+                return@withContext Pair(data, "Berhasil sinkron bootstrap data dari Web Admin API (${response.code()})")
+            }
+        } catch (e: Exception) {
+            if (useSimulationFallback) {
+                val simResponse = CompanyServerSimulator.fetchBootstrapData(pengawas, tanggal)
+                return@withContext Pair(
+                    simResponse.data ?: BootstrapDataPayload(),
+                    "Web Admin remote tidak merespons (${e.localizedMessage}). Menggunakan data sinkronisasi lokal."
+                )
+            }
+            throw e
+        }
+
+        val simResponse = CompanyServerSimulator.fetchBootstrapData(pengawas, tanggal)
+        Pair(simResponse.data ?: BootstrapDataPayload(), "Data bootstrap operasional berhasil disinkronkan.")
     }
 
     suspend fun postActivityReport(report: PostActivityReportRequest): String = withContext(Dispatchers.IO) {

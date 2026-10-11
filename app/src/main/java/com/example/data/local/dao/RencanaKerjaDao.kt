@@ -22,8 +22,14 @@ interface RencanaKerjaDao {
     @Query("SELECT * FROM rencana_kerja WHERE id = :id LIMIT 1")
     suspend fun getRencanaById(id: Long): RencanaKerjaEntity?
 
+    @Query("SELECT * FROM rencana_kerja WHERE supervisor_name = :supervisor AND kode_unit = :kodeUnit AND tanggal_format = :tanggal LIMIT 1")
+    suspend fun findRencana(supervisor: String, kodeUnit: String, tanggal: String): RencanaKerjaEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertRencana(rencana: RencanaKerjaEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertRencanaList(list: List<RencanaKerjaEntity>)
 
     @Update
     suspend fun updateRencana(rencana: RencanaKerjaEntity)

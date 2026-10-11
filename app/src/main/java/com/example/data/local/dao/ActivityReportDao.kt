@@ -25,8 +25,17 @@ interface ActivityReportDao {
     @Query("SELECT COUNT(*) FROM activity_reports WHERE isSynced = 0")
     fun getUnsyncedCount(): Flow<Int>
 
+    @Query("SELECT * FROM activity_reports WHERE clientUuid = :uuid LIMIT 1")
+    suspend fun getReportByUuid(uuid: String): ActivityReportEntity?
+
+    @Query("SELECT * FROM activity_reports WHERE supervisorName = :supervisor AND unitCode = :unitCode AND hmAkhir = :hmAkhir LIMIT 1")
+    suspend fun findExistingReport(supervisor: String, unitCode: String, hmAkhir: Double): ActivityReportEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReport(report: ActivityReportEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertReports(reports: List<ActivityReportEntity>)
 
     @Update
     suspend fun updateReport(report: ActivityReportEntity)

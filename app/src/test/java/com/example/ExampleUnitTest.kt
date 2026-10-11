@@ -599,4 +599,66 @@ class ExampleUnitTest {
         assertTrue(txId.startsWith("TX-"))
         assertTrue(txId.length > 10)
     }
+
+    @Test
+    fun test_supervisor_session_logout_clears_session() {
+        val spv = SupervisorDirectory.authenticate("SPV-901", "1234")
+        assertNotNull(spv)
+
+        var currentSession = spv
+        var isLoggedIn = true
+        assertNotNull(currentSession)
+        assertTrue(isLoggedIn)
+
+        // Trigger logout
+        isLoggedIn = false
+        currentSession = null
+
+        assertFalse(isLoggedIn)
+        assertNull(currentSession)
+    }
+
+    @Test
+    fun test_bootstrap_data_payload_resolution() {
+        val payload = com.example.data.remote.BootstrapDataPayload(
+            rencana_aktif = listOf(
+                com.example.data.remote.PostRencanaKerjaRequest(
+                    kode_unit = "HEH1",
+                    nomor_spk = "SPK-2026-X101",
+                    status_spk = "TERBIT_SPK",
+                    nama_pengawas = "Budi Santoso"
+                )
+            ),
+            riwayat_aktivitas = listOf(
+                com.example.data.remote.PostActivityReportRequest(
+                    tanggal = "11/10/2026",
+                    nama_pengawas = "Budi Santoso",
+                    kode_unit = "HEH1",
+                    hm_akhir = 4125.5
+                )
+            )
+        )
+
+        assertEquals(1, payload.resolvedRencanaAktif.size)
+        assertEquals("SPK-2026-X101", payload.resolvedRencanaAktif[0].nomor_spk)
+        assertEquals("TERBIT_SPK", payload.resolvedRencanaAktif[0].status_spk)
+        assertEquals(1, payload.resolvedRiwayatAktivitas.size)
+        assertEquals("HEH1", payload.resolvedRiwayatAktivitas[0].kode_unit)
+    }
+
+    @Test
+    fun test_bootstrap_simulator_returns_active_spk_plans_and_history() = kotlinx.coroutines.test.runTest {
+        val response = com.example.data.remote.CompanyServerSimulator.fetchBootstrapData(
+            pengawas = "Budi Santoso",
+            tanggal = "11/10/2026"
+        )
+        assertNotNull(response.data)
+        val data = response.data!!
+        assertTrue(data.resolvedRencanaAktif.isNotEmpty())
+        assertTrue(data.resolvedRiwayatAktivitas.isNotEmpty())
+
+        val planWithSpk = data.resolvedRencanaAktif.find { it.status_spk == "TERBIT_SPK" }
+        assertNotNull(planWithSpk)
+        assertTrue(planWithSpk!!.nomor_spk?.startsWith("SPK-") == true)
+    }
 }

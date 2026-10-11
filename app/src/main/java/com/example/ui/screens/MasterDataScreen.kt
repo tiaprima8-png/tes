@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -97,6 +98,7 @@ import com.example.ui.theme.ErrorRose
 import com.example.ui.theme.ErrorRose50
 import com.example.ui.theme.Slate100
 import com.example.ui.theme.Slate200
+import com.example.ui.theme.Slate300
 import com.example.ui.theme.Slate400
 import com.example.ui.theme.Slate500
 import com.example.ui.theme.Slate600
@@ -123,6 +125,7 @@ fun MasterDataScreen(
 
     var selectedTab by remember { mutableIntStateOf(0) }
     var showDistributionDialog by remember { mutableStateOf(false) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier
@@ -237,6 +240,37 @@ fun MasterDataScreen(
                             )
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Tombol Log Out dari Sesi Pengawas
+                    OutlinedButton(
+                        onClick = { showLogoutDialog = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .testTag("btn_logout_master"),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = ErrorRose
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRose.copy(alpha = 0.5f))
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Logout,
+                            contentDescription = "Log Out",
+                            tint = ErrorRose,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Log Out dari Sesi Pengawas",
+                            style = MaterialTheme.typography.labelLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = ErrorRose
+                            )
+                        )
+                    }
                 }
             }
         }
@@ -334,6 +368,76 @@ fun MasterDataScreen(
             onUpdateApkUrl = { newUrl ->
                 viewModel.updateCustomApkUrl(newUrl)
             }
+        )
+    }
+
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            icon = {
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .background(ErrorRose50, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.Logout,
+                        contentDescription = null,
+                        tint = ErrorRose,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            },
+            title = {
+                Text(
+                    text = "Konfirmasi Log Out",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    color = Slate900
+                )
+            },
+            text = {
+                Text(
+                    text = "Apakah Anda yakin ingin keluar dari sesi pengawas ($activeSupervisor)?",
+                    fontSize = 14.sp,
+                    color = Slate600
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showLogoutDialog = false
+                        viewModel.logout()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ErrorRose,
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.testTag("btn_confirm_logout_master")
+                ) {
+                    Text(
+                        text = "Ya, Log Out",
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            },
+            dismissButton = {
+                OutlinedButton(
+                    onClick = { showLogoutDialog = false },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Slate700
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Slate300),
+                    modifier = Modifier.testTag("btn_cancel_logout_master")
+                ) {
+                    Text("Batal")
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(16.dp)
         )
     }
 }
