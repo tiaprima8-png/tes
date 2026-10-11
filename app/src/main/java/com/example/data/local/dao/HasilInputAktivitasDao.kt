@@ -21,6 +21,12 @@ interface HasilInputAktivitasDao {
     @Query("UPDATE hasil_input_aktivitas SET is_synced = 1, status_kirim = 'SYNCED', synced_at = :timestamp WHERE id = :id")
     suspend fun markAsSynced(id: Long, timestamp: Long = System.currentTimeMillis())
 
+    @Query("UPDATE hasil_input_aktivitas SET is_synced = 1, status_kirim = 'SYNCED', synced_at = :timestamp WHERE kode_unit = :unitCode AND hm_akhir = :hmAkhir AND supervisor_name = :supervisor")
+    suspend fun markHasilAsSyncedByUnitAndHm(unitCode: String, hmAkhir: Double, supervisor: String, timestamp: Long = System.currentTimeMillis())
+
+    @Query("UPDATE hasil_input_aktivitas SET is_synced = 1, status_kirim = 'SYNCED', synced_at = :timestamp WHERE client_transaction_id = :txId")
+    suspend fun markHasilAsSyncedByTxId(txId: String, timestamp: Long = System.currentTimeMillis())
+
     @Query("SELECT * FROM hasil_input_aktivitas WHERE kode_unit = :kodeUnit ORDER BY created_at DESC, id DESC LIMIT 1")
     suspend fun getLatestHasilForUnit(kodeUnit: String): HasilInputAktivitasEntity?
 

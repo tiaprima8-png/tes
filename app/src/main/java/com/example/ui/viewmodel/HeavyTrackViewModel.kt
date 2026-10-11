@@ -378,6 +378,7 @@ class HeavyTrackViewModel(
     init {
         viewModelScope.launch {
             repository.seedInitialDataIfEmpty(_activeSupervisor.value)
+            repository.reconcileSyncStatus()
             fetchMasterData()
         }
 
@@ -401,29 +402,6 @@ class HeavyTrackViewModel(
             }
         }
 
-        // Polling loop to sync any published SPK in background
-        viewModelScope.launch {
-            while (true) {
-                kotlinx.coroutines.delay(4000)
-                val curSelected = _realisasiFormState.value.selectedRencana
-                if (curSelected != null && _realisasiFormState.value.nomorSpk.isBlank()) {
-                    val published = CompanyServerSimulator.getPublishedSpk(curSelected.id)
-                    if (!published.isNullOrBlank()) {
-                        repository.updateRencanaSpk(curSelected.id, published, "TERBIT_SPK")
-                        _realisasiFormState.value = _realisasiFormState.value.copy(
-                            nomorSpk = published,
-                            selectedRencana = curSelected.copy(
-                                nomorSpk = published,
-                                statusSpk = "TERBIT_SPK"
-                            )
-                        )
-                        _uiEvents.emit(
-                            UiMessage.Success("Nomor SPK Resmi: $published (Terkunci Otomatis)")
-                        )
-                    }
-                }
-            }
-        }
     }
 
     fun setFormSubTab(tab: Int) {
@@ -546,6 +524,11 @@ class HeavyTrackViewModel(
 
     fun syncPendingReports() {
         viewModelScope.launch {
+            val pendingCount = repository.getUnsyncedCountValue()
+            if (pendingCount <= 0) {
+                _uiEvents.emit(UiMessage.Info("Semua laporan sudah tersinkron ke Web Admin."))
+                return@launch
+            }
             _isSyncingPending.value = true
             val result = repository.syncAllPendingOperationalData()
             _isSyncingPending.value = false
@@ -846,8 +829,7 @@ class HeavyTrackViewModel(
             )
         } else null
 
-        val spkFromMem = CompanyServerSimulator.getPublishedSpk(rencana.id) ?: ""
-        val resolvedSpk = if (rencana.nomorSpk.isNotBlank()) rencana.nomorSpk else spkFromMem
+        val resolvedSpk = rencana.nomorSpk
 
         _realisasiFormState.value = _realisasiFormState.value.copy(
             selectedRencana = rencana,

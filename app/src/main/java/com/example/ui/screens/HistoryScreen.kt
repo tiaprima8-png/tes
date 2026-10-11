@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.History
@@ -190,28 +191,50 @@ fun HistoryScreen(
                         }
                     }
 
-                    // Sync button if unsynced items exist
-                    if (unsyncedCount > 0) {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Button(
-                            onClick = { viewModel.syncPendingReports() },
-                            enabled = !isSyncingPending,
-                            colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
-                            shape = RoundedCornerShape(10.dp),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(46.dp)
-                                .testTag("sync_pending_reports_button")
-                        ) {
-                            if (isSyncingPending) {
-                                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Menyinkronkan ke Web Admin...", fontSize = 13.sp)
-                            } else {
-                                Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Sinkronkan $unsyncedCount Laporan Tertunda", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    // Tombol Sinkronisasi Anti-Duplikat
+                    Spacer(modifier = Modifier.height(12.dp))
+                    val isSyncEnabled = unsyncedCount > 0 && !isSyncingPending
+                    Button(
+                        onClick = {
+                            if (unsyncedCount > 0) {
+                                viewModel.syncPendingReports()
                             }
+                        },
+                        enabled = isSyncEnabled,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Emerald600,
+                            contentColor = Color.White,
+                            disabledContainerColor = Color(0xFFF1F5F9),
+                            disabledContentColor = Slate500
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(46.dp)
+                            .testTag("sync_pending_reports_button")
+                    ) {
+                        if (isSyncingPending) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Menyinkronkan ke Web Admin...", fontSize = 13.sp)
+                        } else if (unsyncedCount > 0) {
+                            Icon(Icons.Default.CloudUpload, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Sinkronkan $unsyncedCount Laporan Tertunda", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        } else {
+                            Icon(
+                                Icons.Default.CloudDone,
+                                contentDescription = null,
+                                tint = Color(0xFF059669),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                "Semua Laporan Tersinkron",
+                                fontWeight = FontWeight.SemiBold,
+                                color = Slate700,
+                                fontSize = 13.sp
+                            )
                         }
                     }
                 }

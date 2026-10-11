@@ -34,6 +34,12 @@ interface ActivityReportDao {
     @Query("UPDATE activity_reports SET isSynced = 1, syncedAt = :timestamp WHERE id = :reportId")
     suspend fun markReportAsSynced(reportId: Long, timestamp: Long = System.currentTimeMillis())
 
+    @Query("UPDATE activity_reports SET isSynced = 1, syncedAt = :timestamp WHERE unitCode = :unitCode AND hmAkhir = :hmAkhir AND supervisorName = :supervisor")
+    suspend fun markReportAsSyncedByUnitAndHm(unitCode: String, hmAkhir: Double, supervisor: String, timestamp: Long = System.currentTimeMillis())
+
+    @Query("UPDATE activity_reports SET isSynced = 1, syncedAt = :timestamp WHERE clientUuid = :clientUuid")
+    suspend fun markReportAsSyncedByClientUuid(clientUuid: String, timestamp: Long = System.currentTimeMillis())
+
     @Query("DELETE FROM activity_reports WHERE id = :reportId")
     suspend fun deleteReport(reportId: Long)
 

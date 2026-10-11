@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -103,7 +105,31 @@ class HeavyTrackRepository(
         reportDao.getUnsyncedReports()
 
     fun getUnsyncedCount(): Flow<Int> =
-        reportDao.getUnsyncedCount()
+        combine(reportDao.getUnsyncedCount(), hasilDao.getUnsyncedCount()) { repCount, hasCount ->
+            maxOf(repCount, hasCount)
+        }
+
+    suspend fun getUnsyncedCountValue(): Int = withContext(Dispatchers.IO) {
+        val repCount = reportDao.getUnsyncedReportsList().count { !it.isSynced }
+        val hasCount = hasilDao.getUnsyncedHasilList().count { !it.isSynced || it.statusKirim == "PENDING" }
+        maxOf(repCount, hasCount)
+    }
+
+    suspend fun reconcileSyncStatus() = withContext(Dispatchers.IO) {
+        try {
+            val allHasil = hasilDao.getAllHasil().firstOrNull() ?: emptyList()
+            val unsyncedReports = reportDao.getUnsyncedReportsList()
+            for (report in unsyncedReports) {
+                val matchingSyncedHasil = allHasil.find {
+                    it.isSynced && it.kodeUnit == report.unitCode && it.hmAkhir == report.hmAkhir
+                }
+                if (matchingSyncedHasil != null) {
+                    val syncTime = matchingSyncedHasil.syncedAt ?: System.currentTimeMillis()
+                    reportDao.markReportAsSynced(report.id, syncTime)
+                }
+            }
+        } catch (_: Exception) {}
+    }
 
     suspend fun getUnitByCode(unitCode: String): UnitEntity? =
         unitDao.getUnitByCode(unitCode)
@@ -379,7 +405,7 @@ class HeavyTrackRepository(
                 alasanKoreksiHm = savedHasil.alasanKoreksiHm,
                 isSynced = false
             )
-            reportDao.insertReport(reportMirror)
+            val mirrorReportId = reportDao.insertReport(reportMirror)
             savedHasil.hmAkhir?.let { hmAkhir ->
                 unitDao.updateUnitHm(savedHasil.kodeUnit, hmAkhir)
             }
@@ -451,12 +477,16 @@ class HeavyTrackRepository(
             try {
                 try { apiClientManager.postActivityReport(apiActivityReq) } catch (_: Exception) {}
                 val respMsg = apiClientManager.postHasilAktivitas(apiReq)
-                hasilDao.markAsSynced(insertedId)
+                val syncTimestamp = System.currentTimeMillis()
+                // Update langsung SQLite/Room lokal: is_synced = true dan status_sync = 'SYNCED'
+                hasilDao.markAsSynced(insertedId, syncTimestamp)
+                reportDao.markReportAsSynced(mirrorReportId, syncTimestamp)
+                reportDao.markReportAsSyncedByUnitAndHm(savedHasil.kodeUnit, savedHasil.hmAkhir, savedHasil.supervisorName, syncTimestamp)
                 draftDao.deleteDraftByRencanaId(savedHasil.rencanaId)
-                _lastSyncTimeMillis.value = System.currentTimeMillis()
+                _lastSyncTimeMillis.value = syncTimestamp
                 val kendalaTag = if (kendalaPayloads.isNotEmpty()) " [Kendala: ${kendalaPayloads.size} item]" else ""
                 addLog("POST /api/aktivitas-unit", "POST", "200 OK", "Realisasi Unit ${savedHasil.kodeUnit} (HM ${savedHasil.hmAkhir})$kendalaTag", true)
-                Result.success(savedHasil.copy(isSynced = true, statusKirim = "SYNCED", syncedAt = System.currentTimeMillis()))
+                Result.success(savedHasil.copy(isSynced = true, statusKirim = "SYNCED", syncedAt = syncTimestamp))
             } catch (netEx: Exception) {
                 addLog("POST /api/aktivitas-unit", "POST", "OFFLINE/PENDING", "Realisasi Unit ${savedHasil.kodeUnit} disimpan lokal", false)
                 Result.success(savedHasil.copy(isSynced = false, statusKirim = "PENDING"))
@@ -525,7 +555,8 @@ class HeavyTrackRepository(
 
     suspend fun syncAllPendingReports(): Result<Int> = withContext(Dispatchers.IO) {
         try {
-            val pending = reportDao.getUnsyncedReportsList()
+            // Anti-duplikat: Filter hanya record yang benar-benar memiliki isSynced == false
+            val pending = reportDao.getUnsyncedReportsList().filter { !it.isSynced }
             if (pending.isEmpty()) {
                 return@withContext Result.success(0)
             }
@@ -567,14 +598,18 @@ class HeavyTrackRepository(
                         alasanKoreksiHm = report.alasanKoreksiHm
                     )
                     apiClientManager.postActivityReport(apiReq)
-                    reportDao.markReportAsSynced(report.id)
+                    val now = System.currentTimeMillis()
+                    reportDao.markReportAsSynced(report.id, now)
+                    hasilDao.markHasilAsSyncedByUnitAndHm(report.unitCode, report.hmAkhir, report.supervisorName, now)
                     unitDao.updateUnitHm(report.unitCode, report.hmAkhir)
                     successCount++
                 } catch (_: Exception) {}
             }
 
-            addLog("POST /api/aktivitas-unit (BATCH)", "POST", "SYNC COMPLETED", "Sinkron $successCount dari ${pending.size} laporan", true)
-            _lastSyncTimeMillis.value = System.currentTimeMillis()
+            if (successCount > 0) {
+                addLog("POST /api/aktivitas-unit (BATCH)", "POST", "SYNC COMPLETED", "Sinkron $successCount dari ${pending.size} laporan", true)
+                _lastSyncTimeMillis.value = System.currentTimeMillis()
+            }
             Result.success(successCount)
         } catch (e: Exception) {
             Result.failure(e)
@@ -584,8 +619,8 @@ class HeavyTrackRepository(
     suspend fun syncAllPendingOperationalData(): Result<Int> = withContext(Dispatchers.IO) {
         var totalSynced = 0
         try {
-            // 1. Sync pending rencana
-            val pendingRencana = rencanaDao.getUnsyncedRencanaList()
+            // 1. Sync pending rencana: Filter hanya record yang benar-benar is_synced == false
+            val pendingRencana = rencanaDao.getUnsyncedRencanaList().filter { !it.isSynced }
             for (rencana in pendingRencana) {
                 try {
                     val req = PostRencanaKerjaRequest(
@@ -606,8 +641,8 @@ class HeavyTrackRepository(
                 } catch (_: Exception) {}
             }
 
-            // 2. Sync pending hasil aktivitas
-            val pendingHasil = hasilDao.getUnsyncedHasilList()
+            // 2. Sync pending hasil aktivitas: Filter hanya record yang benar-benar is_synced == false atau status_kirim == 'PENDING'
+            val pendingHasil = hasilDao.getUnsyncedHasilList().filter { !it.isSynced || it.statusKirim == "PENDING" }
             for (hasil in pendingHasil) {
                 try {
                     val kendalaPayloads = KendalaJsonConverter.fromJson(hasil.daftarKendalaJson)
@@ -634,13 +669,15 @@ class HeavyTrackRepository(
                         alasan_koreksi_hm = hasil.alasanKoreksiHm
                     )
                     apiClientManager.postHasilAktivitas(req)
-                    hasilDao.markAsSynced(hasil.id)
+                    val now = System.currentTimeMillis()
+                    hasilDao.markAsSynced(hasil.id, now)
+                    reportDao.markReportAsSyncedByUnitAndHm(hasil.kodeUnit, hasil.hmAkhir, hasil.supervisorName, now)
                     draftDao.deleteDraftByRencanaId(hasil.rencanaId)
                     totalSynced++
                 } catch (_: Exception) {}
             }
 
-            // 3. Sync pending reports
+            // 3. Sync pending reports (ActivityReportEntity) yang belum tersinkron
             val reportsResult = syncAllPendingReports()
             totalSynced += reportsResult.getOrDefault(0)
 

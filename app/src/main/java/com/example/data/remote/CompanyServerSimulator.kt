@@ -165,27 +165,6 @@ object CompanyServerSimulator {
             throw java.io.IOException("Mode Offline Lapangan: Rencana kerja tersimpan di lokal (MENUNGGU_SPK)")
         }
         serverRencanaKerja.add(request)
-        val planId = request.id ?: System.currentTimeMillis()
-
-        // Background simulation: Admin website reviews plan & publishes official SPK
-        CoroutineScope(Dispatchers.Default).launch {
-            delay(5000) // 5 seconds review simulation
-            val spkNum = "SPK-2026-X" + (100 + (planId % 900))
-            publishedSpkMap[planId] = spkNum
-            val idx = serverRencanaKerja.indexOfFirst { it.id == request.id || it.kode_unit == request.kode_unit }
-            if (idx >= 0) {
-                val old = serverRencanaKerja[idx]
-                serverRencanaKerja[idx] = old.copy(nomor_spk = spkNum, status_spk = "TERBIT_SPK")
-            }
-            _spkEventFlow.emit(
-                SpkPublishedEvent(
-                    planId = planId,
-                    kodeUnit = request.kode_unit ?: "",
-                    nomorSpk = spkNum,
-                    supervisorName = request.nama_pengawas ?: ""
-                )
-            )
-        }
 
         return ApiResponse(
             status = "SUCCESS",
@@ -235,6 +214,17 @@ object CompanyServerSimulator {
         if (isSimulatedOffline) {
             throw java.io.IOException("Mode Offline Lapangan: Hasil kerja disimpan ke penyimpanan lokal")
         }
+
+        // Anti-duplikasi di server simulator
+        val txId = request.client_transaction_id
+        if (!txId.isNullOrBlank() && serverHasilAktivitas.any { it.client_transaction_id == txId }) {
+            return ApiResponse(
+                status = "SUCCESS",
+                message = "Realisasi Unit ${request.kode_unit ?: ""} sudah tercatat di Web Admin (Anti-Duplikat Terverifikasi).",
+                data = "ACK-IDEMPOTENT"
+            )
+        }
+
         serverHasilAktivitas.add(request)
 
         val targetUnitCode = request.kode_unit ?: ""
@@ -259,6 +249,16 @@ object CompanyServerSimulator {
         delay(700)
         if (isSimulatedOffline) {
             throw java.io.IOException("Jaringan tidak tersedia: Laporan disimpan ke penyimpanan lokal perangkat")
+        }
+
+        // Anti-duplikasi di server simulator
+        val clientUuidVal = report.client_uuid ?: report.client_transaction_id
+        if (!clientUuidVal.isNullOrBlank() && receivedReportsOnServer.any { (it.client_uuid ?: it.client_transaction_id) == clientUuidVal }) {
+            return ApiResponse(
+                status = "SUCCESS",
+                message = "Laporan sudah tercatat sebelumnya di server Web Admin (Anti-Duplikat Terverifikasi).",
+                data = "REPORT-ACK-IDEMPOTENT"
+            )
         }
 
         // Add to server log
