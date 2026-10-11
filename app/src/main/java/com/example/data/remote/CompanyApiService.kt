@@ -3,11 +3,15 @@ package com.example.data.remote
 import android.content.Context
 import android.content.SharedPreferences
 import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
+import okhttp3.ResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
+import org.json.JSONArray
+import org.json.JSONObject
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
@@ -18,6 +22,11 @@ import retrofit2.http.Query
 import java.util.concurrent.TimeUnit
 
 interface CompanyApiService {
+    @GET("api/mobile/rencana-kerja/active")
+    suspend fun getActiveRencanaKerja(
+        @Query("pengawas") pengawas: String
+    ): Response<ResponseBody>
+
     @GET("api/mobile/bootstrap-data")
     suspend fun getBootstrapData(
         @Query("pengawas") pengawas: String,
@@ -74,13 +83,14 @@ interface CompanyApiService {
  * Automatically saves/loads configured URL and falls back to in-memory company server
  * simulator when in offline/testing mode.
  */
-class ApiClientManager(context: Context) {
+class ApiClientManager(val context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("heavytrack_api_prefs", Context.MODE_PRIVATE)
 
     companion object {
-        // Default URL set to user's live Web Admin Portal
+        // Active Web Admin Portal URL
+        const val BASE_URL = "https://1-portalce.ai.studio"
         const val KEY_API_URL = "api_base_url"
-        const val DEFAULT_WEB_ADMIN_URL = "https://1-portalce.ai.studio/"
+        const val DEFAULT_WEB_ADMIN_URL = "https://1-portalce.ai.studio"
         const val KEY_USE_MOCK_FALLBACK = "use_mock_fallback"
     }
 
@@ -213,6 +223,70 @@ class ApiClientManager(context: Context) {
 
         val simResponse = CompanyServerSimulator.fetchBootstrapData(pengawas, tanggal)
         Pair(simResponse.data ?: BootstrapDataPayload(), "Data bootstrap operasional berhasil disinkronkan.")
+    }
+
+    /**
+     * Panggil API GET /api/mobile/rencana-kerja/active?pengawas={pengawas_aktif}
+     * Menghubungi Web Admin untuk menarik daftar rencana kerja aktif terbaru secara instan.
+     */
+    suspend fun fetchActiveRencanaKerja(pengawas: String): Pair<List<PostRencanaKerjaRequest>, String> = withContext(Dispatchers.IO) {
+        if (CompanyServerSimulator.isSimulatedOffline) {
+            val simResp = CompanyServerSimulator.getActiveRencanaKerja(pengawas)
+            return@withContext Pair(simResp.data ?: emptyList(), "Mode Offline Lapangan: Rencana kerja aktif dimuat dari simulator lokal (${simResp.data?.size ?: 0} unit)")
+        }
+
+        try {
+            val response = apiService.getActiveRencanaKerja(pengawas)
+            if (response.isSuccessful && response.body() != null) {
+                val bodyStr = response.body()!!.string()
+                val parsed = parseActiveRencanaList(bodyStr)
+                return@withContext Pair(parsed, "Berhasil menarik ${parsed.size} rencana kerja aktif dari Web Admin (${response.code()} OK)")
+            }
+        } catch (e: Exception) {
+            if (useSimulationFallback) {
+                val simResp = CompanyServerSimulator.getActiveRencanaKerja(pengawas)
+                return@withContext Pair(
+                    simResp.data ?: emptyList(),
+                    "Web Admin remote tidak merespons (${e.localizedMessage ?: e.message}). Menggunakan data sinkronisasi lokal."
+                )
+            }
+            throw e
+        }
+
+        val simResp = CompanyServerSimulator.getActiveRencanaKerja(pengawas)
+        Pair(simResp.data ?: emptyList(), "Rencana kerja aktif berhasil disinkronkan.")
+    }
+
+    private fun parseActiveRencanaList(rawJson: String): List<PostRencanaKerjaRequest> {
+        val trimmed = rawJson.trim()
+        val listType = Types.newParameterizedType(List::class.java, PostRencanaKerjaRequest::class.java)
+        val adapter = moshi.adapter<List<PostRencanaKerjaRequest>>(listType)
+
+        return try {
+            if (trimmed.startsWith("[")) {
+                adapter.fromJson(trimmed) ?: emptyList()
+            } else if (trimmed.startsWith("{")) {
+                val json = JSONObject(trimmed)
+                if (json.has("data")) {
+                    val dataVal = json.get("data")
+                    if (dataVal is JSONArray) {
+                        adapter.fromJson(dataVal.toString()) ?: emptyList()
+                    } else if (dataVal is JSONObject) {
+                        if (dataVal.has("rencana_aktif") && dataVal.get("rencana_aktif") is JSONArray) {
+                            adapter.fromJson(dataVal.getJSONArray("rencana_aktif").toString()) ?: emptyList()
+                        } else emptyList()
+                    } else emptyList()
+                } else if (json.has("rencana_aktif") && json.get("rencana_aktif") is JSONArray) {
+                    adapter.fromJson(json.getJSONArray("rencana_aktif").toString()) ?: emptyList()
+                } else {
+                    emptyList()
+                }
+            } else {
+                emptyList()
+            }
+        } catch (_: Exception) {
+            emptyList()
+        }
     }
 
     suspend fun postActivityReport(report: PostActivityReportRequest): String = withContext(Dispatchers.IO) {

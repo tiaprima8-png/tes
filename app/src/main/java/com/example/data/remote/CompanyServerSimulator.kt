@@ -6,6 +6,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -347,6 +350,22 @@ object CompanyServerSimulator {
                 riwayat_aktivitas = supervisorReports,
                 riwayatAktivitas = supervisorReports
             )
+        )
+    }
+
+    suspend fun getActiveRencanaKerja(pengawas: String): ApiResponse<List<PostRencanaKerjaRequest>> {
+        delay(200)
+        if (serverRencanaKerja.none { it.nama_pengawas.equals(pengawas, ignoreCase = true) }) {
+            fetchBootstrapData(pengawas, SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date()))
+        }
+        val activePlans = serverRencanaKerja.filter {
+            (it.nama_pengawas.isNullOrBlank() || it.nama_pengawas.equals(pengawas, ignoreCase = true)) &&
+            it.is_realized != true
+        }
+        return ApiResponse(
+            status = "SUCCESS",
+            message = "Rencana kerja aktif pengawas $pengawas berhasil diambil (${activePlans.size} rencana)",
+            data = activePlans
         )
     }
 

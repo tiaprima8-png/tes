@@ -59,4 +59,11 @@ data class RencanaKerjaEntity(
 
     @ColumnInfo(name = "tanggal_format")
     val tanggalFormat: String = ""
-)
+) {
+    val isSpkTerbit: Boolean
+        get() = (statusSpk.equals("SPK_TERBIT", ignoreCase = true) || statusSpk.equals("TERBIT_SPK", ignoreCase = true)) &&
+                nomorSpk.isNotBlank() &&
+                nomorSpk != "Belum Terbit (Menunggu Admin)" &&
+                nomorSpk != "SPK Menyusul" &&
+                nomorSpk != "-"
+}

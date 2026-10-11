@@ -141,6 +141,7 @@ fun HeavyTrackApp() {
     val isSyncingPending by viewModel.isSyncingPending.collectAsState()
     val isBootstrapping by viewModel.isBootstrapping.collectAsState()
     val isOfflineSimulated by viewModel.isOfflineSimulated.collectAsState()
+    val isSocketConnected by viewModel.isSocketConnected.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
@@ -232,55 +233,49 @@ fun HeavyTrackApp() {
                             }
                         },
                         actions = {
-                            // Indikator Status Minimalis di Pojok Kanan Atas AppBar
+                            // Tombol "Sinkron" (Manual Pull dari Server) di Pojok Kanan Atas AppBar
                             val isSyncing = isSyncingMaster || isSyncingPending
                             Surface(
                                 shape = RoundedCornerShape(20.dp),
                                 color = when {
-                                    isSyncing -> Emerald50
+                                    isSyncing -> Emerald100
                                     isOfflineSimulated -> Color(0xFFFEF3C7)
                                     else -> Emerald50
                                 },
                                 border = androidx.compose.foundation.BorderStroke(
                                     1.dp,
                                     when {
-                                        isSyncing -> Emerald600.copy(alpha = 0.5f)
-                                        isOfflineSimulated -> WarningAmber.copy(alpha = 0.5f)
-                                        else -> Emerald600.copy(alpha = 0.3f)
+                                        isSyncing -> Emerald600
+                                        isOfflineSimulated -> WarningAmber.copy(alpha = 0.6f)
+                                        else -> Emerald600.copy(alpha = 0.5f)
                                     }
                                 ),
                                 modifier = Modifier
                                     .padding(end = 12.dp)
                                     .clip(RoundedCornerShape(20.dp))
                                     .clickable {
-                                        val lastSyncDesc = viewModel.getLastSyncDescription()
-                                        coroutineScope.launch {
-                                            snackbarHostState.showSnackbar(
-                                                "Status: ${if (isOfflineSimulated) "Offline Lapangan" else "Terhubung"} • Terakhir disinkronkan: $lastSyncDesc"
-                                            )
-                                        }
-                                        if (!isOfflineSimulated && !isSyncing) {
+                                        if (!isSyncing) {
                                             viewModel.triggerHeaderSync()
                                         }
                                     }
                                     .testTag("appbar_sync_status_chip")
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     if (isSyncing) {
                                         CircularProgressIndicator(
-                                            color = Emerald600,
-                                            modifier = Modifier.size(12.dp),
+                                            color = Emerald700,
+                                            modifier = Modifier.size(13.dp),
                                             strokeWidth = 2.dp
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
                                             text = "Menyinkronkan...",
-                                            fontSize = 11.sp,
+                                            fontSize = 12.sp,
                                             color = Emerald900,
-                                            fontWeight = FontWeight.SemiBold
+                                            fontWeight = FontWeight.Bold
                                         )
                                     } else if (isOfflineSimulated) {
                                         Box(
@@ -290,25 +285,33 @@ fun HeavyTrackApp() {
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
-                                            text = "Offline (Lokal)",
-                                            fontSize = 11.sp,
+                                            text = "Sinkron (Offline)",
+                                            fontSize = 12.sp,
                                             color = Color(0xFFB45309),
                                             fontWeight = FontWeight.Bold
                                         )
                                     } else {
                                         Icon(
-                                            imageVector = Icons.Default.CloudDone,
-                                            contentDescription = "Sinkron",
-                                            tint = Color(0xFF059669),
-                                            modifier = Modifier.size(14.dp)
+                                            imageVector = Icons.Default.CloudSync,
+                                            contentDescription = "Tombol Sinkron Manual Pull dari Server",
+                                            tint = Emerald700,
+                                            modifier = Modifier.size(16.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(5.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
                                         Text(
                                             text = "Sinkron",
-                                            fontSize = 11.sp,
-                                            color = Color(0xFF059669),
+                                            fontSize = 12.sp,
+                                            color = Emerald900,
                                             fontWeight = FontWeight.Bold
                                         )
+                                        if (isSocketConnected) {
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(6.dp)
+                                                    .background(Color(0xFF10B981), CircleShape)
+                                            )
+                                        }
                                     }
                                 }
                             }

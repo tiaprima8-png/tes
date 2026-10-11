@@ -30,7 +30,9 @@ import com.example.data.remote.OperatorPayload
 import com.example.data.remote.UnitPayload
 import com.example.data.repository.HeavyTrackRepository
 import com.example.data.repository.SyncLogItem
+import com.example.data.remote.RealtimeSocketManager
 import com.example.util.ImageCompressor
+import com.example.util.NotificationHelper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -90,7 +92,7 @@ class HeavyTrackViewModel(
 ) : ViewModel() {
 
     companion object {
-        const val INTERNAL_WEB_ADMIN_URL = "https://1-portalce.ai.studio/"
+        const val INTERNAL_WEB_ADMIN_URL = "https://1-portalce.ai.studio"
         const val GITHUB_REPO_URL = "https://github.com/tiaprima8-png/tes"
         const val APK_DIRECT_DOWNLOAD_URL = "https://github.com/tiaprima8-png/tes/releases/latest/download/app-release.apk"
         const val GITHUB_RELEASES_PAGE_URL = "https://github.com/tiaprima8-png/tes/releases"
@@ -135,6 +137,10 @@ class HeavyTrackViewModel(
 
     // Base URL configuration for Web Admin (Internalized)
     val apiBaseUrl: String = INTERNAL_WEB_ADMIN_URL
+
+    // Real-time WebSocket Client via Socket.IO
+    val realtimeSocketManager = RealtimeSocketManager(repository.apiClientManager.context)
+    val isSocketConnected: StateFlow<Boolean> = realtimeSocketManager.isConnected
 
     // Offline mode simulation toggle
     private val _isOfflineSimulated = MutableStateFlow(CompanyServerSimulator.isSimulatedOffline)
@@ -386,26 +392,76 @@ class HeavyTrackViewModel(
             fetchBootstrapData(showOverlay = false)
         }
 
-        // Live WebSocket / Polling simulation listener for SPK_PUBLISHED events
+        // 1. Hubungkan client WebSocket ke backend Web Admin
+        val targetServerUrl = repository.apiClientManager.baseUrl
+        realtimeSocketManager.connect(targetServerUrl)
+
+        // 2. WEBSOCKET LISTENER REAL-TIME (SPK_PUBLISHED)
         viewModelScope.launch {
-            CompanyServerSimulator.spkEventFlow.collect { event ->
-                repository.updateRencanaSpk(event.planId, event.nomorSpk, "TERBIT_SPK")
-                val curSelected = _realisasiFormState.value.selectedRencana
-                if (curSelected != null && curSelected.id == event.planId) {
-                    _realisasiFormState.value = _realisasiFormState.value.copy(
-                        nomorSpk = event.nomorSpk,
-                        selectedRencana = curSelected.copy(
-                            nomorSpk = event.nomorSpk,
-                            statusSpk = "TERBIT_SPK"
-                        )
-                    )
-                    _uiEvents.emit(
-                        UiMessage.Success("Nomor SPK Resmi Diterbitkan Web Admin: ${event.nomorSpk} (Terkunci)")
-                    )
-                }
+            realtimeSocketManager.spkPublishedEvents.collect { event ->
+                handleSpkPublished(event.rencanaId, event.unitKode, event.nomorSpk, event.statusSpk)
             }
         }
 
+        // 3. Listener event SPK dari backend simulator (bridge)
+        viewModelScope.launch {
+            CompanyServerSimulator.spkEventFlow.collect { event ->
+                handleSpkPublished(event.planId, event.kodeUnit, event.nomorSpk, "SPK_TERBIT")
+            }
+        }
+    }
+
+    /**
+     * Listener & Handler Real-Time Penerbitan SPK (SPK_PUBLISHED):
+     * 1. Update database SQLite lokal / Room:
+     *    rencanaKerjaDao.updateSpkStatus(unitKode, nomorSpk, statusSpk)
+     * 2. Perbarui State UI secara instan (Reaktif):
+     *    Ganti badge unit dari kuning "Menunggu SPK" menjadi hijau "SPK: $nomorSpk".
+     * 3. Tampilkan Push Notification / In-App Toast:
+     *    "SPK Diterbitkan: $nomorSpk untuk unit $unitKode"
+     */
+    fun handleSpkPublished(rencanaId: Long, unitKode: String, nomorSpk: String, statusSpk: String = "SPK_TERBIT") {
+        viewModelScope.launch {
+            // 1. Update ke SQLite lokal / Room
+            if (unitKode.isNotBlank()) {
+                repository.updateSpkStatus(unitKode, nomorSpk, statusSpk)
+            }
+            if (rencanaId > 0) {
+                repository.updateRencanaSpk(rencanaId, nomorSpk, statusSpk)
+            }
+
+            // 2. Perbarui state unit yang sedang aktif dipilih jika cocok
+            val cur = _realisasiFormState.value.selectedRencana
+            val isCurrentUnit = cur != null && (
+                (unitKode.isNotBlank() && cur.kodeUnit.equals(unitKode, ignoreCase = true)) ||
+                (rencanaId > 0 && cur.id == rencanaId)
+            )
+            if (isCurrentUnit && cur != null) {
+                _realisasiFormState.value = _realisasiFormState.value.copy(
+                    nomorSpk = nomorSpk,
+                    statusSpk = statusSpk,
+                    selectedRencana = cur.copy(
+                        nomorSpk = nomorSpk,
+                        statusSpk = statusSpk
+                    )
+                )
+            }
+
+            // 3. Tampilkan Push Notification / In-App Toast
+            NotificationHelper.showSpkPublishedNotification(
+                repository.apiClientManager.context,
+                unitKode = unitKode,
+                nomorSpk = nomorSpk
+            )
+            _uiEvents.emit(
+                UiMessage.Success("SPK Diterbitkan: $nomorSpk untuk unit $unitKode")
+            )
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        realtimeSocketManager.disconnect()
     }
 
     fun setFormSubTab(tab: Int) {
@@ -527,15 +583,72 @@ class HeavyTrackViewModel(
         }
     }
 
+    /**
+     * AKSI TOMBOL "SINKRON" (MANUAL PULL DARI SERVER)
+     * Saat user menekan tombol "Sinkron" di pojok kanan atas:
+     * 1. Panggil API GET /api/mobile/rencana-kerja/active?pengawas={pengawas_aktif}
+     * 2. Ganti seluruh daftar rencana kerja di layar dengan data terbaru dari server.
+     * 3. Jika unit terpilih memiliki status_spk == 'SPK_TERBIT', langsung tampilkan nomor SPK
+     *    di Card "1. Nomor SPK" dan buka kunci form realisasi.
+     */
     fun triggerHeaderSync() {
         viewModelScope.launch {
+            _isSyncingMaster.value = true
+
+            // Sinkronkan pending laporan terlebih dahulu jika ada
             val pendingCount = repository.getUnsyncedCountValue()
             if (pendingCount > 0) {
                 _isSyncingPending.value = true
                 repository.syncAllPendingOperationalData()
                 _isSyncingPending.value = false
             }
-            fetchBootstrapData(showOverlay = false)
+
+            // 1. Panggil API GET /api/mobile/rencana-kerja/active?pengawas={pengawas_aktif}
+            // 2. Ganti seluruh daftar rencana kerja di layar dengan data terbaru dari server
+            val pullResult = repository.fetchAndReplaceActiveRencana(_activeSupervisor.value)
+
+            pullResult.onSuccess { (newPlans, msg) ->
+                // Refresh master data pendukung
+                fetchBootstrapData(showOverlay = false)
+
+                // 3. Jika unit terpilih memiliki status_spk == 'SPK_TERBIT',
+                // langsung tampilkan nomor SPK di Card "1. Nomor SPK" dan buka kunci form realisasi
+                val currentSelected = _realisasiFormState.value.selectedRencana
+                val matchingPlan = if (currentSelected != null) {
+                    newPlans.find { it.id == currentSelected.id }
+                        ?: newPlans.find { it.kodeUnit.equals(currentSelected.kodeUnit, ignoreCase = true) }
+                } else {
+                    newPlans.firstOrNull()
+                }
+
+                if (matchingPlan != null) {
+                    selectRencanaForRealisasi(matchingPlan)
+                    val isSpkPublished = matchingPlan.statusSpk.equals("SPK_TERBIT", ignoreCase = true) ||
+                            matchingPlan.statusSpk.equals("TERBIT_SPK", ignoreCase = true) ||
+                            (matchingPlan.nomorSpk.isNotBlank() && matchingPlan.nomorSpk != "SPK Menyusul" && matchingPlan.nomorSpk != "-")
+
+                    if (isSpkPublished) {
+                        _realisasiFormState.value = _realisasiFormState.value.copy(
+                            nomorSpk = matchingPlan.nomorSpk,
+                            statusSpk = "SPK_TERBIT",
+                            selectedRencana = matchingPlan.copy(
+                                nomorSpk = matchingPlan.nomorSpk,
+                                statusSpk = "SPK_TERBIT"
+                            )
+                        )
+                    }
+                }
+
+                val spkNotice = matchingPlan?.let {
+                    if (it.isSpkTerbit) " [SPK ${it.kodeUnit}: ${it.nomorSpk}]" else ""
+                } ?: ""
+                _uiEvents.emit(UiMessage.Success("Sinkron Berhasil: $msg$spkNotice"))
+            }.onFailure { err ->
+                fetchBootstrapData(showOverlay = false)
+                _uiEvents.emit(UiMessage.Info("Sinkron Server: ${err.localizedMessage ?: err.message}"))
+            }
+
+            _isSyncingMaster.value = false
         }
     }
 
@@ -887,13 +1000,14 @@ class HeavyTrackViewModel(
             )
         } else null
 
-        val resolvedSpk = rencana.nomorSpk
+        val resolvedSpk = if (rencana.nomorSpk.isNotBlank() && rencana.nomorSpk != "Belum Terbit (Menunggu Admin)") rencana.nomorSpk else ""
 
         _realisasiFormState.value = _realisasiFormState.value.copy(
             selectedRencana = rencana,
             selectedActivity = matchedActivity ?: _realisasiFormState.value.selectedActivity,
             selectedLokasi = matchedLokasi ?: _realisasiFormState.value.selectedLokasi,
             nomorSpk = resolvedSpk,
+            statusSpk = rencana.statusSpk,
             hmAwalOriginal = hmAwalVal,
             hmAwal = hmAwalVal,
             hmAwalInput = String.format(Locale.US, "%.1f", hmAwalVal),

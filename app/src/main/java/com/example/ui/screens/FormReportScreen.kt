@@ -992,14 +992,49 @@ fun FormReportScreen(
                         }
 
                         // Pemilih Rencana Kerja Aktif
-                        Text(
-                            text = "Pilih Rencana Kerja Aktif Pengawas:",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                color = Slate700
-                            ),
-                            modifier = Modifier.padding(bottom = 6.dp)
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Pilih Rencana Kerja Aktif Pengawas:",
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Slate700
+                                )
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = Emerald50,
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Emerald600.copy(alpha = 0.4f)),
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .clickable { viewModel.triggerHeaderSync() }
+                                    .testTag("btn_tarik_rencana_terbaru")
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Refresh,
+                                        contentDescription = "Tarik Terbaru dari Server",
+                                        tint = Emerald700,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Tarik Terbaru",
+                                        fontSize = 11.sp,
+                                        color = Emerald900,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
 
                         if (activeRencanaList.isEmpty()) {
                             Surface(
@@ -1122,21 +1157,22 @@ fun FormReportScreen(
                                                 horizontalArrangement = Arrangement.SpaceBetween,
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
+                                                val isUnitSpkTerbit = ren.isSpkTerbit
                                                 Surface(
                                                     shape = RoundedCornerShape(4.dp),
-                                                    color = if (ren.nomorSpk.isNotBlank() && ren.nomorSpk != "Belum Terbit (Menunggu Admin)")
+                                                    color = if (isUnitSpkTerbit)
                                                         Color(0xFFDCFCE7)
                                                     else
                                                         Color(0xFFFEF3C7)
                                                 ) {
                                                     Text(
-                                                        text = if (ren.nomorSpk.isNotBlank() && ren.nomorSpk != "Belum Terbit (Menunggu Admin)")
+                                                        text = if (isUnitSpkTerbit)
                                                             "SPK: ${ren.nomorSpk}"
                                                         else
                                                             "Menunggu SPK",
                                                         fontSize = 9.sp,
                                                         fontWeight = FontWeight.Bold,
-                                                        color = if (ren.nomorSpk.isNotBlank() && ren.nomorSpk != "Belum Terbit (Menunggu Admin)")
+                                                        color = if (isUnitSpkTerbit)
                                                             Color(0xFF166534)
                                                         else
                                                             Color(0xFF92400E),
@@ -1158,8 +1194,8 @@ fun FormReportScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // 1. Nomor SPK (Surat Perintah Kerja) - Terkunci
-                        val hasSpkPublished = realisasiState.nomorSpk.isNotBlank() && realisasiState.nomorSpk != "Belum Terbit (Menunggu Admin)"
+                        // 1. Nomor SPK (Surat Perintah Kerja) - Real-time dari Web Admin
+                        val isSpkTerbit = realisasiState.isSpkTerbit
 
                         Text(
                             text = "1. Nomor SPK (Surat Perintah Kerja)",
@@ -1172,10 +1208,10 @@ fun FormReportScreen(
 
                         Surface(
                             shape = RoundedCornerShape(12.dp),
-                            color = if (hasSpkPublished) Color(0xFFF1F5F9) else Color(0xFFF8FAFC),
+                            color = if (isSpkTerbit) Color(0xFFF1F5F9) else Color(0xFFFFFBEB),
                             border = androidx.compose.foundation.BorderStroke(
                                 1.dp,
-                                if (hasSpkPublished) Emerald600.copy(alpha = 0.5f) else Slate200
+                                if (isSpkTerbit) Emerald600.copy(alpha = 0.5f) else Color(0xFFF59E0B).copy(alpha = 0.5f)
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1192,80 +1228,78 @@ fun FormReportScreen(
                                         modifier = Modifier.weight(1f)
                                     ) {
                                         Icon(
-                                            imageVector = if (hasSpkPublished) Icons.Default.Lock else Icons.Default.LockClock,
-                                            contentDescription = null,
-                                            tint = if (hasSpkPublished) Emerald700 else Slate500,
-                                            modifier = Modifier.size(20.dp)
+                                            imageVector = if (isSpkTerbit) Icons.Default.Lock else Icons.Default.LockClock,
+                                            contentDescription = if (isSpkTerbit) "SPK Terkunci Resmi" else "Menunggu SPK Admin",
+                                            tint = if (isSpkTerbit) Emerald700 else Color(0xFFD97706),
+                                            modifier = Modifier.size(22.dp)
                                         )
                                         Spacer(modifier = Modifier.width(10.dp))
                                         Column {
                                             Text(
-                                                text = if (hasSpkPublished) realisasiState.nomorSpk else "Belum Terbit (Menunggu Admin)",
+                                                text = if (isSpkTerbit) {
+                                                    realisasiState.nomorSpk.ifBlank { realisasiState.selectedRencana?.nomorSpk ?: "-" }
+                                                } else {
+                                                    "SPK Menyusul"
+                                                },
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 14.sp,
-                                                fontFamily = if (hasSpkPublished) FontFamily.Monospace else FontFamily.Default,
-                                                color = if (hasSpkPublished) Slate900 else Slate500
+                                                fontFamily = if (isSpkTerbit) FontFamily.Monospace else FontFamily.Default,
+                                                color = if (isSpkTerbit) Slate900 else Color(0xFF92400E)
                                             )
                                             Text(
-                                                text = if (hasSpkPublished)
+                                                text = if (isSpkTerbit)
                                                     "Terkunci resmi dari Web Admin (Read-Only)"
                                                 else
-                                                    "Admin belum menerbitkan SPK. Realisasi tetap dapat diisi.",
-                                                fontSize = 10.sp,
-                                                color = if (hasSpkPublished) Emerald700 else Slate400
+                                                    "SPK resmi belum diterbitkan admin. Laporan tetap dapat diisi dan dikirim (Nomor SPK dapat disusulkan nanti oleh Web Admin).",
+                                                fontSize = 11.sp,
+                                                color = if (isSpkTerbit) Emerald700 else Color(0xFFB45309),
+                                                lineHeight = 15.sp
                                             )
                                         }
                                     }
 
                                     Surface(
                                         shape = RoundedCornerShape(6.dp),
-                                        color = if (hasSpkPublished) Emerald100 else Color(0xFFFEF3C7)
+                                        color = if (isSpkTerbit) Emerald100 else Color(0xFFFEF3C7)
                                     ) {
                                         Text(
-                                            text = if (hasSpkPublished) "TERKUNCI" else "MENUNGGU",
+                                            text = if (isSpkTerbit) "TERKUNCI / TERBIT" else "MENUNGGU SPK ADMIN",
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.ExtraBold,
-                                            color = if (hasSpkPublished) Emerald900 else Color(0xFFB45309),
-                                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                                            color = if (isSpkTerbit) Emerald900 else Color(0xFFB45309),
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                                         )
                                     }
                                 }
+                            }
+                        }
 
-                                if (!hasSpkPublished && realisasiState.selectedRencana != null) {
-                                    Spacer(modifier = Modifier.height(10.dp))
-                                    Surface(
-                                        shape = RoundedCornerShape(8.dp),
-                                        color = Emerald50,
-                                        border = androidx.compose.foundation.BorderStroke(1.dp, Emerald600.copy(alpha = 0.3f)),
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .clickable {
-                                                viewModel.adminSimulatePublishSpk(
-                                                    realisasiState.selectedRencana!!.id,
-                                                    realisasiState.selectedRencana!!.kodeUnit
-                                                )
-                                            }
-                                            .testTag("btn_simulate_spk")
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Bolt,
-                                                contentDescription = null,
-                                                tint = Emerald700,
-                                                modifier = Modifier.size(14.dp)
-                                            )
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text(
-                                                text = "Simulasikan Web Admin Terbitkan SPK",
-                                                fontSize = 11.sp,
-                                                color = Emerald900,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                    }
+                        // Banner status SPK Menyusul: Pengawas tetap dapat input operasional tanpa terhalang SPK
+                        if (!isSpkTerbit && realisasiState.selectedRencana != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = Color(0xFFF0FDF4),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF86EFAC)),
+                                modifier = Modifier.fillMaxWidth().testTag("spk_unlocked_notice_card")
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = Emerald700,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Input Realisasi Terbuka: Pengawas dapat mencatat HM, aktivitas & solar untuk ${realisasiState.selectedRencana?.kodeUnit ?: ""}. Nomor SPK dapat disusulkan nanti oleh Web Admin.",
+                                        fontSize = 11.sp,
+                                        color = Emerald900,
+                                        lineHeight = 15.sp
+                                    )
                                 }
                             }
                         }
@@ -2510,6 +2544,7 @@ fun FormReportScreen(
                                         hasIncompleteKendala -> "Lengkapi Baris Kendala yang Diisi"
                                         realisasiState.isRefuelLitersMissing -> "Isi Jumlah Liter Pengisian BBM"
                                         realisasiState.isSolarConsumptionNegative -> "Konsumsi Solar Negatif (Periksa Stik)"
+                                        !isSpkTerbit -> "Kirim Realisasi Kerja (SPK Menyusul)"
                                         else -> "Kirim Realisasi Kerja (Selesai)"
                                     },
                                     fontWeight = FontWeight.Bold,

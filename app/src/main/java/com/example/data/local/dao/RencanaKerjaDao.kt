@@ -43,9 +43,24 @@ interface RencanaKerjaDao {
     @Query("UPDATE rencana_kerja SET nomor_spk = :spk, status_spk = :status WHERE id = :id")
     suspend fun updateSpk(id: Long, spk: String, status: String)
 
+    @Query("UPDATE rencana_kerja SET nomor_spk = :spk, status_spk = :status WHERE kode_unit = :kodeUnit")
+    suspend fun updateSpkByUnit(kodeUnit: String, spk: String, status: String)
+
+    @Query("UPDATE rencana_kerja SET nomor_spk = :spk, status_spk = :status WHERE kode_unit = :kodeUnit")
+    suspend fun updateSpkStatus(kodeUnit: String, spk: String, status: String)
+
+    @Query("UPDATE rencana_kerja SET nomor_spk = :spk, status_spk = :status WHERE id = :id OR kode_unit = :kodeUnit")
+    suspend fun updateSpkByIdOrUnit(id: Long, kodeUnit: String, spk: String, status: String)
+
+    @Query("SELECT * FROM rencana_kerja WHERE kode_unit = :kodeUnit LIMIT 1")
+    suspend fun getRencanaByUnit(kodeUnit: String): RencanaKerjaEntity?
+
     @Query("SELECT * FROM rencana_kerja WHERE is_synced = 0")
     suspend fun getUnsyncedRencanaList(): List<RencanaKerjaEntity>
 
     @Query("DELETE FROM rencana_kerja WHERE id = :id")
     suspend fun deleteRencana(id: Long)
+
+    @Query("DELETE FROM rencana_kerja WHERE supervisor_name = :supervisor AND is_realized = 0")
+    suspend fun clearActiveRencanaForSupervisor(supervisor: String)
 }

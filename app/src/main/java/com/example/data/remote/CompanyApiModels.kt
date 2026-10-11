@@ -44,6 +44,8 @@ data class PostActivityReportRequest(
     @Json(name = "is_hm_awal_corrected") val is_hm_awal_corrected: Boolean? = false,
     @Json(name = "alasan_koreksi_hm") val alasan_koreksi_hm: String? = null,
     @Json(name = "client_transaction_id") val client_transaction_id: String? = null,
+    @Json(name = "id_rencana_kerja") val id_rencana_kerja: Long? = null,
+    @Json(name = "nomor_spk") val nomor_spk: String? = null,
 
     // Dual compatibility with standard camelCase/English keys
     @Json(name = "client_uuid") val client_uuid: String? = null,
@@ -98,7 +100,9 @@ data class PostActivityReportRequest(
             photoPath: String? = null,
             isHmAwalCorrected: Boolean = false,
             alasanKoreksiHm: String? = null,
-            clientTransactionId: String? = null
+            clientTransactionId: String? = null,
+            idRencanaKerja: Long? = null,
+            nomorSpk: String? = null
         ): PostActivityReportRequest {
             return PostActivityReportRequest(
                 // Indonesian exact fields for 1-portalce.ai.studio
@@ -137,6 +141,8 @@ data class PostActivityReportRequest(
                 is_hm_awal_corrected = isHmAwalCorrected,
                 alasan_koreksi_hm = alasanKoreksiHm,
                 client_transaction_id = clientTransactionId,
+                id_rencana_kerja = idRencanaKerja,
+                nomor_spk = nomorSpk,
 
                 // Fallbacks
                 client_uuid = clientUuid,
@@ -500,6 +506,7 @@ data class PostRencanaKerjaRequest(
 data class PostHasilAktivitasRequest(
     @Json(name = "id") val id: Long? = null,
     @Json(name = "rencana_id") val rencana_id: Long? = null,
+    @Json(name = "id_rencana_kerja") val id_rencana_kerja: Long? = null,
     @Json(name = "nomor_spk") val nomor_spk: String? = null,
     @Json(name = "jam_kerja") val jam_kerja: Double? = 7.0,
     @Json(name = "hm_awal") val hm_awal: Double? = null,

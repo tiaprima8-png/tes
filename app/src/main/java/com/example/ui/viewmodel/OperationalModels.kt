@@ -163,6 +163,7 @@ data class RealisasiFormUiState(
     val selectedActivity: ActivityMasterEntity? = null,
     val selectedLokasi: LokasiEntity? = null,
     val nomorSpk: String = "",
+    val statusSpk: String = "MENUNGGU",
     val durasiJamKerja: Double = 7.0,
     // Fleksibilitas Koreksi HM Awal & Logika Pergantian Shift
     val hmAwalOriginal: Double = 0.0,
@@ -201,6 +202,17 @@ data class RealisasiFormUiState(
     val isSequentialHmFromPreviousPlan: Boolean = false,
     val sequentialSourcePlanText: String = ""
 ) {
+    val isSpkTerbit: Boolean
+        get() {
+            val status = selectedRencana?.statusSpk ?: statusSpk
+            val spk = nomorSpk.ifBlank { selectedRencana?.nomorSpk ?: "" }
+            return (status.equals("SPK_TERBIT", ignoreCase = true) || status.equals("TERBIT_SPK", ignoreCase = true)) &&
+                    spk.isNotBlank() &&
+                    spk != "Belum Terbit (Menunggu Admin)" &&
+                    spk != "SPK Menyusul" &&
+                    spk != "-"
+        }
+
     val parsedStikAwal: Double?
         get() = stikSolarAwalInput.trim().replace(',', '.').toDoubleOrNull()
 

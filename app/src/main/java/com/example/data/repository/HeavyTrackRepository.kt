@@ -535,8 +535,80 @@ class HeavyTrackRepository(
         }
     }
 
-    suspend fun updateRencanaSpk(planId: Long, spk: String, status: String) = withContext(Dispatchers.IO) {
+    suspend fun updateRencanaSpk(planId: Long, spk: String, status: String = "SPK_TERBIT") = withContext(Dispatchers.IO) {
         rencanaDao.updateSpk(planId, spk, status)
+    }
+
+    suspend fun updateSpkStatus(kodeUnit: String, nomorSpk: String, statusSpk: String = "SPK_TERBIT") = withContext(Dispatchers.IO) {
+        rencanaDao.updateSpkStatus(kodeUnit, nomorSpk, statusSpk)
+    }
+
+    suspend fun updateRencanaSpkByUnitOrId(planId: Long, unitKode: String, spk: String, status: String = "SPK_TERBIT"): RencanaKerjaEntity? = withContext(Dispatchers.IO) {
+        if (planId > 0) {
+            rencanaDao.updateSpk(planId, spk, status)
+            val byId = rencanaDao.getRencanaById(planId)
+            if (byId != null) return@withContext byId
+        }
+        if (unitKode.isNotBlank()) {
+            rencanaDao.updateSpkByUnit(unitKode, spk, status)
+            return@withContext rencanaDao.getRencanaByUnit(unitKode)
+        }
+        null
+    }
+
+    /**
+     * Panggil API GET /api/mobile/rencana-kerja/active?pengawas={pengawas_aktif}
+     * Mengganti seluruh daftar rencana kerja aktif di Room SQLite dengan data terbaru dari server.
+     */
+    suspend fun fetchAndReplaceActiveRencana(supervisorName: String): Result<Pair<List<RencanaKerjaEntity>, String>> = withContext(Dispatchers.IO) {
+        try {
+            val (incomingRequests, msg) = apiClientManager.fetchActiveRencanaKerja(supervisorName)
+            val today = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
+
+            val newEntities = incomingRequests.mapIndexed { index, renReq ->
+                val kodeUnitVal = renReq.kode_unit?.trim()?.ifBlank { "UNIT-${index + 1}" } ?: "UNIT-${index + 1}"
+                val spkNum = renReq.nomor_spk?.trim() ?: ""
+                val spkStatus = when {
+                    !renReq.status_spk.isNullOrBlank() -> renReq.status_spk
+                    spkNum.isNotBlank() && spkNum != "SPK Menyusul" && spkNum != "-" -> "SPK_TERBIT"
+                    else -> "MENUNGGU"
+                }
+
+                RencanaKerjaEntity(
+                    id = if ((renReq.id ?: 0L) > 0) renReq.id!! else 0L,
+                    supervisorName = supervisorName,
+                    statusUnit = renReq.status_unit ?: "OPERASI",
+                    kodeUnit = kodeUnitVal,
+                    operator = renReq.operator ?: "",
+                    sapCode = renReq.sap_code ?: "",
+                    namaAktivitas = renReq.nama_aktivitas ?: "",
+                    satuanAktivitas = renReq.satuan_aktivitas ?: "m3",
+                    kodeLokasi = renReq.kode_lokasi ?: "",
+                    shiftKerja = renReq.shift_kerja ?: "SIANG",
+                    keterangan = renReq.keterangan ?: "",
+                    nomorSpk = spkNum,
+                    statusSpk = spkStatus,
+                    statusTahap = renReq.status_tahap ?: "RENCANA",
+                    isRealized = renReq.is_realized ?: false,
+                    isSynced = true,
+                    createdAt = System.currentTimeMillis() - (index * 1000L),
+                    tanggalFormat = today
+                )
+            }
+
+            if (newEntities.isNotEmpty()) {
+                // Ganti seluruh daftar rencana kerja di layar dengan data terbaru dari server
+                rencanaDao.clearActiveRencanaForSupervisor(supervisorName)
+                rencanaDao.insertRencanaList(newEntities)
+            }
+
+            _lastSyncTimeMillis.value = System.currentTimeMillis()
+            addLog("GET /api/mobile/rencana-kerja/active", "GET", "200 OK", "${newEntities.size} Rencana Kerja Aktif", true)
+            Result.success(Pair(newEntities, msg))
+        } catch (e: Exception) {
+            addLog("GET /api/mobile/rencana-kerja/active", "GET", "ERROR", e.localizedMessage ?: "Gagal", false)
+            Result.failure(e)
+        }
     }
 
     suspend fun markRencanaRealized(planId: Long) = withContext(Dispatchers.IO) {
@@ -601,10 +673,16 @@ class HeavyTrackRepository(
                 unitDao.updateUnitHm(savedHasil.kodeUnit, hmAkhir)
             }
 
+            val spkClean = if (savedHasil.nomorSpk.isNotBlank() &&
+                savedHasil.nomorSpk != "SPK Menyusul" &&
+                savedHasil.nomorSpk != "Belum Terbit (Menunggu Admin)" &&
+                savedHasil.nomorSpk != "-") savedHasil.nomorSpk else null
+
             val apiReq = PostHasilAktivitasRequest(
                 id = insertedId,
                 rencana_id = savedHasil.rencanaId,
-                nomor_spk = savedHasil.nomorSpk,
+                id_rencana_kerja = savedHasil.rencanaId,
+                nomor_spk = spkClean,
                 jam_kerja = savedHasil.jamKerja,
                 hm_awal = savedHasil.hmAwal,
                 hm_akhir = savedHasil.hmAkhir,
@@ -662,7 +740,9 @@ class HeavyTrackRepository(
                 photoPath = reportMirror.photoPath,
                 isHmAwalCorrected = savedHasil.isHmAwalCorrected,
                 alasanKoreksiHm = savedHasil.alasanKoreksiHm,
-                clientTransactionId = savedHasil.clientTransactionId
+                clientTransactionId = savedHasil.clientTransactionId,
+                idRencanaKerja = savedHasil.rencanaId,
+                nomorSpk = spkClean
             )
 
             try {
