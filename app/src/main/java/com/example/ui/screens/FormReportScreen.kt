@@ -18,9 +18,15 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.ui.focus.onFocusEvent
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -28,8 +34,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Bolt
 import androidx.compose.material.icons.filled.CheckCircle
@@ -111,12 +121,15 @@ import com.example.ui.components.PhotoProofCard
 import com.example.ui.components.SelectorFieldTrigger
 import com.example.ui.components.UnitPlanSearchableSelectorSheet
 import com.example.ui.theme.Emerald100
+import com.example.ui.theme.Emerald200
 import com.example.ui.theme.Emerald50
 import com.example.ui.theme.Emerald600
 import com.example.ui.theme.Emerald700
+import com.example.ui.theme.Emerald800
 import com.example.ui.theme.Emerald900
 import com.example.ui.theme.ErrorRose
 import com.example.ui.theme.Slate200
+import com.example.ui.theme.Slate300
 import com.example.ui.theme.Slate400
 import com.example.ui.theme.Slate500
 import com.example.ui.theme.Slate600
@@ -127,6 +140,7 @@ import com.example.ui.theme.WarningAmber
 import androidx.compose.ui.text.style.TextOverflow
 import com.example.ui.viewmodel.HeavyTrackViewModel
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun FormReportScreen(
     viewModel: HeavyTrackViewModel,
@@ -187,6 +201,8 @@ fun FormReportScreen(
     var showOverHmConfirmDialog by remember { mutableStateOf(false) }
     var showExtremeHmWarningConfirmDialog by remember { mutableStateOf(false) }
     var showResetConfirmDialog by remember { mutableStateOf(false) }
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+    val keteranganBringIntoViewRequester = remember { BringIntoViewRequester() }
 
     // Image Picker for Realisasi Photo Proof
     val photoPickerLauncher = rememberLauncherForActivityResult(
@@ -1420,43 +1436,74 @@ fun FormReportScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(14.dp)) {
+                                // Header: Title & Subtitle + Standar HM Badge
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Default.Speed, contentDescription = null, tint = Emerald600, modifier = Modifier.size(18.dp))
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = "4. Hour Meter (HM) Mesin",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.sp,
-                                            color = Slate900
-                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .background(Emerald50, RoundedCornerShape(10.dp)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Speed,
+                                                contentDescription = null,
+                                                tint = Emerald600,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                        Spacer(modifier = Modifier.width(10.dp))
+                                        Column {
+                                            Text(
+                                                text = "4. Hour Meter (HM) Mesin",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 14.sp,
+                                                color = Slate900
+                                            )
+                                            Text(
+                                                text = "Validasi operasi & standar unit",
+                                                fontSize = 11.sp,
+                                                color = Slate500
+                                            )
+                                        }
                                     }
 
                                     // Standar Unit Badge dari Master Unit
                                     val minStdBadge = if (realisasiState.hmMinStandar % 1.0 == 0.0) realisasiState.hmMinStandar.toInt().toString() else String.format(Locale.US, "%.1f", realisasiState.hmMinStandar)
                                     val maxStdBadge = if (realisasiState.hmMaxStandar % 1.0 == 0.0) realisasiState.hmMaxStandar.toInt().toString() else String.format(Locale.US, "%.1f", realisasiState.hmMaxStandar)
                                     Surface(
-                                        shape = RoundedCornerShape(6.dp),
+                                        shape = RoundedCornerShape(8.dp),
                                         color = Emerald50,
-                                        border = androidx.compose.foundation.BorderStroke(0.5.dp, Emerald600)
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Emerald600.copy(alpha = 0.4f))
                                     ) {
-                                        Text(
-                                            text = "Standar: $minStdBadge - $maxStdBadge HM",
-                                            color = Emerald900,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                        )
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Tune,
+                                                contentDescription = null,
+                                                tint = Emerald700,
+                                                modifier = Modifier.size(12.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = "Standar: $minStdBadge – $maxStdBadge HM",
+                                                color = Emerald900,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
 
                                 Spacer(modifier = Modifier.height(10.dp))
 
-                                // 2. KESINAMBUNGAN HM PADA MULTI-RENCANA DALAM 1 UNIT (SEQUENTIAL HM)
+                                // KESINAMBUNGAN HM PADA MULTI-RENCANA DALAM 1 UNIT (SEQUENTIAL HM)
                                 if (realisasiState.isSequentialHmFromPreviousPlan) {
                                     Surface(
                                         shape = RoundedCornerShape(8.dp),
@@ -1485,63 +1532,134 @@ fun FormReportScreen(
                                     }
                                 }
 
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                // BARIS STATUS & TOMBOL KOREKSI HM
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (realisasiState.isHmAwalCorrected) Color(0xFFFFFBEB) else Color(0xFFF1F5F9),
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        if (realisasiState.isHmAwalCorrected) Color(0xFFFDE68A) else Color(0xFFE2E8F0)
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    // HM Awal: Terkunci (Read-Only) secara default, atau dapat diedit manual saat Koreksi diaktifkan
-                                    Column(modifier = Modifier.weight(1f)) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
                                         Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.weight(1f)
                                         ) {
-                                            Text(
-                                                text = if (realisasiState.isHmAwalCorrected) "HM Awal (Koreksi)" else "HM Awal (Terkunci)",
-                                                fontSize = 11.sp,
-                                                color = if (realisasiState.isHmAwalCorrected) Color(0xFFB45309) else Slate500,
-                                                fontWeight = FontWeight.SemiBold
+                                            Icon(
+                                                imageVector = if (realisasiState.isHmAwalCorrected) Icons.Default.EditNote else Icons.Default.Lock,
+                                                contentDescription = null,
+                                                tint = if (realisasiState.isHmAwalCorrected) Color(0xFFD97706) else Slate500,
+                                                modifier = Modifier.size(16.dp)
                                             )
-                                            // Toggle / Ikon Pensil Koreksi HM Awal
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = if (realisasiState.isHmAwalCorrected) "Mode Koreksi HM Awal Aktif" else "HM Awal Terkunci Otomatis",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = if (realisasiState.isHmAwalCorrected) Color(0xFF92400E) else Slate600
+                                            )
+                                        }
+
+                                        // Tombol Koreksi HM
+                                        Surface(
+                                            shape = RoundedCornerShape(16.dp),
+                                            color = if (realisasiState.isHmAwalCorrected) Color(0xFFFEE2E2) else Color.White,
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                1.dp,
+                                                if (realisasiState.isHmAwalCorrected) Color(0xFFFCA5A5) else Emerald600
+                                            ),
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(16.dp))
+                                                .clickable { viewModel.toggleKoreksiHmAwal() }
+                                                .testTag("btn_koreksi_hm_awal")
+                                        ) {
                                             Row(
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(6.dp))
-                                                    .clickable { viewModel.toggleKoreksiHmAwal() }
-                                                    .padding(horizontal = 4.dp, vertical = 2.dp)
-                                                    .testTag("btn_koreksi_hm_awal"),
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
                                                 Icon(
                                                     imageVector = if (realisasiState.isHmAwalCorrected) Icons.Default.Close else Icons.Default.Edit,
                                                     contentDescription = "Koreksi HM Awal",
-                                                    tint = if (realisasiState.isHmAwalCorrected) Color(0xFFDC2626) else Emerald600,
+                                                    tint = if (realisasiState.isHmAwalCorrected) Color(0xFFDC2626) else Emerald700,
                                                     modifier = Modifier.size(12.dp)
                                                 )
-                                                Spacer(modifier = Modifier.width(3.dp))
+                                                Spacer(modifier = Modifier.width(4.dp))
                                                 Text(
-                                                    text = if (realisasiState.isHmAwalCorrected) "Batal" else "Koreksi HM Awal",
-                                                    fontSize = 10.sp,
-                                                    color = if (realisasiState.isHmAwalCorrected) Color(0xFFDC2626) else Emerald700,
+                                                    text = if (realisasiState.isHmAwalCorrected) "Batal Koreksi" else "Koreksi HM Awal",
+                                                    fontSize = 11.sp,
+                                                    color = if (realisasiState.isHmAwalCorrected) Color(0xFFDC2626) else Emerald800,
                                                     fontWeight = FontWeight.Bold
                                                 )
                                             }
                                         }
+                                    }
+                                }
 
-                                        Spacer(modifier = Modifier.height(2.dp))
+                                Spacer(modifier = Modifier.height(12.dp))
+
+                                // DUAL ODOMETER INPUTS: HM AWAL ➔ HM AKHIR
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // HM Awal
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(bottom = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = "HM AWAL",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (realisasiState.isHmAwalCorrected) Color(0xFFB45309) else Slate700
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            if (!realisasiState.isHmAwalCorrected) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Lock,
+                                                    contentDescription = "Terkunci",
+                                                    tint = Slate400,
+                                                    modifier = Modifier.size(11.dp)
+                                                )
+                                            }
+                                        }
 
                                         if (!realisasiState.isHmAwalCorrected) {
                                             Surface(
                                                 shape = RoundedCornerShape(10.dp),
-                                                color = Color(0xFFE2E8F0),
-                                                modifier = Modifier.fillMaxWidth().height(48.dp)
+                                                color = Color(0xFFF1F5F9),
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFCBD5E1)),
+                                                modifier = Modifier.fillMaxWidth().height(52.dp)
                                             ) {
-                                                Box(contentAlignment = Alignment.CenterStart, modifier = Modifier.padding(horizontal = 12.dp)) {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxSize()
+                                                        .padding(horizontal = 12.dp),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.SpaceBetween
+                                                ) {
                                                     Text(
                                                         text = String.format(Locale.US, "%.1f", realisasiState.hmAwal),
                                                         fontWeight = FontWeight.Bold,
-                                                        fontSize = 14.sp,
+                                                        fontSize = 15.sp,
                                                         fontFamily = FontFamily.Monospace,
-                                                        color = Slate700
+                                                        color = Slate800
+                                                    )
+                                                    Text(
+                                                        text = "HM",
+                                                        fontSize = 11.sp,
+                                                        fontWeight = FontWeight.SemiBold,
+                                                        color = Slate500
                                                     )
                                                 }
                                             }
@@ -1549,7 +1667,10 @@ fun FormReportScreen(
                                             OutlinedTextField(
                                                 value = realisasiState.hmAwalInput,
                                                 onValueChange = { viewModel.setRealisasiHmAwalManual(it) },
-                                                placeholder = { Text("HM Awal Baru", fontSize = 12.sp, color = Slate400) },
+                                                placeholder = { Text("HM Baru", fontSize = 12.sp, color = Slate400) },
+                                                trailingIcon = {
+                                                    Text("HM", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFFD97706), modifier = Modifier.padding(end = 8.dp))
+                                                },
                                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                                 singleLine = true,
                                                 colors = OutlinedTextFieldDefaults.colors(
@@ -1559,42 +1680,110 @@ fun FormReportScreen(
                                                     unfocusedContainerColor = Color(0xFFFFFBEB)
                                                 ),
                                                 shape = RoundedCornerShape(10.dp),
-                                                modifier = Modifier.fillMaxWidth().height(48.dp).testTag("input_hm_awal_manual")
+                                                modifier = Modifier.fillMaxWidth().height(52.dp).testTag("input_hm_awal_manual")
                                             )
                                         }
                                     }
 
-                                    // HM Akhir: Input numerik desimal
+                                    // Flow Arrow Indicator
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(top = 18.dp)
+                                            .size(24.dp)
+                                            .background(Color(0xFFE2E8F0), CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                            contentDescription = null,
+                                            tint = Slate600,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                    }
+
+                                    // HM Akhir
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text("HM Akhir Lapangan", fontSize = 11.sp, color = Slate700, fontWeight = FontWeight.Bold)
-                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(bottom = 4.dp)
+                                        ) {
+                                            Text(
+                                                text = "HM AKHIR",
+                                                fontSize = 11.sp,
+                                                color = Slate900,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = "*Wajib",
+                                                fontSize = 10.sp,
+                                                color = Emerald700,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+
                                         OutlinedTextField(
                                             value = realisasiState.hmAkhirInput,
                                             onValueChange = { viewModel.setRealisasiHmAkhir(it) },
                                             placeholder = { Text("Contoh: 4132.5", fontSize = 12.sp, color = Slate400) },
+                                            trailingIcon = {
+                                                Text("HM", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Slate500, modifier = Modifier.padding(end = 8.dp))
+                                            },
                                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                            isError = !realisasiState.isHmValid,
+                                            isError = !realisasiState.isHmValid && realisasiState.hmAkhirInput.isNotBlank(),
                                             singleLine = true,
                                             colors = OutlinedTextFieldDefaults.colors(
                                                 focusedBorderColor = Emerald600,
-                                                unfocusedBorderColor = Slate200,
+                                                unfocusedBorderColor = Slate300,
+                                                errorBorderColor = ErrorRose,
                                                 focusedContainerColor = Color.White,
                                                 unfocusedContainerColor = Color.White
                                             ),
                                             shape = RoundedCornerShape(10.dp),
-                                            modifier = Modifier.fillMaxWidth().height(48.dp).testTag("input_hm_akhir")
+                                            modifier = Modifier.fillMaxWidth().height(52.dp).testTag("input_hm_akhir")
                                         )
+                                    }
+                                }
+
+                                // Quick Add Hours Buttons (+4j, +7j, +8j, +10j)
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "Cepat:",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Slate500
+                                    )
+                                    listOf(4.0, 7.0, 8.0, 10.0).forEach { qh ->
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = Emerald50,
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, Emerald200),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .clickable { viewModel.quickAddRealisasiHours(qh) }
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 5.dp)) {
+                                                Text("+${qh.toInt()} Jam", fontSize = 11.sp, color = Emerald900, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
                                     }
                                 }
 
                                 // Bagian Peringatan & Alasan jika HM Awal dikoreksi manual
                                 if (realisasiState.isHmAwalCorrected) {
+                                    Spacer(modifier = Modifier.height(10.dp))
                                     if (realisasiState.hmAwal != realisasiState.hmAwalOriginal) {
                                         Surface(
                                             shape = RoundedCornerShape(8.dp),
                                             color = Color(0xFFFEF3C7),
                                             border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFDE68A)),
-                                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag("peringatan_koreksi_hm")
+                                            modifier = Modifier.fillMaxWidth().testTag("peringatan_koreksi_hm")
                                         ) {
                                             Row(
                                                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -1652,97 +1841,195 @@ fun FormReportScreen(
                                     }
                                 }
 
-                                // Quick Add Hours Buttons (+4j, +7j, +8j)
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
-                                ) {
-                                    listOf(4.0, 7.0, 8.0, 10.0).forEach { qh ->
-                                        Surface(
-                                            shape = RoundedCornerShape(6.dp),
-                                            color = Emerald50,
-                                            border = androidx.compose.foundation.BorderStroke(1.dp, Emerald100),
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .clip(RoundedCornerShape(6.dp))
-                                                .clickable { viewModel.quickAddRealisasiHours(qh) }
+                                if (!realisasiState.isHmValid && realisasiState.hmErrorMessage != null) {
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = Color(0xFFFEF2F2),
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFECACA)),
+                                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically
                                         ) {
-                                            Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 4.dp)) {
-                                                Text("+${qh.toInt()} Jam", fontSize = 10.sp, color = Emerald900, fontWeight = FontWeight.Bold)
-                                            }
+                                            Icon(
+                                                imageVector = Icons.Default.ErrorOutline,
+                                                contentDescription = null,
+                                                tint = ErrorRose,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = realisasiState.hmErrorMessage ?: "",
+                                                color = ErrorRose,
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
                                         }
                                     }
                                 }
 
-                                if (!realisasiState.isHmValid && realisasiState.hmErrorMessage != null) {
-                                    Text(
-                                        text = realisasiState.hmErrorMessage ?: "",
-                                        color = ErrorRose,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        modifier = Modifier.padding(top = 6.dp)
-                                    )
-                                }
+                                Spacer(modifier = Modifier.height(12.dp))
 
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                // Hasil Kalkulasi HM Berjalan Seketika
+                                // HASIL KALKULASI HM BERJALAN & STATUS EVALUASI STANDAR
                                 val runningHm = realisasiState.hmHarianBerjalan
                                 val isUnderMin = runningHm > 0.0 && runningHm < realisasiState.hmMinStandar
                                 val isOverMax = runningHm > realisasiState.hmMaxStandar
 
                                 Surface(
-                                    shape = RoundedCornerShape(10.dp),
+                                    shape = RoundedCornerShape(12.dp),
                                     color = when {
-                                        isUnderMin -> Color(0xFFFEE2E2)
-                                        isOverMax -> Color(0xFFFEF3C7)
-                                        else -> Emerald100
+                                        isUnderMin -> Color(0xFFFFF1F2)
+                                        isOverMax -> Color(0xFFFFFBEB)
+                                        runningHm > 0.0 -> Emerald50
+                                        else -> Color(0xFFF1F5F9)
                                     },
+                                    border = androidx.compose.foundation.BorderStroke(
+                                        1.dp,
+                                        when {
+                                            isUnderMin -> Color(0xFFFECDD3)
+                                            isOverMax -> Color(0xFFFDE68A)
+                                            runningHm > 0.0 -> Emerald200
+                                            else -> Color(0xFFCBD5E1)
+                                        }
+                                    ),
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column {
-                                            Text(
-                                                text = "HM Berjalan Hari Ini:",
-                                                fontSize = 12.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = when {
-                                                    isUnderMin -> Color(0xFF991B1B)
-                                                    isOverMax -> Color(0xFF92400E)
-                                                    else -> Emerald900
-                                                }
-                                            )
-                                            val minStdLabel = if (realisasiState.hmMinStandar % 1.0 == 0.0) realisasiState.hmMinStandar.toInt().toString() else String.format(Locale.US, "%.1f", realisasiState.hmMinStandar)
-                                            val maxStdLabel = if (realisasiState.hmMaxStandar % 1.0 == 0.0) realisasiState.hmMaxStandar.toInt().toString() else String.format(Locale.US, "%.1f", realisasiState.hmMaxStandar)
-                                            Text(
-                                                text = when {
-                                                    isUnderMin -> "Kurang dari standar minimal ($minStdLabel HM)"
-                                                    isOverMax -> "Melebihi standar maksimal ($maxStdLabel HM)"
-                                                    else -> "Sesuai standar operasional ($minStdLabel - $maxStdLabel HM)"
-                                                },
-                                                fontSize = 10.sp,
-                                                color = when {
-                                                    isUnderMin -> Color(0xFFB91C1C)
-                                                    isOverMax -> Color(0xFFB45309)
-                                                    else -> Emerald700
-                                                }
-                                            )
-                                        }
-                                        Text(
-                                            text = "${String.format(Locale.US, "%.1f", runningHm)} Jam",
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            fontFamily = FontFamily.Monospace,
-                                            color = when {
-                                                isUnderMin -> Color(0xFF991B1B)
-                                                isOverMax -> Color(0xFF92400E)
-                                                else -> Emerald900
+                                    Column(modifier = Modifier.padding(14.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column {
+                                                Text(
+                                                    text = "TOTAL HM BERJALAN",
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = when {
+                                                        isUnderMin -> Color(0xFF9F1239)
+                                                        isOverMax -> Color(0xFF92400E)
+                                                        runningHm > 0.0 -> Emerald900
+                                                        else -> Slate700
+                                                    }
+                                                )
+                                                val endVal = realisasiState.hmAkhirInput.replace(',', '.').toDoubleOrNull() ?: realisasiState.hmAwal
+                                                Text(
+                                                    text = "Formula: ${String.format(Locale.US, "%.1f", endVal)} – ${String.format(Locale.US, "%.1f", realisasiState.hmAwal)} Jam",
+                                                    fontSize = 10.sp,
+                                                    color = when {
+                                                        isUnderMin -> Color(0xFFBE123C)
+                                                        isOverMax -> Color(0xFFB45309)
+                                                        runningHm > 0.0 -> Emerald700
+                                                        else -> Slate500
+                                                    }
+                                                )
                                             }
+
+                                            Surface(
+                                                shape = RoundedCornerShape(8.dp),
+                                                color = when {
+                                                    isUnderMin -> Color(0xFFE11D48)
+                                                    isOverMax -> Color(0xFFD97706)
+                                                    runningHm > 0.0 -> Emerald600
+                                                    else -> Slate500
+                                                }
+                                            ) {
+                                                Text(
+                                                    text = "${String.format(Locale.US, "%.1f", runningHm)} Jam",
+                                                    fontSize = 17.sp,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    fontFamily = FontFamily.Monospace,
+                                                    color = Color.White,
+                                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                                                )
+                                            }
+                                        }
+
+                                        Spacer(modifier = Modifier.height(10.dp))
+                                        HorizontalDivider(
+                                            color = when {
+                                                isUnderMin -> Color(0xFFFECDD3)
+                                                isOverMax -> Color(0xFFFDE68A)
+                                                runningHm > 0.0 -> Emerald200
+                                                else -> Color(0xFFCBD5E1)
+                                            },
+                                            thickness = 0.5.dp
                                         )
+                                        Spacer(modifier = Modifier.height(8.dp))
+
+                                        val minStdLabel = if (realisasiState.hmMinStandar % 1.0 == 0.0) realisasiState.hmMinStandar.toInt().toString() else String.format(Locale.US, "%.1f", realisasiState.hmMinStandar)
+                                        val maxStdLabel = if (realisasiState.hmMaxStandar % 1.0 == 0.0) realisasiState.hmMaxStandar.toInt().toString() else String.format(Locale.US, "%.1f", realisasiState.hmMaxStandar)
+
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.SpaceBetween
+                                        ) {
+                                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                                Icon(
+                                                    imageVector = when {
+                                                        isUnderMin -> Icons.Default.WarningAmber
+                                                        isOverMax -> Icons.Default.Info
+                                                        runningHm > 0.0 -> Icons.Default.CheckCircle
+                                                        else -> Icons.Default.Speed
+                                                    },
+                                                    contentDescription = null,
+                                                    tint = when {
+                                                        isUnderMin -> Color(0xFFE11D48)
+                                                        isOverMax -> Color(0xFFD97706)
+                                                        runningHm > 0.0 -> Emerald700
+                                                        else -> Slate500
+                                                    },
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(
+                                                    text = when {
+                                                        isUnderMin -> "Kurang dari standar minimal ($minStdLabel HM) • Wajib kendala"
+                                                        isOverMax -> "Melebihi standar maksimal ($maxStdLabel HM) • Lembur"
+                                                        runningHm > 0.0 -> "Sesuai standar operasional ($minStdLabel – $maxStdLabel HM)"
+                                                        else -> "Standar target unit: $minStdLabel – $maxStdLabel HM"
+                                                    },
+                                                    fontSize = 11.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    color = when {
+                                                        isUnderMin -> Color(0xFFBE123C)
+                                                        isOverMax -> Color(0xFFB45309)
+                                                        runningHm > 0.0 -> Emerald800
+                                                        else -> Slate600
+                                                    }
+                                                )
+                                            }
+
+                                            Surface(
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = when {
+                                                    isUnderMin -> Color(0xFFFEE2E2)
+                                                    isOverMax -> Color(0xFFFEF3C7)
+                                                    runningHm > 0.0 -> Emerald100
+                                                    else -> Color(0xFFE2E8F0)
+                                                }
+                                            ) {
+                                                Text(
+                                                    text = when {
+                                                        isUnderMin -> "DI BAWAH STD"
+                                                        isOverMax -> "LEBIH STD"
+                                                        runningHm > 0.0 -> "SESUAI STD"
+                                                        else -> "NORMAL"
+                                                    },
+                                                    fontSize = 9.sp,
+                                                    fontWeight = FontWeight.ExtraBold,
+                                                    color = when {
+                                                        isUnderMin -> Color(0xFF9F1239)
+                                                        isOverMax -> Color(0xFF92400E)
+                                                        runningHm > 0.0 -> Emerald900
+                                                        else -> Slate600
+                                                    },
+                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                        }
                                     }
                                 }
 
@@ -2433,27 +2720,81 @@ fun FormReportScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // 8. Keterangan Lapangan
-                        Text(
-                            text = "8. Keterangan Lapangan",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                color = Slate700
-                            ),
-                            modifier = Modifier.padding(bottom = 6.dp)
-                        )
-                        OutlinedTextField(
-                            value = realisasiState.keterangan,
-                            onValueChange = { viewModel.setRealisasiKeterangan(it) },
-                            placeholder = { Text("Kondisi cuaca, slip, antrean disposal, catatan shift...", color = Slate400, fontSize = 13.sp) },
-                            minLines = 2,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Emerald600,
-                                unfocusedBorderColor = Slate200
-                            ),
+                        // 8. Keterangan Lapangan (Anti-tertutup keyboard/QWERTY)
+                        Surface(
                             shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth().testTag("input_realisasi_keterangan")
-                        )
+                            color = Color(0xFFF8FAFC),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .bringIntoViewRequester(keteranganBringIntoViewRequester)
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            imageVector = Icons.Default.EditNote,
+                                            contentDescription = null,
+                                            tint = Emerald600,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "8. Keterangan & Catatan Lapangan",
+                                            style = MaterialTheme.typography.labelMedium.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                color = Slate800,
+                                                fontSize = 12.sp
+                                            )
+                                        )
+                                    }
+                                    if (realisasiState.keterangan.isNotBlank()) {
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = Emerald100
+                                        ) {
+                                            Text(
+                                                text = "${realisasiState.keterangan.length} Karakter",
+                                                color = Emerald900,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                OutlinedTextField(
+                                    value = realisasiState.keterangan,
+                                    onValueChange = { viewModel.setRealisasiKeterangan(it) },
+                                    placeholder = { Text("Kondisi cuaca, slip, antrean disposal, catatan shift...", color = Slate400, fontSize = 13.sp) },
+                                    minLines = 3,
+                                    maxLines = 6,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedContainerColor = Color.White,
+                                        unfocusedContainerColor = Color.White,
+                                        focusedBorderColor = Emerald600,
+                                        unfocusedBorderColor = Slate200
+                                    ),
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("input_realisasi_keterangan")
+                                        .onFocusEvent { focusState ->
+                                            if (focusState.isFocused) {
+                                                coroutineScope.launch {
+                                                    delay(250)
+                                                    keteranganBringIntoViewRequester.bringIntoView()
+                                                }
+                                            }
+                                        }
+                                )
+                            }
+                        }
 
                         Spacer(modifier = Modifier.height(20.dp))
 
@@ -2553,8 +2894,13 @@ fun FormReportScreen(
                                 )
                             }
                         }
+                        Spacer(modifier = Modifier.height(16.dp))
                     }
                 }
+            }
+            // Spacer bawah agar keyboard QWERTY tidak menutupi input keterangan & tombol
+            item {
+                Spacer(modifier = Modifier.height(180.dp).imePadding())
             }
         }
     }

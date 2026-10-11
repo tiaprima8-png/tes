@@ -13,7 +13,7 @@ interface ActivityReportDao {
     @Query("SELECT * FROM activity_reports ORDER BY createdAt DESC")
     fun getAllReports(): Flow<List<ActivityReportEntity>>
 
-    @Query("SELECT * FROM activity_reports WHERE supervisorName = :supervisor ORDER BY createdAt DESC")
+    @Query("SELECT * FROM activity_reports WHERE LOWER(TRIM(supervisorName)) = LOWER(TRIM(:supervisor)) OR :supervisor = '' OR :supervisor = 'ALL' ORDER BY createdAt DESC")
     fun getReportsForSupervisor(supervisor: String): Flow<List<ActivityReportEntity>>
 
     @Query("SELECT * FROM activity_reports WHERE isSynced = 0 ORDER BY createdAt ASC")

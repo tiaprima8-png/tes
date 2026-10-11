@@ -3,22 +3,18 @@ package com.example.ui.components
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.BitmapFactory
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -55,7 +51,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -92,6 +87,7 @@ fun PhotoProofCard(
 ) {
     val context = LocalContext.current
     var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
+    var showPreviewModal by remember { mutableStateOf(false) }
 
     // Launcher for Camera
     val cameraLauncher = rememberLauncherForActivityResult(
@@ -120,7 +116,7 @@ fun PhotoProofCard(
             tempCameraUri = uri
             cameraLauncher.launch(uri)
         } else {
-            Toast.makeText(context, "Izin kamera diperlukan untuk mengambil foto", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Izin kamera diperlukan untuk mengambil foto bukti", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -139,122 +135,63 @@ fun PhotoProofCard(
         }
     }
 
-    Card(
+    // Compact container: Sleek, proportional, tidak makan tempat berlebihan
+    Surface(
         modifier = modifier
             .fillMaxWidth()
             .testTag("photo_proof_card"),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFFF8FAFC),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(10.dp)
         ) {
-            // Header Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(Emerald50),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.CameraAlt,
-                            contentDescription = null,
-                            tint = Emerald600,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(10.dp))
-                    Column {
-                        Text(
-                            text = "Foto Bukti Kegiatan Lapangan",
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Slate900
-                            )
-                        )
-                        Text(
-                            text = "Kompresi otomatis max 1080px • JPEG 75-80% (150–400 KB)",
-                            style = MaterialTheme.typography.bodySmall.copy(color = Slate500)
-                        )
-                    }
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = Emerald100
-                ) {
-                    Text(
-                        text = "Dianjurkan",
-                        color = Emerald900,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Body: Loading, Empty, or Thumbnail Preview
             if (isCompressing) {
-                // Loading / Compressing State
-                Box(
+                // Compressing state
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(160.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Slate100)
-                        .border(1.dp, Slate200, RoundedCornerShape(12.dp)),
-                    contentAlignment = Alignment.Center
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier.padding(16.dp)
-                    ) {
-                        CircularProgressIndicator(
-                            color = Emerald600,
-                            strokeWidth = 3.dp,
-                            modifier = Modifier.size(36.dp)
-                        )
-                        Spacer(modifier = Modifier.height(10.dp))
+                    CircularProgressIndicator(
+                        color = Emerald600,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
                         Text(
                             text = "Mengompresi foto otomatis...",
                             fontWeight = FontWeight.SemiBold,
                             color = Slate900,
-                            fontSize = 14.sp
+                            fontSize = 12.sp
                         )
                         Text(
-                            text = "Mengoptimalkan resolusi (max 1080px) & kompresi JPEG 75-80% (anti-OOM)",
+                            text = "Optimasi JPEG (anti-OOM)",
                             color = Slate500,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(top = 2.dp)
+                            fontSize = 10.sp
                         )
                     }
                 }
-            } else if (photoPath != null && File(photoPath).exists()) {
-                // Photo Available: Thumbnail Preview with Compression Badge
-                Column(modifier = Modifier.fillMaxWidth()) {
+            } else if (!photoPath.isNullOrBlank() && File(photoPath).exists()) {
+                // Attached photo state: compact row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Small thumbnail preview (click to full view)
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .border(1.dp, Emerald100, RoundedCornerShape(12.dp))
+                            .size(width = 68.dp, height = 54.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .border(1.dp, Emerald600.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                            .clickable { showPreviewModal = true }
                             .testTag("photo_thumbnail_preview")
                     ) {
-                        // Image Preview via Coil
                         AsyncImage(
                             model = ImageRequest.Builder(context)
                                 .data(File(photoPath))
@@ -265,218 +202,207 @@ fun PhotoProofCard(
                             modifier = Modifier.fillMaxSize()
                         )
 
-                        // Top Right: Success Badge
                         Surface(
-                            shape = RoundedCornerShape(bottomStart = 10.dp, topEnd = 12.dp),
+                            shape = RoundedCornerShape(bottomStart = 6.dp),
                             color = Emerald600,
                             modifier = Modifier.align(Alignment.TopEnd)
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CheckCircle,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Terkompresi",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 11.sp
-                                )
-                            }
-                        }
-
-                        // Bottom Overlay: Compression Info Card
-                        Surface(
-                            shape = RoundedCornerShape(topStart = 10.dp, topEnd = 10.dp),
-                            color = Color(0xCC0F172A), // Dark slate with opacity
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .align(Alignment.BottomCenter)
-                        ) {
-                            Row(
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = Color.White,
                                 modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(
-                                        text = "Ukuran: ${photoSizeKb ?: 145} KB",
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White,
-                                        fontSize = 13.sp,
-                                        modifier = Modifier.testTag("label_photo_size")
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "• ${photoDimensions ?: "1280x960 px"}",
-                                        color = Color(0xFFCBD5E1),
-                                        fontSize = 12.sp
-                                    )
-                                }
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = Emerald700
-                                ) {
-                                    Text(
-                                        text = "JPEG 78%",
-                                        color = Color.White,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
-                            }
+                                    .padding(2.dp)
+                                    .size(10.dp)
+                            )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
 
-                    // Action buttons: Ganti / Hapus foto
+                    // Info: file size & dimensions
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = "Foto Terlampir",
+                                fontWeight = FontWeight.Bold,
+                                color = Slate900,
+                                fontSize = 12.sp
+                            )
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = Emerald100
+                            ) {
+                                Text(
+                                    text = "${photoSizeKb ?: 145} KB",
+                                    color = Emerald900,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                                        .testTag("label_photo_size")
+                                )
+                            }
+                        }
+                        Text(
+                            text = photoDimensions ?: "Resolusi Terkompresi",
+                            color = Slate500,
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(top = 1.dp)
+                        )
+                    }
+
+                    // Action buttons: Ganti & Hapus
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         OutlinedButton(
                             onClick = { launchCamera() },
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = Slate700),
                             border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
                             modifier = Modifier
-                                .weight(1f)
+                                .height(32.dp)
                                 .testTag("btn_retake_photo")
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.PhotoCamera,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = Emerald600
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Ganti Foto", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(12.dp), tint = Emerald600)
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text("Ganti", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         }
 
                         OutlinedButton(
                             onClick = onRemovePhoto,
-                            shape = RoundedCornerShape(10.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
                             colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRose),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRose.copy(alpha = 0.5f)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRose.copy(alpha = 0.4f)),
                             modifier = Modifier
-                                .weight(1f)
+                                .height(32.dp)
                                 .testTag("btn_delete_photo")
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = ErrorRose
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Hapus Foto", fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(12.dp), tint = ErrorRose)
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text("Hapus", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
             } else {
-                // Empty State: Prompts to Take Photo or Pick from Gallery
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFF8FAFC))
-                        .border(1.dp, Slate200, RoundedCornerShape(12.dp))
-                        .padding(18.dp),
-                    contentAlignment = Alignment.Center
+                // Empty state: Sleek, satu baris proporsional
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.fillMaxWidth()
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Image,
-                            contentDescription = null,
-                            tint = Slate400,
-                            modifier = Modifier.size(38.dp)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "Belum Ada Foto Bukti Lapangan",
-                            fontWeight = FontWeight.SemiBold,
-                            color = Slate900,
-                            fontSize = 14.sp
-                        )
-                        Text(
-                            text = "Ambil foto unit, pita ukur/patok, atau lokasi galian sebagai bukti pekerjaan.",
-                            color = Slate500,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(top = 2.dp, bottom = 14.dp)
-                        )
-
-                        // Action Buttons: Ambil Foto (Kamera) & Galeri
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .background(Emerald50, CircleShape),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Button(
-                                onClick = { launchCamera() },
-                                colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier
-                                    .weight(1.3f)
-                                    .height(46.dp)
-                                    .testTag("btn_take_photo")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.CameraAlt,
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Ambil Foto (Kamera)",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 13.sp
-                                )
-                            }
+                            Icon(
+                                imageVector = Icons.Default.CameraAlt,
+                                contentDescription = null,
+                                tint = Emerald600,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "Lampirkan Foto Bukti",
+                                fontWeight = FontWeight.SemiBold,
+                                color = Slate900,
+                                fontSize = 12.sp
+                            )
+                            Text(
+                                text = "Opsional • Kompresi otomatis",
+                                color = Slate500,
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
 
-                            OutlinedButton(
-                                onClick = {
-                                    galleryLauncher.launch(
-                                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                                    )
-                                },
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Slate700),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
-                                shape = RoundedCornerShape(10.dp),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(46.dp)
-                                    .testTag("btn_pick_gallery")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.PhotoLibrary,
-                                    contentDescription = null,
-                                    tint = Slate500,
-                                    modifier = Modifier.size(16.dp)
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Button(
+                            onClick = { launchCamera() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                            modifier = Modifier
+                                .height(32.dp)
+                                .testTag("btn_take_photo")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PhotoCamera,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Kamera",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            )
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                galleryLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                                 )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "Galeri",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                            }
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Slate700),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                            modifier = Modifier
+                                .height(32.dp)
+                                .testTag("btn_pick_gallery")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PhotoLibrary,
+                                contentDescription = null,
+                                tint = Slate500,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = "Galeri",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
                 }
             }
         }
+    }
+
+    // Modal popup if thumbnail clicked
+    if (showPreviewModal && !photoPath.isNullOrBlank()) {
+        FullscreenPhotoPreviewDialog(
+            photoPath = photoPath,
+            photoBase64 = null,
+            unitCode = "Unit Lapangan",
+            reportDate = "Foto Bukti Aktual",
+            nomorSpk = null,
+            photoSizeKb = photoSizeKb,
+            onDismiss = { showPreviewModal = false }
+        )
     }
 }

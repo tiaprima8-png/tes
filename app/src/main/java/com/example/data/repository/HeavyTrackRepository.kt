@@ -83,6 +83,9 @@ class HeavyTrackRepository(
     fun getRencanaForSupervisor(supervisor: String): Flow<List<RencanaKerjaEntity>> =
         rencanaDao.getRencanaForSupervisor(supervisor)
 
+    fun getAllRencana(): Flow<List<RencanaKerjaEntity>> =
+        rencanaDao.getAllRencana()
+
     fun getActiveRencanaForSupervisor(supervisor: String): Flow<List<RencanaKerjaEntity>> =
         rencanaDao.getActiveRencanaForSupervisor(supervisor)
 

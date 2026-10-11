@@ -192,6 +192,13 @@ class HeavyTrackViewModel(
         .flatMapLatest { supervisor -> repository.getReportsForSupervisor(supervisor) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // All reports across all inputs / supervisors
+    val allReports: StateFlow<List<ActivityReportEntity>> = repository.getAllReports()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val allRencanaGlobal: StateFlow<List<RencanaKerjaEntity>> = repository.getAllRencana()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     // Hasil Realisasi list
     val hasilAktivitasList: StateFlow<List<HasilInputAktivitasEntity>> = _activeSupervisor
         .flatMapLatest { supervisor -> repository.getHasilForSupervisor(supervisor) }

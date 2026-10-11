@@ -1,33 +1,43 @@
 package com.example.ui.screens
 
+import android.graphics.BitmapFactory
+import android.util.Base64
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Engineering
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.LocalGasStation
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PrecisionManufacturing
 import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,6 +46,10 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,12 +61,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
-import com.example.data.remote.KendalaJsonConverter
 import coil.request.ImageRequest
 import com.example.data.local.entity.ActivityReportEntity
-import java.io.File
+import com.example.data.remote.KendalaJsonConverter
 import com.example.ui.components.FuelBadge
+import com.example.ui.components.FullscreenPhotoPreviewDialog
 import com.example.ui.components.ShiftBadge
 import com.example.ui.components.SyncStatusBadge
 import com.example.ui.components.UnitStatusBadge
@@ -62,11 +77,14 @@ import com.example.ui.theme.Emerald600
 import com.example.ui.theme.Emerald700
 import com.example.ui.theme.Emerald900
 import com.example.ui.theme.ErrorRose
+import com.example.ui.theme.Slate100
 import com.example.ui.theme.Slate200
 import com.example.ui.theme.Slate400
 import com.example.ui.theme.Slate500
+import com.example.ui.theme.Slate600
 import com.example.ui.theme.Slate700
 import com.example.ui.theme.Slate900
+import java.io.File
 
 @Composable
 fun ReportDetailDialog(
@@ -74,356 +92,470 @@ fun ReportDetailDialog(
     onDismiss: () -> Unit,
     onDelete: (Long) -> Unit
 ) {
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
+    val context = LocalContext.current
+    var showFullscreenPhoto by remember { mutableStateOf(false) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
-            modifier = Modifier.fillMaxWidth()
+            color = Color.White,
+            tonalElevation = 6.dp,
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.90f)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(20.dp)
-            ) {
-                // Header
+            Column(modifier = Modifier.fillMaxSize()) {
+                // ==========================================
+                // 1. PINNED HEADER (Tetap terlihat di atas)
+                // ==========================================
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Detail Laporan Aktivitas",
+                            text = "Detail Laporan Realisasi",
                             style = MaterialTheme.typography.titleLarge.copy(
                                 fontWeight = FontWeight.Bold,
-                                color = Slate900
+                                color = Slate900,
+                                fontSize = 18.sp
                             )
                         )
                         Text(
-                            text = "UUID: ${report.clientUuid.take(13)}...",
-                            style = MaterialTheme.typography.bodySmall.copy(color = Slate400)
+                            text = "ID: ${report.clientUuid.take(13)} • Tgl: ${report.reportDate}",
+                            style = MaterialTheme.typography.bodySmall.copy(color = Slate500, fontSize = 11.sp)
                         )
                     }
-                    IconButton(onClick = onDismiss) {
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(36.dp)
+                    ) {
                         Icon(Icons.Default.Close, contentDescription = "Tutup", tint = Slate500)
                     }
                 }
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp), color = Slate200)
+                HorizontalDivider(color = Slate200)
 
-                // Status & Shift Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        UnitStatusBadge(status = report.unitStatus)
-                        if (report.isRefueled && report.fuelLiters > 0.0) {
-                            FuelBadge(liters = report.fuelLiters)
-                        }
-                    }
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        ShiftBadge(shift = report.shift)
-                        SyncStatusBadge(isSynced = report.isSynced)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // Detail Rows
-                DetailItemRow(
-                    icon = Icons.Default.PrecisionManufacturing,
-                    label = "Unit Alat Berat",
-                    value = "${report.unitCode} (${report.unitType}) - Status: ${report.unitStatus}"
-                )
-
-                if (report.isRefueled && report.fuelLiters > 0.0) {
-                    DetailItemRow(
-                        icon = Icons.Default.LocalGasStation,
-                        label = "Pengisian Bahan Bakar",
-                        value = "${if (report.fuelLiters % 1.0 == 0.0) report.fuelLiters.toInt() else report.fuelLiters} Liter Solar"
-                    )
-                }
-
-                DetailItemRow(
-                    icon = Icons.Default.Assignment,
-                    label = "Aktivitas & Kode SAP",
-                    value = "${report.activityName}\n[${report.sapCode}]"
-                )
-
-                DetailItemRow(
-                    icon = Icons.Default.Person,
-                    label = "Operator Pelaksana",
-                    value = report.operatorName
-                )
-
-                DetailItemRow(
-                    icon = Icons.Default.LocationOn,
-                    label = "Lokasi Kerja Lapangan",
-                    value = report.workLocation
-                )
-
-                DetailItemRow(
-                    icon = Icons.Default.Engineering,
-                    label = "Pengawas Lapangan",
-                    value = report.supervisorName
-                )
-
-                // Hour Meter Summary Card inside dialog
-                Surface(
+                // ==========================================
+                // 2. SCROLLABLE BODY (Dapat di-scroll ke bawah)
+                // ==========================================
+                val scrollState = rememberScrollState()
+                Column(
                     modifier = Modifier
+                        .weight(1f)
                         .fillMaxWidth()
-                        .padding(vertical = 10.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    color = Emerald50,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Emerald100)
+                        .verticalScroll(scrollState)
+                        .padding(horizontal = 18.dp, vertical = 14.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    Column(modifier = Modifier.padding(12.dp)) {
+                    // Status & Shift Badges Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("HM Awal: ${String.format("%.1f", report.hmAwal)} Jam", color = Slate700, fontSize = 12.sp)
-                            Text("HM Akhir: ${String.format("%.1f", report.hmAkhir)} Jam", color = Slate700, fontSize = 12.sp)
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("HM Harian Berjalan:", fontWeight = FontWeight.Bold, color = Emerald900, fontSize = 13.sp)
-                            Text("+${String.format("%.2f", report.hmDailyRunning)} Jam", fontWeight = FontWeight.ExtraBold, color = Emerald700, fontSize = 15.sp)
+                            UnitStatusBadge(status = report.unitStatus)
+                            if (report.isRefueled && report.fuelLiters > 0.0) {
+                                FuelBadge(liters = report.fuelLiters)
+                            }
                         }
-                        Spacer(modifier = Modifier.height(4.dp))
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Hasil Kerja:", fontWeight = FontWeight.SemiBold, color = Slate900, fontSize = 13.sp)
-                            Text("${String.format("%.1f", report.workOutput)} ${report.unitOfMeasure}", fontWeight = FontWeight.Bold, color = Emerald600, fontSize = 14.sp)
-                        }
-
-                        if (report.stikSolarAwal > 0.0 || report.stikSolarAkhir > 0.0 || report.pemakaianSolar > 0.0) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("Stik Solar (Awal/Akhir):", color = Slate700, fontSize = 12.sp)
-                                Text("${String.format("%.1f", report.stikSolarAwal)} / ${String.format("%.1f", report.stikSolarAkhir)} cm", fontWeight = FontWeight.Medium, color = Slate900, fontSize = 12.sp)
-                            }
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text("Total Pemakaian Solar:", fontWeight = FontWeight.Bold, color = Emerald900, fontSize = 12.sp)
-                                Text("${String.format("%.1f", report.pemakaianSolar)} Liter/cm", fontWeight = FontWeight.Bold, color = Emerald700, fontSize = 12.sp)
-                            }
+                            ShiftBadge(shift = report.shift)
+                            SyncStatusBadge(isSynced = report.isSynced)
                         }
                     }
-                }
 
-                val parsedKendalaList = KendalaJsonConverter.fromJson(report.daftarKendalaJson)
-                if (parsedKendalaList.isNotEmpty()) {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        color = Color(0xFFFEF2F2),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFCA5A5))
-                    ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Text(
-                                text = "Daftar Kendala Lapangan (${parsedKendalaList.size} Kendala)",
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF991B1B),
-                                fontSize = 13.sp
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            parsedKendalaList.forEachIndexed { index, k ->
-                                val durasiStr = if ((k.durasi_menit ?: 0) > 0) {
-                                    val hrs = (k.durasi_menit ?: 0) / 60
-                                    val mins = (k.durasi_menit ?: 0) % 60
-                                    when {
-                                        hrs > 0 && mins > 0 -> "$hrs Jam $mins Menit"
-                                        hrs > 0 -> "$hrs Jam"
-                                        else -> "$mins Menit"
-                                    }
-                                } else {
-                                    ""
-                                }
-                                Surface(
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = Color.White,
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFECACA)),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 3.dp)
-                                ) {
-                                    Column(modifier = Modifier.padding(8.dp)) {
-                                        Text(
-                                            text = "#${index + 1} ${k.nama_kendala ?: "Kendala"} [${k.id_kendala ?: "-"}]",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp,
-                                            color = Color(0xFF991B1B)
-                                        )
-                                        if (!k.waktu_mulai.isNullOrBlank() || !k.waktu_selesai.isNullOrBlank()) {
-                                            Text(
-                                                text = "Waktu: ${k.waktu_mulai ?: "-"} s/d ${k.waktu_selesai ?: "-"}${if (durasiStr.isNotBlank()) " (Total Hambatan: $durasiStr)" else ""}",
-                                                fontSize = 11.sp,
-                                                color = Color(0xFFB91C1C)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } else if (!report.kendalaNama.isNullOrBlank()) {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 4.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color(0xFFFEF2F2),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFCA5A5))
-                    ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
-                            Text(
-                                text = "Kendala Lapangan: ${report.kendalaNama} (${report.kendalaId ?: "-"})",
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF991B1B),
-                                fontSize = 12.sp
-                            )
-                            if (!report.catatanKendala.isNullOrBlank()) {
-                                Text(
-                                    text = "Keterangan: ${report.catatanKendala}",
-                                    color = Color(0xFFB91C1C),
-                                    fontSize = 11.sp
-                                )
-                            }
-                        }
-                    }
-                }
-
-                if (report.notes.isNotEmpty()) {
-                    Text(
-                        text = "Catatan: ${report.notes}",
-                        style = MaterialTheme.typography.bodySmall.copy(color = Slate500),
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
-
-                // Foto Bukti Kegiatan Lapangan
-                val hasPhoto = !report.photoPath.isNullOrBlank() || !report.photoBase64.isNullOrBlank()
-                if (hasPhoto) {
-                    val context = LocalContext.current
-                    Spacer(modifier = Modifier.height(10.dp))
+                    // Identitas Unit & Tugas Lapangan
                     Surface(
                         shape = RoundedCornerShape(12.dp),
                         color = Color(0xFFF8FAFC),
                         border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
+                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            DetailItemRow(
+                                icon = Icons.Default.PrecisionManufacturing,
+                                label = "Unit Alat Berat",
+                                value = "${report.unitCode} (${report.unitType.ifBlank { "HE" }}) - ${report.unitStatus}"
+                            )
+                            DetailItemRow(
+                                icon = Icons.Default.Assignment,
+                                label = "Aktivitas Pekerjaan & SAP",
+                                value = "${report.activityName} [${report.sapCode.ifBlank { "ACT-01" }}]"
+                            )
+                            DetailItemRow(
+                                icon = Icons.Default.Person,
+                                label = "Operator Lapangan",
+                                value = report.operatorName
+                            )
+                            DetailItemRow(
+                                icon = Icons.Default.LocationOn,
+                                label = "Lokasi Kerja",
+                                value = report.workLocation
+                            )
+                            DetailItemRow(
+                                icon = Icons.Default.Engineering,
+                                label = "Pengawas Lapangan",
+                                value = report.supervisorName
+                            )
+                        }
+                    }
+
+                    // Hour Meter (HM) Details Card
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = Emerald50,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Emerald100)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = "Foto Bukti Kegiatan Lapangan",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp,
-                                    color = Slate900
-                                )
-                                Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = Emerald100
-                                ) {
-                                    Text(
-                                        text = "Ukuran: ${report.photoSizeKb ?: 145} KB",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 11.sp,
-                                        color = Emerald900,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Speed, contentDescription = null, tint = Emerald700, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Rincian Hour Meter (HM)", fontWeight = FontWeight.Bold, color = Emerald900, fontSize = 13.sp)
+                                }
+                                if (report.isHmAwalCorrected) {
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = Color(0xFFFEF3C7)
+                                    ) {
+                                        Text(
+                                            text = "HM DIKOREKSI",
+                                            color = Color(0xFFB45309),
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
 
-                            val photoFile = report.photoPath?.let { File(it) }
-                            if (photoFile != null && photoFile.exists()) {
-                                AsyncImage(
-                                    model = ImageRequest.Builder(context)
-                                        .data(photoFile)
-                                        .crossfade(true)
-                                        .build(),
-                                    contentDescription = "Foto Bukti Lapangan",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(180.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                )
-                            } else if (!report.photoBase64.isNullOrBlank()) {
-                                val bitmap = try {
-                                    val cleanBase64 = if (report.photoBase64.startsWith("data:")) {
-                                        report.photoBase64.substringAfter("base64,").trim()
-                                    } else {
-                                        report.photoBase64.trim()
-                                    }
-                                    val imageBytes = android.util.Base64.decode(cleanBase64, android.util.Base64.DEFAULT)
-                                    android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
-                                } catch (_: Exception) {
-                                    null
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column {
+                                    Text("HM Awal", color = Slate500, fontSize = 11.sp)
+                                    Text("${String.format("%.1f", report.hmAwal)} Jam", fontWeight = FontWeight.Bold, color = Slate900, fontSize = 14.sp)
                                 }
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("HM Berjalan", color = Emerald700, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                    Text("+${String.format("%.2f", report.hmDailyRunning)} Jam", fontWeight = FontWeight.ExtraBold, color = Emerald700, fontSize = 16.sp)
+                                }
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text("HM Akhir", color = Slate500, fontSize = 11.sp)
+                                    Text("${String.format("%.1f", report.hmAkhir)} Jam", fontWeight = FontWeight.Bold, color = Slate900, fontSize = 14.sp)
+                                }
+                            }
 
-                                if (bitmap != null) {
-                                    androidx.compose.foundation.Image(
-                                        bitmap = bitmap.asImageBitmap(),
-                                        contentDescription = "Foto Bukti Lapangan",
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(180.dp)
-                                            .clip(RoundedCornerShape(8.dp))
+                            if (report.workOutput > 0) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                HorizontalDivider(color = Emerald100)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("Hasil Kerja Aktual:", color = Slate700, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                    Text("${String.format("%.1f", report.workOutput)} ${report.unitOfMeasure}", fontWeight = FontWeight.Bold, color = Emerald700, fontSize = 13.sp)
+                                }
+                            }
+
+                            if (report.isHmAwalCorrected && !report.alasanKoreksiHm.isNullOrBlank()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Color(0xFFFEF3C7),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text(
+                                        text = "Alasan Koreksi HM: ${report.alasanKoreksiHm}",
+                                        color = Color(0xFF92400E),
+                                        fontSize = 11.sp,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp)
                                     )
-                                } else {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(60.dp)
-                                            .background(Color(0xFFE2E8F0), RoundedCornerShape(8.dp)),
-                                        contentAlignment = Alignment.Center
+                                }
+                            }
+                        }
+                    }
+
+                    // Pengisian & Pemakaian Solar (BBM)
+                    if (report.isRefueled || report.fuelLiters > 0.0 || report.pemakaianSolar > 0.0 || report.stikSolarAwal > 0.0) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFFF8FAFC),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.LocalGasStation, contentDescription = null, tint = Emerald600, modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Bahan Bakar Minyak (Solar)", fontWeight = FontWeight.Bold, color = Slate900, fontSize = 13.sp)
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                if (report.fuelLiters > 0.0) {
+                                    DetailItemRow(
+                                        icon = Icons.Default.LocalGasStation,
+                                        label = "Pengisian Tambahan Solar",
+                                        value = "${if (report.fuelLiters % 1.0 == 0.0) report.fuelLiters.toInt() else report.fuelLiters} Liter"
+                                    )
+                                }
+                                if (report.stikSolarAwal > 0.0 || report.stikSolarAkhir > 0.0) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
                                     ) {
-                                        Text(
-                                            text = "Foto Bukti Terkompresi (Base64 tersimpan)",
-                                            fontSize = 12.sp,
-                                            color = Slate700
-                                        )
+                                        Text("Stik Solar (Awal / Akhir):", color = Slate500, fontSize = 12.sp)
+                                        Text("${String.format("%.1f", report.stikSolarAwal)} / ${String.format("%.1f", report.stikSolarAkhir)} cm", fontWeight = FontWeight.SemiBold, color = Slate900, fontSize = 12.sp)
+                                    }
+                                }
+                                if (report.pemakaianSolar > 0.0) {
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text("Estimasi Konsumsi Solar:", color = Slate700, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Text("${String.format("%.1f", report.pemakaianSolar)} Liter/cm", fontWeight = FontWeight.ExtraBold, color = Emerald700, fontSize = 13.sp)
                                     }
                                 }
                             }
                         }
                     }
+
+                    // Daftar Kendala Lapangan
+                    val parsedKendalaList = KendalaJsonConverter.fromJson(report.daftarKendalaJson)
+                    if (parsedKendalaList.isNotEmpty()) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFFFEF2F2),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFCA5A5))
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.WarningAmber, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(18.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = "Kendala Lapangan (${parsedKendalaList.size} Kejadian)",
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF991B1B),
+                                        fontSize = 13.sp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                parsedKendalaList.forEachIndexed { index, k ->
+                                    val durasiStr = if ((k.durasi_menit ?: 0) > 0) {
+                                        val hrs = (k.durasi_menit ?: 0) / 60
+                                        val mins = (k.durasi_menit ?: 0) % 60
+                                        when {
+                                            hrs > 0 && mins > 0 -> "$hrs Jam $mins Menit"
+                                            hrs > 0 -> "$hrs Jam"
+                                            else -> "$mins Menit"
+                                        }
+                                    } else {
+                                        ""
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(8.dp),
+                                        color = Color.White,
+                                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFECACA)),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 4.dp)
+                                    ) {
+                                        Column(modifier = Modifier.padding(10.dp)) {
+                                            Text(
+                                                text = "#${index + 1} ${k.nama_kendala ?: "Kendala"} [${k.id_kendala ?: "-"}]",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.sp,
+                                                color = Color(0xFF991B1B)
+                                            )
+                                            if (!k.waktu_mulai.isNullOrBlank() || !k.waktu_selesai.isNullOrBlank()) {
+                                                Text(
+                                                    text = "Pukul: ${k.waktu_mulai ?: "-"} s/d ${k.waktu_selesai ?: "-"}${if (durasiStr.isNotBlank()) " • Hambatan: $durasiStr" else ""}",
+                                                    fontSize = 11.sp,
+                                                    color = Color(0xFFB91C1C)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else if (!report.kendalaNama.isNullOrBlank()) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(10.dp),
+                            color = Color(0xFFFEF2F2),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFCA5A5))
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Text(
+                                    text = "Kendala: ${report.kendalaNama} (${report.kendalaId ?: "-"})",
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF991B1B),
+                                    fontSize = 12.sp
+                                )
+                                if (!report.catatanKendala.isNullOrBlank()) {
+                                    Text(
+                                        text = "Keterangan: ${report.catatanKendala}",
+                                        color = Color(0xFFB91C1C),
+                                        fontSize = 11.sp,
+                                        modifier = Modifier.padding(top = 2.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // Catatan & Keterangan Lapangan
+                    if (report.notes.isNotBlank()) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFFF8FAFC),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.Notes, contentDescription = null, tint = Slate600, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Catatan / Keterangan Lapangan", fontWeight = FontWeight.SemiBold, color = Slate900, fontSize = 12.sp)
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = report.notes,
+                                    fontSize = 12.sp,
+                                    color = Slate700,
+                                    lineHeight = 16.sp
+                                )
+                            }
+                        }
+                    }
+
+                    // Foto Bukti Lapangan
+                    val hasPhoto = !report.photoPath.isNullOrBlank() || !report.photoBase64.isNullOrBlank()
+                    if (hasPhoto) {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = Color(0xFFF8FAFC),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Image, contentDescription = null, tint = Emerald600, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Foto Bukti Lapangan", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Slate900)
+                                    }
+                                    Surface(shape = RoundedCornerShape(4.dp), color = Emerald100) {
+                                        Text(
+                                            text = "${report.photoSizeKb ?: 145} KB • Ketuk Pratinjau",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 10.sp,
+                                            color = Emerald900,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                val photoFile = report.photoPath?.let { File(it) }
+                                if (photoFile != null && photoFile.exists()) {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(context)
+                                            .data(photoFile)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = "Foto Bukti Lapangan",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(150.dp)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .clickable { showFullscreenPhoto = true }
+                                    )
+                                } else if (!report.photoBase64.isNullOrBlank()) {
+                                    val bitmap = try {
+                                        val cleanBase64 = if (report.photoBase64.startsWith("data:")) {
+                                            report.photoBase64.substringAfter("base64,").trim()
+                                        } else {
+                                            report.photoBase64.trim()
+                                        }
+                                        val imageBytes = Base64.decode(cleanBase64, Base64.DEFAULT)
+                                        BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                                    } catch (_: Exception) {
+                                        null
+                                    }
+
+                                    if (bitmap != null) {
+                                        Image(
+                                            bitmap = bitmap.asImageBitmap(),
+                                            contentDescription = "Foto Bukti Lapangan",
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(150.dp)
+                                                .clip(RoundedCornerShape(8.dp))
+                                                .clickable { showFullscreenPhoto = true }
+                                        )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(50.dp)
+                                                .background(Color(0xFFE2E8F0), RoundedCornerShape(8.dp)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text("Foto tersimpan di cloud / lokal", fontSize = 11.sp, color = Slate700)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider(color = Slate200)
 
-                // Actions
+                // ==========================================
+                // 3. PINNED BOTTOM ACTIONS (Selalu terlihat)
+                // ==========================================
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     OutlinedButton(
@@ -433,23 +565,41 @@ fun ReportDetailDialog(
                         },
                         colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRose),
                         border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRose.copy(alpha = 0.5f)),
-                        modifier = Modifier.weight(1f)
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(44.dp)
                     ) {
                         Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Hapus")
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Hapus", fontWeight = FontWeight.Bold)
                     }
 
                     Button(
                         onClick = onDismiss,
                         colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
-                        modifier = Modifier.weight(1.5f)
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .weight(1.5f)
+                            .height(44.dp)
                     ) {
-                        Text("Tutup")
+                        Text("Tutup", fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
+    }
+
+    if (showFullscreenPhoto) {
+        FullscreenPhotoPreviewDialog(
+            photoPath = report.photoPath,
+            photoBase64 = report.photoBase64,
+            unitCode = report.unitCode,
+            reportDate = report.reportDate,
+            nomorSpk = null,
+            photoSizeKb = report.photoSizeKb,
+            onDismiss = { showFullscreenPhoto = false }
+        )
     }
 }
 
@@ -458,14 +608,14 @@ fun DetailItemRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = Slate400, modifier = Modifier.size(18.dp))
+        Icon(icon, contentDescription = null, tint = Slate400, modifier = Modifier.size(17.dp))
         Spacer(modifier = Modifier.width(10.dp))
         Column {
             Text(label, style = MaterialTheme.typography.bodySmall.copy(color = Slate400, fontSize = 11.sp))
-            Text(value, style = MaterialTheme.typography.bodyMedium.copy(color = Slate900, fontWeight = FontWeight.SemiBold))
+            Text(value, style = MaterialTheme.typography.bodyMedium.copy(color = Slate900, fontWeight = FontWeight.SemiBold, fontSize = 13.sp))
         }
     }
 }
