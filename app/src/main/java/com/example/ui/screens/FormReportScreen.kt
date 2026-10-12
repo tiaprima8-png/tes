@@ -484,51 +484,59 @@ fun FormReportScreen(
                             }
                         }
 
-                        // 1. Status Unit Selector Pill [OPERASI] | [STANDBY] | [BREAKDOWN]
-                        Text(
-                            text = "1. Status Unit Operasional",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                color = Slate700
+                        // Status Unit Operasional (Otomatis dari Master Aktivitas - Read Only Badge)
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = when (rencanaState.statusUnit) {
+                                "OPERASI" -> Emerald50
+                                "STANDBY" -> Color(0xFFFFFBEB)
+                                else -> Color(0xFFFFF1F2)
+                            },
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                when (rencanaState.statusUnit) {
+                                    "OPERASI" -> Emerald200
+                                    "STANDBY" -> Color(0xFFFDE68A)
+                                    else -> Color(0xFFFECDD3)
+                                }
                             ),
-                            modifier = Modifier.padding(bottom = 6.dp)
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .testTag("badge_rencana_status_otomatis")
                         ) {
-                            listOf("OPERASI", "STANDBY", "BREAKDOWN").forEach { status ->
-                                val isSelected = rencanaState.statusUnit == status
-                                val (bgCol, txtCol) = when {
-                                    isSelected && status == "OPERASI" -> Emerald600 to Color.White
-                                    isSelected && status == "STANDBY" -> WarningAmber to Slate900
-                                    isSelected && status == "BREAKDOWN" -> ErrorRose to Color.White
-                                    else -> Color(0xFFF1F5F9) to Slate700
-                                }
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = bgCol,
-                                    border = androidx.compose.foundation.BorderStroke(
-                                        1.dp,
-                                        if (isSelected) bgCol else Slate200
-                                    ),
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                            ) {
+                                Box(
                                     modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .clickable { viewModel.setRencanaStatus(status) }
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier.padding(vertical = 10.dp)
-                                    ) {
-                                        Text(
-                                            text = status,
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 12.sp,
-                                            color = txtCol
+                                        .size(8.dp)
+                                        .background(
+                                            when (rencanaState.statusUnit) {
+                                                "OPERASI" -> Emerald600
+                                                "STANDBY" -> WarningAmber
+                                                else -> ErrorRose
+                                            },
+                                            CircleShape
                                         )
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Status Unit: ${rencanaState.statusUnit}",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = when (rencanaState.statusUnit) {
+                                        "OPERASI" -> Emerald800
+                                        "STANDBY" -> Color(0xFF92400E)
+                                        else -> Color(0xFF9F1239)
                                     }
-                                }
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "• Otomatis dari Master Aktivitas",
+                                    fontSize = 11.sp,
+                                    color = Slate500
+                                )
                             }
                         }
 
@@ -1451,6 +1459,66 @@ fun FormReportScreen(
                             testTag = "selector_realisasi_aktivitas_editable",
                             onClick = { isRealisasiActivitySheetOpen = true }
                         )
+
+                        // Status Unit Otomatis (Read-Only Badge)
+                        val currentUnitStatus = realisasiState.selectedActivity?.kategoriStatus?.ifBlank { "OPERASI" }
+                            ?: realisasiState.selectedRencana?.statusUnit?.ifBlank { "OPERASI" }
+                            ?: "OPERASI"
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = when (currentUnitStatus) {
+                                "OPERASI" -> Emerald50
+                                "STANDBY" -> Color(0xFFFFFBEB)
+                                else -> Color(0xFFFFF1F2)
+                            },
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                when (currentUnitStatus) {
+                                    "OPERASI" -> Emerald200
+                                    "STANDBY" -> Color(0xFFFDE68A)
+                                    else -> Color(0xFFFECDD3)
+                                }
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .testTag("badge_realisasi_status_otomatis")
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(
+                                            when (currentUnitStatus) {
+                                                "OPERASI" -> Emerald600
+                                                "STANDBY" -> WarningAmber
+                                                else -> ErrorRose
+                                            },
+                                            CircleShape
+                                        )
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Status: $currentUnitStatus",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = when (currentUnitStatus) {
+                                        "OPERASI" -> Emerald800
+                                        "STANDBY" -> Color(0xFF92400E)
+                                        else -> Color(0xFF9F1239)
+                                    }
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = "(Otomatis dari Master Aktivitas)",
+                                    fontSize = 11.sp,
+                                    color = Slate500
+                                )
+                            }
+                        }
 
                         Spacer(modifier = Modifier.height(10.dp))
 

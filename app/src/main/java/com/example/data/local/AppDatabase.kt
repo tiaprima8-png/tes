@@ -12,9 +12,11 @@ import com.example.data.local.dao.KendalaDao
 import com.example.data.local.dao.LokasiDao
 import com.example.data.local.dao.OperatorDao
 import com.example.data.local.dao.RencanaKerjaDao
+import com.example.data.local.dao.AktivitasUnitDao
 import com.example.data.local.dao.UnitDao
 import com.example.data.local.entity.ActivityMasterEntity
 import com.example.data.local.entity.ActivityReportEntity
+import com.example.data.local.entity.AktivitasUnitEntity
 import com.example.data.local.entity.DraftRealisasiEntity
 import com.example.data.local.entity.HasilInputAktivitasEntity
 import com.example.data.local.entity.KendalaEntity
@@ -33,9 +35,10 @@ import com.example.data.local.entity.UnitEntity
         RencanaKerjaEntity::class,
         HasilInputAktivitasEntity::class,
         KendalaEntity::class,
-        DraftRealisasiEntity::class
+        DraftRealisasiEntity::class,
+        AktivitasUnitEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -48,6 +51,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun hasilInputAktivitasDao(): HasilInputAktivitasDao
     abstract fun kendalaDao(): KendalaDao
     abstract fun draftRealisasiDao(): DraftRealisasiDao
+    abstract fun aktivitasUnitDao(): AktivitasUnitDao
 
     companion object {
         @Volatile

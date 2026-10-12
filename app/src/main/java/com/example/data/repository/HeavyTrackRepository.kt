@@ -3,6 +3,7 @@ package com.example.data.repository
 import com.example.data.local.AppDatabase
 import com.example.data.local.entity.ActivityMasterEntity
 import com.example.data.local.entity.ActivityReportEntity
+import com.example.data.local.entity.AktivitasUnitEntity
 import com.example.data.local.entity.HasilInputAktivitasEntity
 import com.example.data.local.entity.KendalaEntity
 import com.example.data.local.entity.LokasiEntity
@@ -49,6 +50,7 @@ class HeavyTrackRepository(
     private val hasilDao = database.hasilInputAktivitasDao()
     private val kendalaDao = database.kendalaDao()
     private val draftDao = database.draftRealisasiDao()
+    private val aktivitasUnitDao = database.aktivitasUnitDao()
 
     private val _syncLogs = MutableStateFlow<List<SyncLogItem>>(emptyList())
     val syncLogs: StateFlow<List<SyncLogItem>> = _syncLogs.asStateFlow()
@@ -159,10 +161,13 @@ class HeavyTrackRepository(
             unitDao.insertUnits(initialUnits)
 
             val initialActivities = listOf(
-                ActivityMasterEntity("ACT-SAP-101", "Galian Tanah Lunak", "m3", "Galian area cut", "PRODUKSI"),
-                ActivityMasterEntity("ACT-SAP-102", "Loading Overburden", "m3", "Pemuatan tanah penutup", "PRODUKSI"),
-                ActivityMasterEntity("ACT-SAP-201", "Dumping & Spreading", "m2", "Penghamparan disposal", "SUPPORT"),
-                ActivityMasterEntity("ACT-SAP-202", "Grading Mainroad Tambang", "m", "Perawatan jalan", "INFRASTRUKTUR")
+                ActivityMasterEntity("ACT-SAP-101", "Galian Tanah Lunak", "m3", "Galian area cut", "PRODUKSI", "OPERASI"),
+                ActivityMasterEntity("ACT-SAP-102", "Loading Overburden", "m3", "Pemuatan tanah penutup", "PRODUKSI", "OPERASI"),
+                ActivityMasterEntity("ACT-SAP-201", "Dumping & Spreading", "m2", "Penghamparan disposal", "SUPPORT", "OPERASI"),
+                ActivityMasterEntity("ACT-SAP-202", "Grading Mainroad Tambang", "m", "Perawatan jalan", "INFRASTRUKTUR", "OPERASI"),
+                ActivityMasterEntity("ACT-SAP-STB-01", "Standby Hujan / Cuaca Buruk", "jam", "Hambatan cuaca buruk / licin", "STANDBY", "STANDBY"),
+                ActivityMasterEntity("ACT-SAP-STB-02", "Standby Tunggu Trailler", "jam", "Menunggu lowbed mobilisasi", "STANDBY", "STANDBY"),
+                ActivityMasterEntity("ACT-SAP-BDN-01", "Breakdown Kerusakan Unit", "jam", "Perbaikan kerusakan mekanikal", "BREAKDOWN", "BREAKDOWN")
             )
             activityDao.insertActivities(initialActivities)
 
@@ -238,6 +243,7 @@ class HeavyTrackRepository(
                         unitOfMeasure = it.resolvedUnitOfMeasure,
                         description = it.resolvedDescription,
                         category = it.resolvedCategory,
+                        kategoriStatus = it.resolvedKategoriStatus,
                         updatedAt = System.currentTimeMillis()
                     )
                 }
@@ -343,6 +349,7 @@ class HeavyTrackRepository(
                         unitOfMeasure = it.resolvedUnitOfMeasure,
                         description = it.resolvedDescription,
                         category = it.resolvedCategory,
+                        kategoriStatus = it.resolvedKategoriStatus,
                         updatedAt = System.currentTimeMillis()
                     )
                 }
@@ -752,6 +759,26 @@ class HeavyTrackRepository(
                 isSynced = false
             )
             val mirrorReportId = reportDao.insertReport(reportMirror)
+            aktivitasUnitDao.insert(
+                AktivitasUnitEntity(
+                    tanggal = reportMirror.reportDate,
+                    kategoriStatus = savedHasil.unitStatus.ifBlank { "OPERASI" },
+                    durasiJamKerja = savedHasil.jamKerja,
+                    durasiHm = savedHasil.hmHarianBerjalan,
+                    pengisianSolar = if (savedHasil.isIsiSolar) savedHasil.jumlahLiterSolar else 0.0,
+                    namaPengawas = savedHasil.supervisorName,
+                    kodeUnit = savedHasil.kodeUnit,
+                    namaAktivitas = savedHasil.activityName,
+                    kodeSap = savedHasil.sapCode,
+                    satuan = savedHasil.satuan,
+                    namaOperator = savedHasil.operator,
+                    lokasiKerja = savedHasil.kodeLokasi,
+                    shift = savedHasil.shift,
+                    hasilKerja = savedHasil.hasilKerja,
+                    keterangan = savedHasil.keterangan,
+                    createdAt = savedHasil.createdAt
+                )
+            )
             savedHasil.hmAkhir?.let { hmAkhir ->
                 unitDao.updateUnitHm(savedHasil.kodeUnit, hmAkhir)
             }
@@ -858,6 +885,26 @@ class HeavyTrackRepository(
         try {
             val insertedId = reportDao.insertReport(report.copy(isSynced = false))
             val savedReport = report.copy(id = insertedId)
+            aktivitasUnitDao.insert(
+                AktivitasUnitEntity(
+                    tanggal = savedReport.reportDate,
+                    kategoriStatus = savedReport.unitStatus.ifBlank { "OPERASI" },
+                    durasiJamKerja = savedReport.workDurationHours,
+                    durasiHm = savedReport.hmDailyRunning,
+                    pengisianSolar = if (savedReport.isRefueled) savedReport.fuelLiters else 0.0,
+                    namaPengawas = savedReport.supervisorName,
+                    kodeUnit = savedReport.unitCode,
+                    namaAktivitas = savedReport.activityName,
+                    kodeSap = savedReport.sapCode,
+                    satuan = savedReport.unitOfMeasure,
+                    namaOperator = savedReport.operatorName,
+                    lokasiKerja = savedReport.workLocation,
+                    shift = savedReport.shift,
+                    hasilKerja = savedReport.workOutput,
+                    keterangan = savedReport.notes,
+                    createdAt = savedReport.createdAt
+                )
+            )
             val kendalaPayloads = KendalaJsonConverter.fromJson(savedReport.daftarKendalaJson).map { it.toCanonical() }
 
             val apiReq = PostActivityReportRequest.create(

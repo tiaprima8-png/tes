@@ -93,14 +93,15 @@ object CompanyServerSimulator {
     val serverActivities = CopyOnWriteArrayList<ActivityPayload>().apply {
         addAll(
             listOf(
-                ActivityPayload("ACT-SAP-101", "Galian Tanah Lunak", "m3", "Penggalian area cut site A", "PRODUKSI"),
-                ActivityPayload("ACT-SAP-102", "Loading Overburden", "m3", "Pemuatan tanah penutup ke dump truck", "PRODUKSI"),
-                ActivityPayload("ACT-SAP-103", "Ripping Batuan Keras", "m3", "Pemecahan lapisan batuan menggunakan ripper dozer", "PRODUKSI"),
-                ActivityPayload("ACT-SAP-201", "Dumping & Spreading", "m2", "Penghamparan material di area disposal", "SUPPORT"),
-                ActivityPayload("ACT-SAP-202", "Grading Mainroad Tambang", "m", "Perawatan kerataan dan grading jalan hauling", "INFRASTRUKTUR"),
-                ActivityPayload("ACT-SAP-203", "Clearing Lahan & Grubbing", "m2", "Pembersihan semak belukar dan vegetasi", "INFRASTRUKTUR"),
-                ActivityPayload("ACT-SAP-301", "Hauling Material Subgrade", "ton", "Pengangkutan material perbaikan jalan", "HAULING"),
-                ActivityPayload("ACT-SAP-302", "Pembuatan Parit Drainage", "m", "Penggalian parit saluran air tambang", "INFRASTRUKTUR")
+                ActivityPayload("ACT-SAP-101", "Galian Tanah Lunak", "m3", "Penggalian area cut site A", "PRODUKSI", "OPERASI"),
+                ActivityPayload("ACT-SAP-102", "Loading Overburden", "m3", "Pemuatan tanah penutup ke dump truck", "PRODUKSI", "OPERASI"),
+                ActivityPayload("ACT-SAP-103", "Ripping Batuan Keras", "m3", "Pemecahan lapisan batuan menggunakan ripper dozer", "PRODUKSI", "OPERASI"),
+                ActivityPayload("ACT-SAP-201", "Dumping & Spreading", "m2", "Penghamparan material di area disposal", "SUPPORT", "OPERASI"),
+                ActivityPayload("ACT-SAP-202", "Grading Mainroad Tambang", "m", "Perawatan kerataan dan grading jalan hauling", "INFRASTRUKTUR", "OPERASI"),
+                ActivityPayload("ACT-SAP-STB-01", "Standby Hujan / Cuaca Buruk", "jam", "Kondisi hujan lebat atau jalur licin", "STANDBY", "STANDBY"),
+                ActivityPayload("ACT-SAP-STB-02", "Standby Tunggu Trailler / Front", "jam", "Menunggu lowbed mobilisasi atau kesiapan front", "STANDBY", "STANDBY"),
+                ActivityPayload("ACT-SAP-BDN-01", "Breakdown Kerusakan Mesin / Engine", "jam", "Trouble mesin / transmisi unit", "BREAKDOWN", "BREAKDOWN"),
+                ActivityPayload("ACT-SAP-BDN-02", "Breakdown Perbaikan Undercarriage", "jam", "Perbaikan track / undercarriage unit", "BREAKDOWN", "BREAKDOWN")
             )
         )
     }

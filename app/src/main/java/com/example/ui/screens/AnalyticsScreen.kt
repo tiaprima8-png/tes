@@ -23,10 +23,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.BarChart
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.LocalGasStation
+import androidx.compose.material.icons.filled.PauseCircle
+import androidx.compose.material.icons.filled.PlayCircle
 import androidx.compose.material.icons.filled.PrecisionManufacturing
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Speed
@@ -59,6 +62,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.Emerald100
+import com.example.ui.theme.Emerald200
 import com.example.ui.theme.Emerald50
 import com.example.ui.theme.Emerald600
 import com.example.ui.theme.Emerald700
@@ -283,7 +287,49 @@ fun AnalyticsScreen(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 val totalOutputVolumeAll = analyticsState.activitySummaries.sumOf { it.totalOutputVolume }
 
-                // Baris 1: Total Solar & Total HM Berjalan
+                // 3 KARTU METRIK RINGKASAN STATUS JAM KERJA BERDAMPINGAN
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Hijau: Total Jam Operasi
+                    StatusHoursMetricCard(
+                        title = "Jam Operasi",
+                        hours = analyticsState.effectiveOperationHours,
+                        subtitle = "Operasi Efektif",
+                        themeColor = Emerald600,
+                        backgroundColor = Emerald50,
+                        borderColor = Emerald200,
+                        icon = Icons.Default.PrecisionManufacturing,
+                        modifier = Modifier.weight(1f).testTag("card_jam_operasi")
+                    )
+
+                    // Kuning: Total Jam Standby (Cuaca/Tunggu Trailer)
+                    StatusHoursMetricCard(
+                        title = "Jam Standby",
+                        hours = analyticsState.standbyHours,
+                        subtitle = "Cuaca / Trailler",
+                        themeColor = Color(0xFFD97706),
+                        backgroundColor = Color(0xFFFFFBEB),
+                        borderColor = Color(0xFFFDE68A),
+                        icon = Icons.Default.PauseCircle,
+                        modifier = Modifier.weight(1f).testTag("card_jam_standby")
+                    )
+
+                    // Merah: Total Jam Breakdown (Perbaikan Unit)
+                    StatusHoursMetricCard(
+                        title = "Jam Breakdown",
+                        hours = analyticsState.breakdownHours,
+                        subtitle = "Perbaikan Unit",
+                        themeColor = Color(0xFFE11D48),
+                        backgroundColor = Color(0xFFFFF1F2),
+                        borderColor = Color(0xFFFECDD3),
+                        icon = Icons.Default.Build,
+                        modifier = Modifier.weight(1f).testTag("card_jam_breakdown")
+                    )
+                }
+
+                // Baris 2: Total Solar & Total HM Berjalan
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -498,17 +544,17 @@ fun AnalyticsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         TimeLegendItem(
-                            label = "Operasi Efektif",
+                            label = "Operasi (${String.format(Locale.US, "%.1f%%", analyticsState.operationPercent * 100)})",
                             hours = analyticsState.effectiveOperationHours,
                             color = Emerald600
                         )
                         TimeLegendItem(
-                            label = "Standby",
+                            label = "Standby (${String.format(Locale.US, "%.1f%%", analyticsState.standbyPercent * 100)})",
                             hours = analyticsState.standbyHours,
                             color = WarningAmber
                         )
                         TimeLegendItem(
-                            label = "Breakdown",
+                            label = "Breakdown (${String.format(Locale.US, "%.1f%%", analyticsState.breakdownPercent * 100)})",
                             hours = analyticsState.breakdownHours,
                             color = ErrorRose
                         )
@@ -725,8 +771,24 @@ fun AnalyticsScreen(
                                                 )
                                             }
                                             Spacer(modifier = Modifier.width(6.dp))
+                                            // Badge Kategori Status Aktivitas
+                                            val (statusBg, statusTxt) = when (actRow.kategoriStatus) {
+                                                "OPERASI" -> Emerald100 to Emerald900
+                                                "STANDBY" -> Color(0xFFFEF3C7) to Color(0xFFB45309)
+                                                else -> Color(0xFFFFE4E6) to Color(0xFFE11D48)
+                                            }
+                                            Surface(shape = RoundedCornerShape(4.dp), color = statusBg) {
+                                                Text(
+                                                    text = actRow.kategoriStatus,
+                                                    fontSize = 10.sp,
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = statusTxt,
+                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                            Spacer(modifier = Modifier.width(6.dp))
                                             Text(
-                                                text = "${actRow.unitInvolvedCount} Unit Terlibat",
+                                                text = "${actRow.unitInvolvedCount} Unit",
                                                 fontSize = 11.sp,
                                                 color = Slate500
                                             )
@@ -812,5 +874,64 @@ fun TimeLegendItem(
             color = Slate900,
             modifier = Modifier.padding(start = 12.dp)
         )
+    }
+}
+
+@Composable
+fun StatusHoursMetricCard(
+    title: String,
+    hours: Double,
+    subtitle: String,
+    themeColor: Color,
+    backgroundColor: Color,
+    borderColor: Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = backgroundColor),
+        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor),
+        modifier = modifier
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .background(Color.White, RoundedCornerShape(7.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = themeColor,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = title,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                color = Slate700,
+                maxLines = 1
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = "${String.format(Locale.US, "%.1f", hours)} Jam",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = themeColor,
+                fontFamily = FontFamily.Monospace,
+                maxLines = 1
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = subtitle,
+                fontSize = 9.sp,
+                color = Slate500,
+                maxLines = 1
+            )
+        }
     }
 }

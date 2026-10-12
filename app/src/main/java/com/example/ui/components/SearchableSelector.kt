@@ -553,6 +553,26 @@ fun ActivitySelectorItemCard(
                         )
                     }
 
+                    // Chip Badge Status (OPERASI / STANDBY / BREAKDOWN)
+                    val statusText = activity.kategoriStatus.ifBlank { "OPERASI" }
+                    val (statusBg, statusTxt) = when (statusText) {
+                        "OPERASI" -> Emerald100 to Emerald900
+                        "STANDBY" -> Color(0xFFFEF3C7) to Color(0xFFB45309)
+                        else -> Color(0xFFFFE4E6) to Color(0xFFE11D48)
+                    }
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = statusBg
+                    ) {
+                        Text(
+                            text = statusText,
+                            color = statusTxt,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
+                        )
+                    }
+
                     // Teks Satuan
                     Surface(
                         shape = RoundedCornerShape(6.dp),

@@ -375,7 +375,8 @@ data class ActivityAnalyticsRow(
     val unitOfMeasure: String,
     val totalOutputVolume: Double,
     val totalHm: Double,
-    val unitInvolvedCount: Int
+    val unitInvolvedCount: Int,
+    val kategoriStatus: String = "OPERASI"
 )
 
 data class FleetAnalyticsState(

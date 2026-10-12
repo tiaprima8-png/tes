@@ -913,7 +913,11 @@ class HeavyTrackViewModel(
     }
 
     fun selectRencanaActivity(activity: ActivityMasterEntity) {
-        _rencanaFormState.value = _rencanaFormState.value.copy(selectedActivity = activity)
+        val autoStatus = activity.kategoriStatus.ifBlank { "OPERASI" }
+        _rencanaFormState.value = _rencanaFormState.value.copy(
+            selectedActivity = activity,
+            statusUnit = autoStatus
+        )
     }
 
     fun selectRencanaLokasi(lokasi: LokasiEntity) {
@@ -1437,7 +1441,12 @@ class HeavyTrackViewModel(
     }
 
     fun setRealisasiActivity(activity: ActivityMasterEntity) {
-        _realisasiFormState.value = _realisasiFormState.value.copy(selectedActivity = activity)
+        val autoStatus = activity.kategoriStatus.ifBlank { "OPERASI" }
+        val curRencana = _realisasiFormState.value.selectedRencana
+        _realisasiFormState.value = _realisasiFormState.value.copy(
+            selectedActivity = activity,
+            selectedRencana = curRencana?.copy(statusUnit = autoStatus)
+        )
     }
 
     fun setRealisasiLokasi(lokasi: LokasiEntity) {
@@ -1811,7 +1820,10 @@ class HeavyTrackViewModel(
             0.0
         }
 
-        val workOutput = if (rencana.statusUnit == "OPERASI") {
+        val resolvedStatusUnit = state.selectedActivity?.kategoriStatus?.ifBlank { "OPERASI" }
+            ?: rencana.statusUnit.ifBlank { "OPERASI" }
+
+        val workOutput = if (resolvedStatusUnit == "OPERASI") {
             state.hasilKerjaInput.toDoubleOrNull() ?: 0.0
         } else {
             0.0
@@ -1883,7 +1895,7 @@ class HeavyTrackViewModel(
                 activityName = actName,
                 sapCode = sapCode,
                 satuan = satuan,
-                unitStatus = rencana.statusUnit,
+                unitStatus = resolvedStatusUnit,
                 shift = rencana.shiftKerja,
                 jamKerja = state.durasiJamKerja,
                 hmAwal = state.hmAwal,
@@ -2285,6 +2297,8 @@ Halo Rekan Pengawas, berkas installer APK pembaruan aplikasi resmi terlampir ($f
             val totalOutput = reps.sumOf { it.workOutput }
             val totalHmRunning = reps.sumOf { it.hmDailyRunning }
             val uniqueUnits = reps.map { it.unitCode }.distinct().size
+            val matchedMaster = activities.value.find { it.sapCode.equals(first.sapCode, ignoreCase = true) || it.activityName.equals(first.activityName, ignoreCase = true) }
+            val resolvedStatus = matchedMaster?.kategoriStatus ?: first.unitStatus.ifBlank { "OPERASI" }
 
             ActivityAnalyticsRow(
                 activityName = first.activityName,
@@ -2292,7 +2306,8 @@ Halo Rekan Pengawas, berkas installer APK pembaruan aplikasi resmi terlampir ($f
                 unitOfMeasure = first.unitOfMeasure,
                 totalOutputVolume = totalOutput,
                 totalHm = totalHmRunning,
-                unitInvolvedCount = uniqueUnits
+                unitInvolvedCount = uniqueUnits,
+                kategoriStatus = resolvedStatus
             )
         }.sortedByDescending { it.totalOutputVolume }
 

@@ -1,5 +1,6 @@
 package com.example.data.remote
 
+import com.google.gson.annotations.SerializedName
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
@@ -172,6 +173,8 @@ data class PostActivityReportRequest(
         }
     }
 }
+
+typealias AktivitasUnitRequest = PostActivityReportRequest
 
 @JsonClass(generateAdapter = true)
 data class KendalaItemPayload(
@@ -489,32 +492,36 @@ data class UnitPayload(
 
 @JsonClass(generateAdapter = true)
 data class ActivityPayload(
-    @Json(name = "kode_sap") val kode_sap: String? = null,
-    @Json(name = "sap_code") val sap_code: String? = null,
-    @Json(name = "sapCode") val sapCode: String? = null,
+    @SerializedName("kode_sap") @Json(name = "kode_sap") val kode_sap: String? = null,
+    @SerializedName("sap_code") @Json(name = "sap_code") val sap_code: String? = null,
+    @SerializedName("sapCode") @Json(name = "sapCode") val sapCode: String? = null,
 
-    @Json(name = "nama_aktivitas") val nama_aktivitas: String? = null,
-    @Json(name = "activity_name") val activity_name: String? = null,
-    @Json(name = "activityName") val activityName: String? = null,
+    @SerializedName("nama_aktivitas") @Json(name = "nama_aktivitas") val nama_aktivitas: String? = null,
+    @SerializedName("activity_name") @Json(name = "activity_name") val activity_name: String? = null,
+    @SerializedName("activityName") @Json(name = "activityName") val activityName: String? = null,
 
-    @Json(name = "satuan") val satuan: String? = null,
-    @Json(name = "unit_of_measure") val unit_of_measure: String? = null,
-    @Json(name = "unitOfMeasure") val unitOfMeasure: String? = null,
+    @SerializedName("satuan") @Json(name = "satuan") val satuan: String? = null,
+    @SerializedName("unit_of_measure") @Json(name = "unit_of_measure") val unit_of_measure: String? = null,
+    @SerializedName("unitOfMeasure") @Json(name = "unitOfMeasure") val unitOfMeasure: String? = null,
 
-    @Json(name = "description") val description: String? = null,
-    @Json(name = "keterangan") val keterangan: String? = null,
+    @SerializedName("description") @Json(name = "description") val description: String? = null,
+    @SerializedName("keterangan") @Json(name = "keterangan") val keterangan: String? = null,
 
-    @Json(name = "kategori") val kategori: String? = null,
-    @Json(name = "category") val category: String? = "PRODUKSI",
+    @SerializedName("kategori") @Json(name = "kategori") val kategori: String? = null,
+    @SerializedName("category") @Json(name = "category") val category: String? = "PRODUKSI",
 
-    @Json(name = "jenis_unit") val jenis_unit: String? = null
+    @SerializedName("kategori_status") @Json(name = "kategori_status") val kategori_status: String? = null,
+    @SerializedName("kategoriStatus") @Json(name = "kategoriStatus") val kategoriStatus: String? = null,
+
+    @SerializedName("jenis_unit") @Json(name = "jenis_unit") val jenis_unit: String? = null
 ) {
     constructor(
         sapCode: String,
         activityName: String,
         unitOfMeasure: String,
         description: String = "",
-        category: String = "PRODUKSI"
+        category: String = "PRODUKSI",
+        kategoriStatus: String = "OPERASI"
     ) : this(
         kode_sap = sapCode,
         sap_code = sapCode,
@@ -528,7 +535,9 @@ data class ActivityPayload(
         description = description,
         keterangan = description,
         kategori = category,
-        category = category
+        category = category,
+        kategori_status = kategoriStatus,
+        kategoriStatus = kategoriStatus
     )
 
     val resolvedSapCode: String get() = kode_sap ?: sap_code ?: sapCode ?: "ACT-SAP-999"
@@ -536,7 +545,22 @@ data class ActivityPayload(
     val resolvedUnitOfMeasure: String get() = satuan ?: unit_of_measure ?: unitOfMeasure ?: "m3"
     val resolvedDescription: String get() = description ?: keterangan ?: ""
     val resolvedCategory: String get() = kategori ?: category ?: "PRODUKSI"
+    val resolvedKategoriStatus: String get() = (kategori_status ?: kategoriStatus)?.trim()?.uppercase()?.takeIf { it.isNotBlank() } ?: when {
+        resolvedActivityName.contains("Standby", ignoreCase = true) || resolvedSapCode.contains("STB", ignoreCase = true) -> "STANDBY"
+        resolvedActivityName.contains("Breakdown", ignoreCase = true) || resolvedActivityName.contains("Perbaikan", ignoreCase = true) || resolvedSapCode.contains("BDN", ignoreCase = true) -> "BREAKDOWN"
+        else -> "OPERASI"
+    }
 }
+
+@JsonClass(generateAdapter = true)
+data class MasterAktivitasDto(
+    @SerializedName("kode_sap") @Json(name = "kode_sap") val kodeSap: String = "",
+    @SerializedName("nama_aktivitas") @Json(name = "nama_aktivitas") val namaAktivitas: String = "",
+    @SerializedName("satuan") @Json(name = "satuan") val satuan: String = "m3",
+    @SerializedName("kategori") @Json(name = "kategori") val kategori: String = "PRODUKSI",
+    @SerializedName("kategori_status") @Json(name = "kategori_status") val kategoriStatus: String = "OPERASI",
+    @SerializedName("description") @Json(name = "description") val description: String = ""
+)
 
 @JsonClass(generateAdapter = true)
 data class OperatorPayload(
