@@ -76,28 +76,77 @@ class RealtimeSocketManager(
             // ==============================================================
             // WEBSOCKET LISTENER REAL-TIME (SPK_PUBLISHED)
             // ==============================================================
-            newSocket.on("SPK_PUBLISHED") { args ->
+            val spkListener: (Array<Any>) -> Unit = { args ->
                 try {
-                    val data = args[0] as JSONObject
-                    val unitKode = data.optString("unit_kode", data.optString("kode_unit", ""))
-                    val nomorSpk = data.optString("nomor_spk", "")
-                    val statusSpk = data.optString("status_spk", "SPK_TERBIT")
-                    val rencanaId = data.optInt("id_rencana_kerja").toLong()
-
-                    val event = RealtimeSpkData(
-                        unitKode = unitKode,
-                        nomorSpk = nomorSpk,
-                        statusSpk = statusSpk,
-                        rencanaId = rencanaId
-                    )
-
-                    scope.launch {
-                        _spkPublishedEvents.emit(event)
+                    val rawFirst = args.getOrNull(0)
+                    val data: JSONObject = when (rawFirst) {
+                        is JSONObject -> rawFirst
+                        is String -> try { JSONObject(rawFirst) } catch (_: Exception) { JSONObject() }
+                        else -> JSONObject()
                     }
-                    onSpkReceived?.invoke(event)
+
+                    val unitKode = data.optString("unit_kode",
+                        data.optString("kode_unit",
+                            data.optString("unitCode",
+                                data.optString("kodeUnit",
+                                    data.optString("unit_code", ""))))).trim()
+
+                    val nomorSpk = data.optString("nomor_spk",
+                        data.optString("nomorSpk",
+                            data.optString("no_spk",
+                                data.optString("noSpk",
+                                    data.optString("spk",
+                                        data.optString("spk_number", "")))))).trim()
+
+                    val statusSpk = data.optString("status_spk",
+                        data.optString("statusSpk",
+                            data.optString("status", "SPK_TERBIT"))).trim().ifBlank { "SPK_TERBIT" }
+
+                    val rencanaId = when {
+                        data.has("id_rencana_kerja") -> data.optLong("id_rencana_kerja")
+                        data.has("idRencanaKerja") -> data.optLong("idRencanaKerja")
+                        data.has("rencana_id") -> data.optLong("rencana_id")
+                        data.has("rencanaId") -> data.optLong("rencanaId")
+                        data.has("plan_id") -> data.optLong("plan_id")
+                        data.has("planId") -> data.optLong("planId")
+                        data.has("id") -> data.optLong("id")
+                        else -> 0L
+                    }
+
+                    if (nomorSpk.isNotBlank()) {
+                        Log.d("RealtimeSocketManager", "SPK Event Received: unit=$unitKode, spk=$nomorSpk, id=$rencanaId")
+                        val event = RealtimeSpkData(
+                            unitKode = unitKode,
+                            nomorSpk = nomorSpk,
+                            statusSpk = statusSpk,
+                            rencanaId = rencanaId
+                        )
+
+                        scope.launch {
+                            _spkPublishedEvents.emit(event)
+                        }
+                        onSpkReceived?.invoke(event)
+                    }
                 } catch (e: Exception) {
-                    Log.e("RealtimeSocketManager", "Error in socket.on(SPK_PUBLISHED)", e)
+                    Log.e("RealtimeSocketManager", "Error in socket SPK listener", e)
                 }
+            }
+
+            // Listen to standard and alternative event names from Web Admin
+            val eventNames = arrayOf(
+                "SPK_PUBLISHED",
+                "spk_published",
+                "SPK_TERBIT",
+                "spk_terbit",
+                "UPDATE_SPK",
+                "update_spk",
+                "spk:published",
+                "spk:issued",
+                "RENCANA_UPDATED",
+                "rencana_updated"
+            )
+            for (eventName in eventNames) {
+                newSocket.on(eventName) { args -> spkListener(args) }
             }
 
             newSocket.connect()
@@ -106,23 +155,23 @@ class RealtimeSocketManager(
         }
     }
 
-    /**
-     * Helper to route an SPK event directly through the socket pipeline
-     */
-    fun dispatchSpkPublished(unitKode: String, nomorSpk: String, rencanaId: Long) {
-        val event = RealtimeSpkData(
-            unitKode = unitKode,
-            nomorSpk = nomorSpk,
-            rencanaId = rencanaId
-        )
-        scope.launch {
-            _spkPublishedEvents.emit(event)
-        }
-    }
-
     fun disconnect() {
         try {
-            socket?.off("SPK_PUBLISHED")
+            val eventNames = arrayOf(
+                "SPK_PUBLISHED",
+                "spk_published",
+                "SPK_TERBIT",
+                "spk_terbit",
+                "UPDATE_SPK",
+                "update_spk",
+                "spk:published",
+                "spk:issued",
+                "RENCANA_UPDATED",
+                "rencana_updated"
+            )
+            for (eventName in eventNames) {
+                socket?.off(eventName)
+            }
             socket?.off()
             socket?.disconnect()
             socket?.close()

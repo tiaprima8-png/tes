@@ -542,8 +542,16 @@ class HeavyTrackRepository(
         rencanaDao.updateSpk(planId, spk, status)
     }
 
+    suspend fun getRencanaById(planId: Long): RencanaKerjaEntity? = withContext(Dispatchers.IO) {
+        rencanaDao.getRencanaById(planId)
+    }
+
     suspend fun updateSpkStatus(kodeUnit: String, nomorSpk: String, statusSpk: String = "SPK_TERBIT") = withContext(Dispatchers.IO) {
         rencanaDao.updateSpkStatus(kodeUnit, nomorSpk, statusSpk)
+    }
+
+    suspend fun updateSpkForActiveUnit(kodeUnit: String, nomorSpk: String, statusSpk: String = "SPK_TERBIT") = withContext(Dispatchers.IO) {
+        rencanaDao.updateSpkForActiveUnit(kodeUnit, nomorSpk, statusSpk)
     }
 
     suspend fun updateRencanaSpkByUnitOrId(planId: Long, unitKode: String, spk: String, status: String = "SPK_TERBIT"): RencanaKerjaEntity? = withContext(Dispatchers.IO) {

@@ -123,6 +123,7 @@ import com.example.ui.components.UnitPlanSearchableSelectorSheet
 import com.example.ui.theme.Emerald100
 import com.example.ui.theme.Emerald200
 import com.example.ui.theme.Emerald50
+import com.example.ui.theme.Emerald500
 import com.example.ui.theme.Emerald600
 import com.example.ui.theme.Emerald700
 import com.example.ui.theme.Emerald800
@@ -137,6 +138,7 @@ import com.example.ui.theme.Slate700
 import com.example.ui.theme.Slate800
 import com.example.ui.theme.Slate900
 import com.example.ui.theme.WarningAmber
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import com.example.ui.viewmodel.HeavyTrackViewModel
 
@@ -161,6 +163,7 @@ fun FormReportScreen(
     val rencanaState by viewModel.rencanaFormState.collectAsState()
     val realisasiState by viewModel.realisasiFormState.collectAsState()
     val fleetProgress by viewModel.fleetShiftProgress.collectAsState()
+    val isSocketConnected by viewModel.isSocketConnected.collectAsState()
 
     // 5. AUTO-FETCH DATA MASTER SAAT HALAMAN DIBUKA (ONRESUME / ONENTER)
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -1210,111 +1213,287 @@ fun FormReportScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        // 1. Nomor SPK (Surat Perintah Kerja) - Real-time dari Web Admin
+                        // ==============================================================
+                        // 1. FORM INPUT NOMOR SPK (Surat Perintah Kerja)
+                        // Menerima penerbitan dari Web Admin secara real-time untuk masing-masing rencana kerja
+                        // Serta mendukung input / koreksi manual oleh pengawas di lapangan.
+                        // ==============================================================
                         val isSpkTerbit = realisasiState.isSpkTerbit
-
-                        Text(
-                            text = "1. Nomor SPK (Surat Perintah Kerja)",
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                color = Slate700
-                            ),
-                            modifier = Modifier.padding(bottom = 6.dp)
-                        )
+                        val currentUnitCode = realisasiState.selectedRencana?.kodeUnit ?: "-"
 
                         Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isSpkTerbit) Color(0xFFF1F5F9) else Color(0xFFFFFBEB),
+                            shape = RoundedCornerShape(14.dp),
+                            color = if (isSpkTerbit) Color(0xFFF8FAFC) else Color(0xFFFFFBEB),
                             border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                if (isSpkTerbit) Emerald600.copy(alpha = 0.5f) else Color(0xFFF59E0B).copy(alpha = 0.5f)
+                                1.5.dp,
+                                if (isSpkTerbit) Emerald600 else Color(0xFFF59E0B)
                             ),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .testTag("spk_locked_field")
+                                .testTag("spk_form_card")
                         ) {
                             Column(modifier = Modifier.padding(14.dp)) {
+                                // Header bar: Label & Status Badge
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.weight(1f)
-                                    ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
                                         Icon(
-                                            imageVector = if (isSpkTerbit) Icons.Default.Lock else Icons.Default.LockClock,
-                                            contentDescription = if (isSpkTerbit) "SPK Terkunci Resmi" else "Menunggu SPK Admin",
+                                            imageVector = if (isSpkTerbit) Icons.Default.CheckCircle else Icons.Default.Assignment,
+                                            contentDescription = null,
                                             tint = if (isSpkTerbit) Emerald700 else Color(0xFFD97706),
-                                            modifier = Modifier.size(22.dp)
+                                            modifier = Modifier.size(20.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Column {
-                                            Text(
-                                                text = if (isSpkTerbit) {
-                                                    realisasiState.nomorSpk.ifBlank { realisasiState.selectedRencana?.nomorSpk ?: "-" }
-                                                } else {
-                                                    "SPK Menyusul"
-                                                },
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "1. Nomor SPK (Surat Perintah Kerja)",
+                                            style = MaterialTheme.typography.titleSmall.copy(
                                                 fontWeight = FontWeight.Bold,
-                                                fontSize = 14.sp,
-                                                fontFamily = if (isSpkTerbit) FontFamily.Monospace else FontFamily.Default,
-                                                color = if (isSpkTerbit) Slate900 else Color(0xFF92400E)
+                                                color = Slate800
                                             )
-                                            Text(
-                                                text = if (isSpkTerbit)
-                                                    "Terkunci resmi dari Web Admin (Read-Only)"
-                                                else
-                                                    "SPK resmi belum diterbitkan admin. Laporan tetap dapat diisi dan dikirim (Nomor SPK dapat disusulkan nanti oleh Web Admin).",
-                                                fontSize = 11.sp,
-                                                color = if (isSpkTerbit) Emerald700 else Color(0xFFB45309),
-                                                lineHeight = 15.sp
-                                            )
-                                        }
+                                        )
                                     }
 
                                     Surface(
                                         shape = RoundedCornerShape(6.dp),
                                         color = if (isSpkTerbit) Emerald100 else Color(0xFFFEF3C7)
                                     ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(6.dp)
+                                                    .background(
+                                                        if (isSpkTerbit) Emerald600 else Color(0xFFD97706),
+                                                        CircleShape
+                                                    )
+                                            )
+                                            Spacer(modifier = Modifier.width(5.dp))
+                                            Text(
+                                                text = if (isSpkTerbit) "SPK DITERIMA DARI ADMIN" else "MENUNGGU DITERBITKAN ADMIN",
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = if (isSpkTerbit) Emerald900 else Color(0xFFB45309)
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // OutlinedTextField Input Nomor SPK
+                                OutlinedTextField(
+                                    value = realisasiState.nomorSpk,
+                                    onValueChange = { newSpk ->
+                                        viewModel.setRealisasiNomorSpk(newSpk)
+                                    },
+                                    label = {
                                         Text(
-                                            text = if (isSpkTerbit) "TERKUNCI / TERBIT" else "MENUNGGU SPK ADMIN",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = if (isSpkTerbit) Emerald900 else Color(0xFFB45309),
-                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            text = if (realisasiState.selectedRencana != null)
+                                                "Nomor SPK Unit ${realisasiState.selectedRencana?.kodeUnit}"
+                                            else
+                                                "Nomor SPK"
+                                        )
+                                    },
+                                    placeholder = {
+                                        Text("Contoh: SPK-2026-001 (Otomatis saat Admin terbitkan)")
+                                    },
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = if (isSpkTerbit) Icons.Default.CheckCircle else Icons.Default.Assignment,
+                                            contentDescription = null,
+                                            tint = if (isSpkTerbit) Emerald600 else Slate400
+                                        )
+                                    },
+                                    trailingIcon = {
+                                        if (realisasiState.nomorSpk.isNotBlank()) {
+                                            IconButton(
+                                                onClick = { viewModel.setRealisasiNomorSpk("") },
+                                                modifier = Modifier.size(24.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Close,
+                                                    contentDescription = "Hapus input SPK",
+                                                    tint = Slate400,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        }
+                                    },
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(10.dp),
+                                    textStyle = TextStyle(
+                                        fontFamily = FontFamily.Monospace,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 15.sp,
+                                        color = Slate900
+                                    ),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = if (isSpkTerbit) Emerald600 else Color(0xFFF59E0B),
+                                        unfocusedBorderColor = if (isSpkTerbit) Emerald500.copy(alpha = 0.6f) else Color(0xFFD1D5DB),
+                                        focusedContainerColor = Color.White,
+                                        unfocusedContainerColor = Color.White
+                                    ),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .testTag("spk_input_field")
+                                )
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Helper / Explanation text
+                                if (isSpkTerbit) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.CheckCircle,
+                                            contentDescription = null,
+                                            tint = Emerald600,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Nomor SPK resmi berhasil diterima untuk unit $currentUnitCode. Formulir realisasi siap dikirim.",
+                                            fontSize = 11.sp,
+                                            color = Emerald800,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                } else {
+                                    Row(
+                                        verticalAlignment = Alignment.Top,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Info,
+                                            contentDescription = null,
+                                            tint = Color(0xFFD97706),
+                                            modifier = Modifier.size(14.dp).padding(top = 1.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "Saat Web Admin menerbitkan SPK untuk unit $currentUnitCode, nomor SPK akan otomatis diterima pada form ini. Anda juga dapat mengetik manual jika sudah menerima nomor SPK.",
+                                            fontSize = 11.sp,
+                                            color = Color(0xFF92400E),
+                                            lineHeight = 15.sp
                                         )
                                     }
                                 }
-                            }
-                        }
 
-                        // Banner status SPK Menyusul: Pengawas tetap dapat input operasional tanpa terhalang SPK
-                        if (!isSpkTerbit && realisasiState.selectedRencana != null) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = Color(0xFFF0FDF4),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF86EFAC)),
-                                modifier = Modifier.fillMaxWidth().testTag("spk_unlocked_notice_card")
-                            ) {
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                // Quick Actions: Tarik SPK, Gunakan SPK Menyusul, Simulasi Terbitkan
                                 Row(
-                                    modifier = Modifier.padding(10.dp),
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CheckCircle,
-                                        contentDescription = null,
-                                        tint = Emerald700,
-                                        modifier = Modifier.size(18.dp)
+                                    // Tombol Tarik / Sinkron SPK dari Web Admin
+                                    OutlinedButton(
+                                        onClick = { viewModel.fetchLatestSpkForCurrentRencana() },
+                                        shape = RoundedCornerShape(8.dp),
+                                        colors = ButtonDefaults.outlinedButtonColors(
+                                            contentColor = if (isSpkTerbit) Emerald700 else Color(0xFF1E40AF)
+                                        ),
+                                        border = androidx.compose.foundation.BorderStroke(
+                                            1.dp,
+                                            if (isSpkTerbit) Emerald600 else Color(0xFF3B82F6)
+                                        ),
+                                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                        modifier = Modifier.weight(1f).testTag("btn_pull_spk_admin")
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Refresh,
+                                            contentDescription = null,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "Tarik SPK Admin",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+
+                                    // Tombol Opsi SPK Menyusul jika belum terbit
+                                    if (!isSpkTerbit) {
+                                        OutlinedButton(
+                                            onClick = { viewModel.setRealisasiNomorSpk("SPK Menyusul") },
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = Color(0xFFB45309)
+                                            ),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFF59E0B)),
+                                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                                            modifier = Modifier.testTag("btn_spk_menyusul")
+                                        ) {
+                                            Text(
+                                                text = "SPK Menyusul",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
+                                    }
+
+                                    // Tombol Simulasi Terbitkan SPK dari Web Admin (Test)
+                                    val selectedRen = realisasiState.selectedRencana
+                                    if (selectedRen != null) {
+                                        Button(
+                                            onClick = { viewModel.adminSimulatePublishSpk(selectedRen.id, selectedRen.kodeUnit) },
+                                            shape = RoundedCornerShape(8.dp),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = Emerald100,
+                                                contentColor = Emerald900
+                                            ),
+                                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
+                                            modifier = Modifier.testTag("btn_simulate_spk")
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Bolt,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(14.dp),
+                                                tint = Emerald800
+                                            )
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = "Terbitkan (Test)",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+
+                                // Indikator Status WebSocket Real-time
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .background(
+                                                if (isSocketConnected) Emerald500 else Slate400,
+                                                CircleShape
+                                            )
                                     )
-                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text(
-                                        text = "Input Realisasi Terbuka: Pengawas dapat mencatat HM, aktivitas & solar untuk ${realisasiState.selectedRencana?.kodeUnit ?: ""}. Nomor SPK dapat disusulkan nanti oleh Web Admin.",
-                                        fontSize = 11.sp,
-                                        color = Emerald900,
-                                        lineHeight = 15.sp
+                                        text = if (isSocketConnected)
+                                            "WebSocket Web Admin: Terhubung (Live Penerimaan SPK Aktif)"
+                                        else
+                                            "WebSocket: Menunggu koneksi Web Admin (Gunakan Tarik SPK)",
+                                        fontSize = 10.sp,
+                                        color = if (isSocketConnected) Emerald700 else Slate500,
+                                        fontWeight = FontWeight.Medium
                                     )
                                 }
                             }

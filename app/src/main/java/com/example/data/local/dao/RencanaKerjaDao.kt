@@ -46,6 +46,9 @@ interface RencanaKerjaDao {
     @Query("UPDATE rencana_kerja SET nomor_spk = :spk, status_spk = :status WHERE kode_unit = :kodeUnit")
     suspend fun updateSpkByUnit(kodeUnit: String, spk: String, status: String)
 
+    @Query("UPDATE rencana_kerja SET nomor_spk = :spk, status_spk = :status WHERE kode_unit = :kodeUnit AND is_realized = 0")
+    suspend fun updateSpkForActiveUnit(kodeUnit: String, spk: String, status: String)
+
     @Query("UPDATE rencana_kerja SET nomor_spk = :spk, status_spk = :status WHERE kode_unit = :kodeUnit")
     suspend fun updateSpkStatus(kodeUnit: String, spk: String, status: String)
 
