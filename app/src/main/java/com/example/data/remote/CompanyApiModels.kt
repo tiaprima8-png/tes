@@ -485,22 +485,68 @@ data class LokasiPayload(
 
 @JsonClass(generateAdapter = true)
 data class PostRencanaKerjaRequest(
-    @Json(name = "id") val id: Long? = null,
+    @Json(name = "id") val id: String? = null,
+    @Json(name = "id_rencana_kerja") val id_rencana_kerja: String? = null,
+    @Json(name = "rencana_id") val rencana_id: String? = null,
     @Json(name = "status_unit") val status_unit: String? = "OPERASI",
     @Json(name = "kode_unit") val kode_unit: String? = null,
+    @Json(name = "unit_kode") val unit_kode: String? = null,
+    @Json(name = "unit") val unit: String? = null,
+    @Json(name = "nama_unit") val nama_unit: String? = null,
     @Json(name = "operator") val operator: String? = null,
+    @Json(name = "nama_operator") val nama_operator: String? = null,
     @Json(name = "sap_code") val sap_code: String? = null,
+    @Json(name = "kode_sap") val kode_sap: String? = null,
     @Json(name = "nama_aktivitas") val nama_aktivitas: String? = null,
+    @Json(name = "aktivitas") val aktivitas: String? = null,
     @Json(name = "satuan_aktivitas") val satuan_aktivitas: String? = null,
+    @Json(name = "satuan") val satuan: String? = null,
     @Json(name = "kode_lokasi") val kode_lokasi: String? = null,
+    @Json(name = "lokasi") val lokasi: String? = null,
+    @Json(name = "wilayah") val wilayah: String? = null,
     @Json(name = "shift_kerja") val shift_kerja: String? = "SIANG",
+    @Json(name = "shift") val shift: String? = null,
     @Json(name = "keterangan") val keterangan: String? = null,
+    @Json(name = "keterangan_rencana") val keterangan_rencana: String? = null,
     @Json(name = "nomor_spk") val nomor_spk: String? = null,
     @Json(name = "status_spk") val status_spk: String? = "MENUNGGU_SPK",
     @Json(name = "status_tahap") val status_tahap: String? = "RENCANA",
     @Json(name = "is_realized") val is_realized: Boolean? = false,
-    @Json(name = "nama_pengawas") val nama_pengawas: String? = null
-)
+    @Json(name = "nama_pengawas") val nama_pengawas: String? = null,
+    @Json(name = "pengawas") val pengawas: String? = null,
+    @Json(name = "tanggal") val tanggal: String? = null,
+    @Json(name = "tanggal_kerja") val tanggal_kerja: String? = null
+) {
+    val numericId: Long
+        get() {
+            val raw = id ?: id_rencana_kerja ?: rencana_id ?: ""
+            return raw.filter { it.isDigit() }.toLongOrNull() ?: 0L
+        }
+
+    val resolvedUnitKode: String
+        get() = (kode_unit ?: unit_kode ?: unit ?: "UNIT").trim()
+
+    val resolvedAktivitas: String
+        get() = nama_aktivitas ?: aktivitas ?: keterangan_rencana ?: keterangan ?: ""
+
+    val resolvedSapCode: String
+        get() = sap_code ?: kode_sap ?: "ACT-SAP-101"
+
+    val resolvedSatuan: String
+        get() = satuan_aktivitas ?: satuan ?: "m3"
+
+    val resolvedOperator: String
+        get() = operator ?: nama_operator ?: ""
+
+    val resolvedLokasi: String
+        get() = kode_lokasi ?: lokasi ?: "001A"
+
+    val resolvedShift: String
+        get() = shift_kerja ?: shift ?: "SIANG"
+
+    val resolvedPengawas: String
+        get() = nama_pengawas ?: pengawas ?: "Budi Santoso"
+}
 
 @JsonClass(generateAdapter = true)
 data class PostHasilAktivitasRequest(

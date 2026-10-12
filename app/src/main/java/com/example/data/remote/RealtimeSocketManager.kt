@@ -2,29 +2,36 @@ package com.example.data.remote
 
 import android.content.Context
 import android.util.Log
-import io.socket.client.IO
-import io.socket.client.Socket
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
 import org.json.JSONObject
-import java.net.URI
+import java.util.concurrent.TimeUnit
 
 data class RealtimeSpkData(
     val unitKode: String,
     val nomorSpk: String,
     val statusSpk: String = "SPK_TERBIT",
     val rencanaId: Long = 0L,
+    val serverPlanId: String = "",
     val timestamp: Long = System.currentTimeMillis()
 )
 
 /**
- * Real-time WebSocket Client using Socket.IO to receive live updates from Web Admin.
- * Listens directly to "SPK_PUBLISHED" events and dispatches them to Room and UI.
+ * Real-time Native WebSocket Client connected to Web Admin (/ws).
+ * Listens directly to standard WebSocket broadcasts:
+ * - SPK_PUBLISHED / SPK_TERBIT / UPDATE_RENCANA / RENCANA_STATUS_UPDATED
+ * and dispatches them to Room SQLite and UI.
  */
 class RealtimeSocketManager(
     private val context: Context,
@@ -34,7 +41,14 @@ class RealtimeSocketManager(
         const val BASE_URL = "https://1-portalce.ai.studio"
     }
 
-    private var socket: Socket? = null
+    private val client = OkHttpClient.Builder()
+        .pingInterval(15, TimeUnit.SECONDS)
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(0, TimeUnit.MILLISECONDS) // Infinite for persistent WebSocket
+        .build()
+
+    private var webSocket: WebSocket? = null
+    private var isManuallyClosed = false
 
     private val _isConnected = MutableStateFlow(false)
     val isConnected = _isConnected.asStateFlow()
@@ -42,143 +56,165 @@ class RealtimeSocketManager(
     private val _spkPublishedEvents = MutableSharedFlow<RealtimeSpkData>(extraBufferCapacity = 64)
     val spkPublishedEvents = _spkPublishedEvents.asSharedFlow()
 
-    fun connect(serverUrl: String = BASE_URL, onSpkReceived: ((RealtimeSpkData) -> Unit)? = null) {
-        disconnect()
-        try {
-            val cleanUrl = if (serverUrl.isBlank()) BASE_URL else serverUrl.trim().removeSuffix("/")
-            val uri = URI.create(cleanUrl)
-            val options = IO.Options().apply {
-                reconnection = true
-                reconnectionAttempts = Int.MAX_VALUE
-                reconnectionDelay = 1500
-                timeout = 20000
-                transports = arrayOf("websocket", "polling")
-                forceNew = true
-            }
-            val newSocket = IO.socket(uri, options)
-            socket = newSocket
+    var onConnectedCallback: (() -> Unit)? = null
 
-            newSocket.on(Socket.EVENT_CONNECT) {
-                Log.d("RealtimeSocketManager", "WebSocket connected to Web Admin: $cleanUrl")
-                _isConnected.value = true
-            }
-
-            newSocket.on(Socket.EVENT_DISCONNECT) {
-                Log.d("RealtimeSocketManager", "WebSocket disconnected")
-                _isConnected.value = false
-            }
-
-            newSocket.on(Socket.EVENT_CONNECT_ERROR) { args ->
-                Log.w("RealtimeSocketManager", "WebSocket connect error: ${args.getOrNull(0)}")
-                _isConnected.value = false
-            }
-
-            // ==============================================================
-            // WEBSOCKET LISTENER REAL-TIME (SPK_PUBLISHED)
-            // ==============================================================
-            val spkListener: (Array<Any>) -> Unit = { args ->
-                try {
-                    val rawFirst = args.getOrNull(0)
-                    val data: JSONObject = when (rawFirst) {
-                        is JSONObject -> rawFirst
-                        is String -> try { JSONObject(rawFirst) } catch (_: Exception) { JSONObject() }
-                        else -> JSONObject()
+    private fun extractFirstNonEmpty(vararg sources: JSONObject?, keys: Array<String>): String {
+        for (src in sources) {
+            if (src == null) continue
+            for (key in keys) {
+                if (src.has(key) && !src.isNull(key)) {
+                    val str = src.optString(key, "").trim()
+                    if (str.isNotBlank() && !str.equals("null", ignoreCase = true)) {
+                        return str
                     }
-
-                    val unitKode = data.optString("unit_kode",
-                        data.optString("kode_unit",
-                            data.optString("unitCode",
-                                data.optString("kodeUnit",
-                                    data.optString("unit_code", ""))))).trim()
-
-                    val nomorSpk = data.optString("nomor_spk",
-                        data.optString("nomorSpk",
-                            data.optString("no_spk",
-                                data.optString("noSpk",
-                                    data.optString("spk",
-                                        data.optString("spk_number", "")))))).trim()
-
-                    val statusSpk = data.optString("status_spk",
-                        data.optString("statusSpk",
-                            data.optString("status", "SPK_TERBIT"))).trim().ifBlank { "SPK_TERBIT" }
-
-                    val rencanaId = when {
-                        data.has("id_rencana_kerja") -> data.optLong("id_rencana_kerja")
-                        data.has("idRencanaKerja") -> data.optLong("idRencanaKerja")
-                        data.has("rencana_id") -> data.optLong("rencana_id")
-                        data.has("rencanaId") -> data.optLong("rencanaId")
-                        data.has("plan_id") -> data.optLong("plan_id")
-                        data.has("planId") -> data.optLong("planId")
-                        data.has("id") -> data.optLong("id")
-                        else -> 0L
-                    }
-
-                    if (nomorSpk.isNotBlank()) {
-                        Log.d("RealtimeSocketManager", "SPK Event Received: unit=$unitKode, spk=$nomorSpk, id=$rencanaId")
-                        val event = RealtimeSpkData(
-                            unitKode = unitKode,
-                            nomorSpk = nomorSpk,
-                            statusSpk = statusSpk,
-                            rencanaId = rencanaId
-                        )
-
-                        scope.launch {
-                            _spkPublishedEvents.emit(event)
-                        }
-                        onSpkReceived?.invoke(event)
-                    }
-                } catch (e: Exception) {
-                    Log.e("RealtimeSocketManager", "Error in socket SPK listener", e)
                 }
             }
+        }
+        return ""
+    }
 
-            // Listen to standard and alternative event names from Web Admin
-            val eventNames = arrayOf(
-                "SPK_PUBLISHED",
-                "spk_published",
-                "SPK_TERBIT",
-                "spk_terbit",
-                "UPDATE_SPK",
-                "update_spk",
-                "spk:published",
-                "spk:issued",
-                "RENCANA_UPDATED",
-                "rencana_updated"
-            )
-            for (eventName in eventNames) {
-                newSocket.on(eventName) { args -> spkListener(args) }
+    fun connect(serverUrl: String = BASE_URL, onSpkReceived: ((RealtimeSpkData) -> Unit)? = null) {
+        disconnect()
+        isManuallyClosed = false
+
+        try {
+            val cleanUrl = if (serverUrl.isBlank()) BASE_URL else serverUrl.trim().removeSuffix("/")
+            val wsUrl = when {
+                cleanUrl.startsWith("wss://") -> if (cleanUrl.endsWith("/ws")) cleanUrl else "$cleanUrl/ws"
+                cleanUrl.startsWith("ws://") -> if (cleanUrl.endsWith("/ws")) cleanUrl else "$cleanUrl/ws"
+                cleanUrl.startsWith("https://") -> cleanUrl.replace("https://", "wss://") + "/ws"
+                cleanUrl.startsWith("http://") -> cleanUrl.replace("http://", "ws://") + "/ws"
+                else -> "wss://$cleanUrl/ws"
             }
 
-            newSocket.connect()
+            Log.d("RealtimeSocketManager", "🔌 Connecting native WebSocket to: $wsUrl")
+
+            val request = Request.Builder()
+                .url(wsUrl)
+                .build()
+
+            webSocket = client.newWebSocket(request, object : WebSocketListener() {
+                override fun onOpen(webSocket: WebSocket, response: Response) {
+                    Log.d("RealtimeSocketManager", "✅ Native WebSocket connected to Web Admin: $wsUrl")
+                    _isConnected.value = true
+                    try {
+                        onConnectedCallback?.invoke()
+                    } catch (e: Exception) {
+                        Log.e("RealtimeSocketManager", "Error in onConnectedCallback", e)
+                    }
+                }
+
+                override fun onMessage(webSocket: WebSocket, text: String) {
+                    Log.d("RealtimeSocketManager", "📩 Received WS message: $text")
+                    try {
+                        val root = JSONObject(text)
+                        val event = root.optString("event", root.optString("type", ""))
+
+                        // Extract data payload (support nested data or payload objects)
+                        val dataObj = root.optJSONObject("data")
+                        val payloadObj = root.optJSONObject("payload")
+
+                        val nomorSpk = extractFirstNonEmpty(
+                            dataObj, payloadObj, root,
+                            keys = arrayOf("nomor_spk", "nomorSpk", "no_spk", "spk", "spk_number", "noSpk")
+                        )
+
+                        val unitKode = extractFirstNonEmpty(
+                            dataObj, payloadObj, root,
+                            keys = arrayOf("kode_unit", "unit_kode", "unit", "kodeUnit", "unitKode", "nama_unit")
+                        )
+
+                        val statusSpkRaw = extractFirstNonEmpty(
+                            dataObj, payloadObj, root,
+                            keys = arrayOf("status_spk", "statusSpk", "status", "status_tahap")
+                        )
+                        val statusSpk = if (statusSpkRaw.isNotBlank() && !statusSpkRaw.equals("MENUNGGU_SPK", ignoreCase = true)) {
+                            statusSpkRaw
+                        } else {
+                            "SPK_TERBIT"
+                        }
+
+                        val rawId = extractFirstNonEmpty(
+                            dataObj, payloadObj, root,
+                            keys = arrayOf("id", "id_rencana_kerja", "rencana_id", "plan_id", "id_rencana")
+                        )
+
+                        val numericId = rawId.filter { it.isDigit() }.toLongOrNull() ?: 0L
+
+                        val isSpkRelated = event.equals("SPK_PUBLISHED", ignoreCase = true) ||
+                                event.equals("SPK_TERBIT", ignoreCase = true) ||
+                                event.equals("UPDATE_RENCANA", ignoreCase = true) ||
+                                event.equals("RENCANA_STATUS_UPDATED", ignoreCase = true) ||
+                                event.equals("RENCANA_KERJA_UPDATED", ignoreCase = true) ||
+                                nomorSpk.isNotBlank()
+
+                        if (isSpkRelated && nomorSpk.isNotBlank()) {
+                            Log.d("RealtimeSocketManager", "🎯 SPK Event: unit=$unitKode, spk=$nomorSpk, id=$rawId, event=$event")
+                            val spkData = RealtimeSpkData(
+                                unitKode = unitKode,
+                                nomorSpk = nomorSpk,
+                                statusSpk = statusSpk,
+                                rencanaId = numericId,
+                                serverPlanId = rawId
+                            )
+                            scope.launch {
+                                _spkPublishedEvents.emit(spkData)
+                            }
+                            onSpkReceived?.invoke(spkData)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("RealtimeSocketManager", "Error parsing WebSocket message", e)
+                    }
+                }
+
+                override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                    Log.d("RealtimeSocketManager", "WebSocket closing: $code / $reason")
+                    _isConnected.value = false
+                }
+
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    Log.d("RealtimeSocketManager", "WebSocket closed: $code / $reason")
+                    _isConnected.value = false
+                }
+
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    Log.w("RealtimeSocketManager", "WebSocket connection failure: ${t.localizedMessage}")
+                    _isConnected.value = false
+                    // Auto-reconnect after 3 seconds
+                    if (!isManuallyClosed) {
+                        scope.launch {
+                            delay(3000)
+                            if (!isManuallyClosed) {
+                                connect(serverUrl, onSpkReceived)
+                            }
+                        }
+                    }
+                }
+            })
         } catch (e: Exception) {
             Log.e("RealtimeSocketManager", "Failed to connect WebSocket to $serverUrl", e)
         }
     }
 
+    fun dispatchSpkPublished(unitKode: String, nomorSpk: String, rencanaId: Long) {
+        val event = RealtimeSpkData(
+            unitKode = unitKode,
+            nomorSpk = nomorSpk,
+            rencanaId = rencanaId
+        )
+        scope.launch {
+            _spkPublishedEvents.emit(event)
+        }
+    }
+
     fun disconnect() {
+        isManuallyClosed = true
         try {
-            val eventNames = arrayOf(
-                "SPK_PUBLISHED",
-                "spk_published",
-                "SPK_TERBIT",
-                "spk_terbit",
-                "UPDATE_SPK",
-                "update_spk",
-                "spk:published",
-                "spk:issued",
-                "RENCANA_UPDATED",
-                "rencana_updated"
-            )
-            for (eventName in eventNames) {
-                socket?.off(eventName)
-            }
-            socket?.off()
-            socket?.disconnect()
-            socket?.close()
+            webSocket?.close(1000, "Normal Closure")
         } catch (e: Exception) {
-            Log.e("RealtimeSocketManager", "Error while disconnecting socket", e)
+            Log.e("RealtimeSocketManager", "Error while closing WebSocket", e)
         } finally {
-            socket = null
+            webSocket = null
             _isConnected.value = false
         }
     }

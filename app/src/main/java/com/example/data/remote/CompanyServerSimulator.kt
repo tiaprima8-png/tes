@@ -190,7 +190,7 @@ object CompanyServerSimulator {
             serverRencanaKerja.addAll(
                 listOf(
                     PostRencanaKerjaRequest(
-                        id = 101L,
+                        id = "101",
                         status_unit = "OPERASI",
                         kode_unit = "HEH1",
                         operator = "Ahmad Fauzi",
@@ -207,7 +207,7 @@ object CompanyServerSimulator {
                         nama_pengawas = pengawas
                     ),
                     PostRencanaKerjaRequest(
-                        id = 102L,
+                        id = "102",
                         status_unit = "OPERASI",
                         kode_unit = "EXC-02",
                         operator = "Bambang Sudrajat",
@@ -224,7 +224,7 @@ object CompanyServerSimulator {
                         nama_pengawas = pengawas
                     ),
                     PostRencanaKerjaRequest(
-                        id = 103L,
+                        id = "103",
                         status_unit = "OPERASI",
                         kode_unit = "DT-101",
                         operator = "Dedi Supriyadi",
@@ -389,7 +389,7 @@ object CompanyServerSimulator {
     suspend fun adminPublishSpk(planId: Long, kodeUnit: String, supervisorName: String): String {
         val spkNum = "SPK-2026-X" + (100 + (planId % 900))
         publishedSpkMap[planId] = spkNum
-        val idx = serverRencanaKerja.indexOfFirst { it.id == planId || it.kode_unit == kodeUnit }
+        val idx = serverRencanaKerja.indexOfFirst { it.id == planId.toString() || it.numericId == planId || it.kode_unit == kodeUnit }
         if (idx >= 0) {
             val old = serverRencanaKerja[idx]
             serverRencanaKerja[idx] = old.copy(nomor_spk = spkNum, status_spk = "TERBIT_SPK")
@@ -406,7 +406,7 @@ object CompanyServerSimulator {
     }
 
     fun markRencanaRealized(planId: Long) {
-        val idx = serverRencanaKerja.indexOfFirst { it.id == planId }
+        val idx = serverRencanaKerja.indexOfFirst { it.id == planId.toString() || it.numericId == planId }
         if (idx >= 0) {
             val old = serverRencanaKerja[idx]
             serverRencanaKerja[idx] = old.copy(

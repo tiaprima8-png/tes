@@ -34,6 +34,8 @@ import com.example.data.remote.RealtimeSocketManager
 import com.example.util.ImageCompressor
 import com.example.util.NotificationHelper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -397,10 +399,17 @@ class HeavyTrackViewModel(
             repository.seedInitialDataIfEmpty(_activeSupervisor.value)
             repository.reconcileSyncStatus()
             fetchBootstrapData(showOverlay = false)
+            // Tarik rencana kerja aktif terbaru dari Web Admin saat inisialisasi agar SPK yang sudah terbit langsung terisi
+            syncActivePlansFromServer()
         }
 
         // 1. Hubungkan client WebSocket ke backend Web Admin
         val targetServerUrl = repository.apiClientManager.baseUrl
+        realtimeSocketManager.onConnectedCallback = {
+            viewModelScope.launch {
+                syncActivePlansFromServer()
+            }
+        }
         realtimeSocketManager.connect(targetServerUrl)
 
         // 2. WEBSOCKET LISTENER REAL-TIME (SPK_PUBLISHED)
@@ -416,40 +425,69 @@ class HeavyTrackViewModel(
                 handleSpkPublished(event.planId, event.kodeUnit, event.nomorSpk, "SPK_TERBIT")
             }
         }
+
+        // 4. Polling background berkala untuk memastikan data SPK tetap mutakhir jika WebSocket reconnecting
+        viewModelScope.launch {
+            while (true) {
+                delay(15000)
+                if (_formSubTab.value == 1) {
+                    try {
+                        repository.fetchAndReplaceActiveRencana(_activeSupervisor.value).onSuccess { (newPlans, _) ->
+                            val currentSelected = _realisasiFormState.value.selectedRencana
+                            if (currentSelected != null && _realisasiFormState.value.nomorSpk.isBlank()) {
+                                val match = newPlans.find { it.id == currentSelected.id || it.kodeUnit.equals(currentSelected.kodeUnit, ignoreCase = true) }
+                                if (match != null && match.isSpkTerbit) {
+                                    _realisasiFormState.value = _realisasiFormState.value.copy(
+                                        nomorSpk = match.nomorSpk,
+                                        statusSpk = "SPK_TERBIT",
+                                        selectedRencana = match.copy(nomorSpk = match.nomorSpk, statusSpk = "SPK_TERBIT")
+                                    )
+                                }
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
+        }
     }
 
     /**
      * Listener & Handler Real-Time Penerbitan SPK (SPK_PUBLISHED):
      * 1. Update database SQLite lokal / Room:
-     *    rencanaKerjaDao.updateSpkStatus(unitKode, nomorSpk, statusSpk) atau updateSpk(rencanaId)
+     *    rencanaKerjaDao.updateSpkForActiveUnit(cleanUnit) & updateRencanaSpk(rencanaId)
      * 2. Perbarui State UI secara instan (Reaktif) pada form input nomor SPK:
      *    Ganti nomor SPK di form input dan badge status dari "Menunggu SPK" menjadi "SPK: $nomorSpk".
-     * 3. Tampilkan Push Notification / In-App Toast:
-     *    "SPK Diterbitkan: $nomorSpk untuk unit $unitKode"
+     * 3. Tampilkan Push Notification / In-App Toast.
      */
     fun handleSpkPublished(rencanaId: Long, unitKode: String, nomorSpk: String, statusSpk: String = "SPK_TERBIT") {
         viewModelScope.launch(Dispatchers.Main) {
             val cleanSpk = nomorSpk.trim()
             val cleanUnit = unitKode.trim()
+            if (cleanSpk.isBlank() || cleanSpk.equals("null", ignoreCase = true) || cleanSpk == "-" || cleanSpk == "SPK Menyusul") {
+                return@launch
+            }
+
             val effectiveStatus = if (statusSpk.isBlank() || statusSpk.equals("MENUNGGU_SPK", ignoreCase = true)) "SPK_TERBIT" else statusSpk
 
-            // 1. Update ke SQLite lokal / Room
-            if (rencanaId > 0) {
-                // Update spesifik rencana kerja berdasarkan ID rencana kerja
-                repository.updateRencanaSpk(rencanaId, cleanSpk, effectiveStatus)
-            } else if (cleanUnit.isNotBlank()) {
-                // Jika ID rencana tidak disertakan, update rencana kerja aktif yang belum terealisasi untuk unit tersebut
-                repository.updateSpkForActiveUnit(cleanUnit, cleanSpk, effectiveStatus)
+            // 1. Update ke SQLite lokal / Room untuk Unit dan ID
+            withContext(Dispatchers.IO) {
+                if (cleanUnit.isNotBlank()) {
+                    repository.updateSpkForActiveUnit(cleanUnit, cleanSpk, effectiveStatus)
+                    repository.updateSpkStatus(cleanUnit, cleanSpk, effectiveStatus)
+                }
+                if (rencanaId > 0) {
+                    repository.updateRencanaSpk(rencanaId, cleanSpk, effectiveStatus)
+                }
             }
 
             // 2. Perbarui state form input nomor SPK jika rencana yang sedang dipilih cocok
             val cur = _realisasiFormState.value.selectedRencana
-            val isCurrentUnit = cur != null && (
-                (rencanaId > 0 && cur.id == rencanaId) ||
-                (cleanUnit.isNotBlank() && cur.kodeUnit.equals(cleanUnit, ignoreCase = true))
+            val isCurrentMatch = cur != null && (
+                (cleanUnit.isNotBlank() && cur.kodeUnit.equals(cleanUnit, ignoreCase = true)) ||
+                (rencanaId > 0 && cur.id == rencanaId)
             )
 
-            if (isCurrentUnit && cur != null) {
+            if (isCurrentMatch && cur != null) {
                 _realisasiFormState.value = _realisasiFormState.value.copy(
                     nomorSpk = cleanSpk,
                     statusSpk = effectiveStatus,
@@ -458,20 +496,26 @@ class HeavyTrackViewModel(
                         statusSpk = effectiveStatus
                     )
                 )
-            } else if (cur == null && (rencanaId > 0 || cleanUnit.isNotBlank())) {
-                // Jika belum ada rencana yang dipilih di layar, otomatis buka rencana kerja yang SPK-nya baru diterbitkan
+            } else if (cur == null && (cleanUnit.isNotBlank() || rencanaId > 0)) {
+                // Jika belum ada rencana yang dipilih di layar, otomatis pilih rencana kerja yang SPK-nya baru diterbitkan
                 val activePlans = repository.getActiveRencanaForSupervisor(_activeSupervisor.value).firstOrNull() ?: emptyList()
-                val target = if (rencanaId > 0) {
-                    activePlans.find { it.id == rencanaId }
-                } else {
-                    activePlans.find { it.kodeUnit.equals(cleanUnit, ignoreCase = true) }
+                val target = activePlans.find { 
+                    (cleanUnit.isNotBlank() && it.kodeUnit.equals(cleanUnit, ignoreCase = true)) ||
+                    (rencanaId > 0 && it.id == rencanaId)
                 }
                 if (target != null) {
                     selectRencanaForRealisasi(target.copy(nomorSpk = cleanSpk, statusSpk = effectiveStatus))
                 }
             }
 
-            // 3. Tampilkan Push Notification / In-App Toast
+            // 3. Sinkronkan seluruh rencana kerja di background agar konsisten dengan server
+            withContext(Dispatchers.IO) {
+                try {
+                    repository.fetchAndReplaceActiveRencana(_activeSupervisor.value)
+                } catch (_: Exception) {}
+            }
+
+            // 4. Tampilkan Push Notification / In-App Toast
             NotificationHelper.showSpkPublishedNotification(
                 repository.apiClientManager.context,
                 unitKode = cleanUnit.ifBlank { cur?.kodeUnit ?: "Unit" },
@@ -488,8 +532,39 @@ class HeavyTrackViewModel(
         realtimeSocketManager.disconnect()
     }
 
+    fun syncActivePlansFromServer(onDone: ((List<RencanaKerjaEntity>) -> Unit)? = null) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val pullResult = repository.fetchAndReplaceActiveRencana(_activeSupervisor.value)
+            pullResult.onSuccess { (newPlans, _) ->
+                withContext(Dispatchers.Main) {
+                    val cur = _realisasiFormState.value.selectedRencana
+                    if (cur != null) {
+                        val matching = newPlans.find { it.id == cur.id || it.kodeUnit.equals(cur.kodeUnit, ignoreCase = true) }
+                        if (matching != null && matching.isSpkTerbit && _realisasiFormState.value.nomorSpk.isBlank()) {
+                            _realisasiFormState.value = _realisasiFormState.value.copy(
+                                nomorSpk = matching.nomorSpk,
+                                statusSpk = "SPK_TERBIT",
+                                selectedRencana = cur.copy(nomorSpk = matching.nomorSpk, statusSpk = "SPK_TERBIT")
+                            )
+                        }
+                    } else if (newPlans.isNotEmpty()) {
+                        val planWithSpk = newPlans.find { it.isSpkTerbit } ?: newPlans.firstOrNull()
+                        if (planWithSpk != null) {
+                            selectRencanaForRealisasi(planWithSpk)
+                        }
+                    }
+                    onDone?.invoke(newPlans)
+                }
+            }
+        }
+    }
+
     fun setFormSubTab(tab: Int) {
         _formSubTab.value = tab
+        if (tab == 1) {
+            // Saat membuka tab Realisasi Kerja, otomatis sinkronkan rencana kerja aktif agar nomor SPK terbaru langsung muncul
+            syncActivePlansFromServer()
+        }
     }
 
     // ==========================================
@@ -695,6 +770,7 @@ class HeavyTrackViewModel(
             try {
                 // Non-blocking background sync: updates master kendala & unit standards (hm_min_standar / hm_max_standar)
                 repository.fetchMasterData(_activeSupervisor.value)
+                syncActivePlansFromServer()
 
                 // If a unit is currently selected in form, refresh dynamic standards from the latest DB
                 val currentSelectedUnitCode = _realisasiFormState.value.selectedRencana?.kodeUnit
@@ -1155,6 +1231,32 @@ class HeavyTrackViewModel(
                     isUnderMinStandard = cleanAkhir != null && isValid && running > 0.0 && running < effectiveMinStd
                 )
             }
+
+            // Jika nomor SPK saat ini masih kosong / placeholder, cek server secara asinkron
+            if (_realisasiFormState.value.nomorSpk.isBlank() || _realisasiFormState.value.nomorSpk.equals("SPK Menyusul", ignoreCase = true)) {
+                try {
+                    val (serverPlans, _) = repository.apiClientManager.fetchActiveRencanaKerja(_activeSupervisor.value)
+                    val matchedServer = serverPlans.find {
+                        it.resolvedUnitKode.equals(rencana.kodeUnit, ignoreCase = true) ||
+                        (it.numericId > 0 && it.numericId == rencana.id)
+                    }
+                    val serverSpk = matchedServer?.nomor_spk?.trim() ?: ""
+                    if (serverSpk.isNotBlank() && !serverSpk.equals("null", ignoreCase = true) && serverSpk != "-" && serverSpk != "SPK Menyusul") {
+                        repository.updateSpkForActiveUnit(rencana.kodeUnit, serverSpk, "SPK_TERBIT")
+                        if (rencana.id > 0) repository.updateRencanaSpk(rencana.id, serverSpk, "SPK_TERBIT")
+                        withContext(Dispatchers.Main) {
+                            val cur = _realisasiFormState.value.selectedRencana
+                            if (cur?.id == rencana.id || cur?.kodeUnit?.equals(rencana.kodeUnit, ignoreCase = true) == true) {
+                                _realisasiFormState.value = _realisasiFormState.value.copy(
+                                    nomorSpk = serverSpk,
+                                    statusSpk = "SPK_TERBIT",
+                                    selectedRencana = cur.copy(nomorSpk = serverSpk, statusSpk = "SPK_TERBIT")
+                                )
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
         }
     }
 
@@ -1236,45 +1338,48 @@ class HeavyTrackViewModel(
      */
     fun fetchLatestSpkForCurrentRencana() {
         val cur = _realisasiFormState.value.selectedRencana
-        if (cur == null) {
-            viewModelScope.launch {
-                _uiEvents.emit(UiMessage.Info("Pilih kartu rencana kerja terlebih dahulu."))
-            }
-            return
-        }
-
         viewModelScope.launch {
-            _uiEvents.emit(UiMessage.Info("Memeriksa penerbitan SPK dari Web Admin untuk unit ${cur.kodeUnit}..."))
+            val targetUnit = cur?.kodeUnit ?: "Semua Unit"
+            _uiEvents.emit(UiMessage.Info("Memeriksa penerbitan SPK dari Web Admin ($targetUnit)..."))
             try {
                 val pullResult = repository.fetchAndReplaceActiveRencana(_activeSupervisor.value)
                 pullResult.onSuccess { (newPlans, _) ->
-                    val matching = newPlans.find { it.id == cur.id }
-                        ?: newPlans.find { it.kodeUnit.equals(cur.kodeUnit, ignoreCase = true) }
+                    val matching = if (cur != null) {
+                        newPlans.find { it.id == cur.id || it.kodeUnit.equals(cur.kodeUnit, ignoreCase = true) }
+                    } else {
+                        newPlans.find { it.isSpkTerbit } ?: newPlans.firstOrNull()
+                    }
 
-                    if (matching != null && matching.isSpkTerbit) {
+                    if (matching != null && (matching.isSpkTerbit || (matching.nomorSpk.isNotBlank() && matching.nomorSpk != "SPK Menyusul" && matching.nomorSpk != "-"))) {
                         _realisasiFormState.value = _realisasiFormState.value.copy(
                             nomorSpk = matching.nomorSpk,
                             statusSpk = "SPK_TERBIT",
                             selectedRencana = matching.copy(nomorSpk = matching.nomorSpk, statusSpk = "SPK_TERBIT")
                         )
-                        _uiEvents.emit(UiMessage.Success("SPK Resmi Diterima dari Web Admin: ${matching.nomorSpk}"))
-                    } else {
+                        withContext(Dispatchers.IO) {
+                            repository.updateSpkForActiveUnit(matching.kodeUnit, matching.nomorSpk, "SPK_TERBIT")
+                            if (matching.id > 0) repository.updateRencanaSpk(matching.id, matching.nomorSpk, "SPK_TERBIT")
+                        }
+                        _uiEvents.emit(UiMessage.Success("SPK Resmi Diterima dari Web Admin: ${matching.nomorSpk} untuk unit ${matching.kodeUnit}"))
+                    } else if (matching != null) {
                         // Periksa simulator jika dalam mode fallback
-                        val simSpk = CompanyServerSimulator.getPublishedSpk(cur.id)
+                        val simSpk = CompanyServerSimulator.getPublishedSpk(matching.id)
                         if (!simSpk.isNullOrBlank()) {
                             setRealisasiNomorSpk(simSpk)
                             _uiEvents.emit(UiMessage.Success("SPK Resmi Diterima dari Web Admin: $simSpk"))
                         } else {
-                            _uiEvents.emit(UiMessage.Info("Belum ada SPK terbit dari Web Admin untuk unit ${cur.kodeUnit}."))
+                            _uiEvents.emit(UiMessage.Info("SPK untuk unit ${matching.kodeUnit} belum diterbitkan oleh Web Admin."))
                         }
+                    } else {
+                        _uiEvents.emit(UiMessage.Info("Belum ada rencana kerja aktif yang ditemukan di server."))
                     }
                 }.onFailure {
-                    val simSpk = CompanyServerSimulator.getPublishedSpk(cur.id)
+                    val simSpk = cur?.let { CompanyServerSimulator.getPublishedSpk(it.id) }
                     if (!simSpk.isNullOrBlank()) {
                         setRealisasiNomorSpk(simSpk)
                         _uiEvents.emit(UiMessage.Success("SPK Resmi Diterima dari Web Admin: $simSpk"))
                     } else {
-                        _uiEvents.emit(UiMessage.Info("SPK untuk unit ${cur.kodeUnit} belum diterbitkan oleh Web Admin."))
+                        _uiEvents.emit(UiMessage.Info("SPK untuk unit $targetUnit belum diterbitkan oleh Web Admin."))
                     }
                 }
             } catch (e: Exception) {
@@ -1301,8 +1406,9 @@ class HeavyTrackViewModel(
             selectedRencana = cur?.copy(nomorSpk = spk, statusSpk = newStatus)
         )
         if (cur != null) {
-            viewModelScope.launch {
+            viewModelScope.launch(Dispatchers.IO) {
                 repository.updateRencanaSpk(cur.id, spk, newStatus)
+                repository.updateSpkForActiveUnit(cur.kodeUnit, spk, newStatus)
             }
         }
     }

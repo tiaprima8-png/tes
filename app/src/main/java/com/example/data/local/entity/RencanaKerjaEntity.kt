@@ -64,6 +64,7 @@ data class RencanaKerjaEntity(
         get() {
             val cleanSpk = nomorSpk.trim()
             val isValidSpkString = cleanSpk.isNotBlank() &&
+                    !cleanSpk.equals("null", ignoreCase = true) &&
                     !cleanSpk.equals("Belum Terbit (Menunggu Admin)", ignoreCase = true) &&
                     !cleanSpk.equals("SPK Menyusul", ignoreCase = true) &&
                     cleanSpk != "-" &&
@@ -74,6 +75,6 @@ data class RencanaKerjaEntity(
                     statusSpk.equals("TERBIT", ignoreCase = true) ||
                     statusSpk.equals("APPROVED", ignoreCase = true) ||
                     statusSpk.equals("SELESAI", ignoreCase = true)
-            return isValidSpkString && (isStatusTerbit || cleanSpk.startsWith("SPK", ignoreCase = true) || cleanSpk.length >= 3)
+            return isValidSpkString && (isStatusTerbit || cleanSpk.startsWith("SPK", ignoreCase = true) || cleanSpk.length >= 1)
         }
 }

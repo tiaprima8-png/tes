@@ -236,10 +236,29 @@ class ApiClientManager(val context: Context) {
         }
 
         try {
-            val response = apiService.getActiveRencanaKerja(pengawas)
+            var response = apiService.getActiveRencanaKerja(pengawas)
+            var parsed = emptyList<PostRencanaKerjaRequest>()
+
             if (response.isSuccessful && response.body() != null) {
                 val bodyStr = response.body()!!.string()
-                val parsed = parseActiveRencanaList(bodyStr)
+                parsed = parseActiveRencanaList(bodyStr)
+            }
+
+            // Jika filter nama pengawas menghasilkan 0, lakukan fallback ke "Semua" agar rencana kerja dari Web Admin tetap dapat ditarik
+            if (parsed.isEmpty() && !pengawas.equals("Semua", ignoreCase = true)) {
+                try {
+                    val fallbackResp = apiService.getActiveRencanaKerja("Semua")
+                    if (fallbackResp.isSuccessful && fallbackResp.body() != null) {
+                        val fallbackStr = fallbackResp.body()!!.string()
+                        val fallbackParsed = parseActiveRencanaList(fallbackStr)
+                        if (fallbackParsed.isNotEmpty()) {
+                            parsed = fallbackParsed
+                        }
+                    }
+                } catch (_: Exception) {}
+            }
+
+            if (parsed.isNotEmpty()) {
                 return@withContext Pair(parsed, "Berhasil menarik ${parsed.size} rencana kerja aktif dari Web Admin (${response.code()} OK)")
             }
         } catch (e: Exception) {
@@ -254,39 +273,106 @@ class ApiClientManager(val context: Context) {
         }
 
         val simResp = CompanyServerSimulator.getActiveRencanaKerja(pengawas)
-        Pair(simResp.data ?: emptyList(), "Rencana kerja aktif berhasil disinkronkan.")
+        Pair(simResp.data ?: emptyList(), "Rencana kerja aktif dimuat.")
     }
 
     private fun parseActiveRencanaList(rawJson: String): List<PostRencanaKerjaRequest> {
+        val result = mutableListOf<PostRencanaKerjaRequest>()
         val trimmed = rawJson.trim()
-        val listType = Types.newParameterizedType(List::class.java, PostRencanaKerjaRequest::class.java)
-        val adapter = moshi.adapter<List<PostRencanaKerjaRequest>>(listType)
-
-        return try {
+        try {
             if (trimmed.startsWith("[")) {
-                adapter.fromJson(trimmed) ?: emptyList()
+                val array = JSONArray(trimmed)
+                for (i in 0 until array.length()) {
+                    val obj = array.optJSONObject(i) ?: continue
+                    result.add(parseJsonToRencanaRequest(obj))
+                }
             } else if (trimmed.startsWith("{")) {
                 val json = JSONObject(trimmed)
-                if (json.has("data")) {
-                    val dataVal = json.get("data")
-                    if (dataVal is JSONArray) {
-                        adapter.fromJson(dataVal.toString()) ?: emptyList()
-                    } else if (dataVal is JSONObject) {
-                        if (dataVal.has("rencana_aktif") && dataVal.get("rencana_aktif") is JSONArray) {
-                            adapter.fromJson(dataVal.getJSONArray("rencana_aktif").toString()) ?: emptyList()
-                        } else emptyList()
-                    } else emptyList()
-                } else if (json.has("rencana_aktif") && json.get("rencana_aktif") is JSONArray) {
-                    adapter.fromJson(json.getJSONArray("rencana_aktif").toString()) ?: emptyList()
-                } else {
-                    emptyList()
+                val array = json.optJSONArray("data")
+                    ?: json.optJSONArray("rencana_aktif")
+                    ?: json.optJSONArray("rencana")
+                if (array != null) {
+                    for (i in 0 until array.length()) {
+                        val obj = array.optJSONObject(i) ?: continue
+                        result.add(parseJsonToRencanaRequest(obj))
+                    }
                 }
-            } else {
-                emptyList()
             }
-        } catch (_: Exception) {
-            emptyList()
+        } catch (e: Exception) {
+            android.util.Log.e("ApiClientManager", "Error parsing active rencana JSON", e)
         }
+        return result
+    }
+
+    private fun optStringFirst(obj: JSONObject, vararg keys: String): String {
+        for (key in keys) {
+            if (obj.has(key) && !obj.isNull(key)) {
+                val str = obj.optString(key, "").trim()
+                if (str.isNotBlank() && !str.equals("null", ignoreCase = true)) {
+                    return str
+                }
+            }
+        }
+        return ""
+    }
+
+    private fun parseJsonToRencanaRequest(obj: JSONObject): PostRencanaKerjaRequest {
+        val spk = optStringFirst(obj, "nomor_spk", "nomorSpk", "no_spk", "spk", "spk_number", "noSpk")
+            .takeIf { it.isNotBlank() && it != "null" && it != "SPK Menyusul" && it != "-" }
+
+        val statusSpkRaw = optStringFirst(obj, "status_spk", "statusSpk", "status")
+        val statusSpk = when {
+            statusSpkRaw.isNotBlank() && !statusSpkRaw.equals("MENUNGGU_SPK", ignoreCase = true) -> statusSpkRaw
+            !spk.isNullOrBlank() -> "SPK_TERBIT"
+            else -> "MENUNGGU_SPK"
+        }
+
+        val rawId = optStringFirst(obj, "id", "id_rencana_kerja", "rencana_id")
+        val kodeUnit = optStringFirst(obj, "kode_unit", "unit_kode", "unit", "kodeUnit", "nama_unit")
+        val operator = optStringFirst(obj, "operator", "nama_operator", "namaOperator")
+        val sapCode = optStringFirst(obj, "kode_sap", "sap_code", "sapCode").ifBlank { "ACT-SAP-101" }
+        val aktivitas = optStringFirst(obj, "nama_aktivitas", "aktivitas", "keterangan_rencana")
+        val satuan = optStringFirst(obj, "satuan_aktivitas", "satuan").ifBlank { "m3" }
+        val lokasi = optStringFirst(obj, "kode_lokasi", "lokasi").ifBlank { "001A" }
+        val wilayah = optStringFirst(obj, "wilayah").ifBlank { "PG1" }
+        val shift = optStringFirst(obj, "shift_kerja", "shift").ifBlank { "SIANG" }
+        val pengawas = optStringFirst(obj, "nama_pengawas", "pengawas").ifBlank { "Budi Santoso" }
+        val tanggal = optStringFirst(obj, "tanggal", "tanggal_kerja")
+        val keterangan = optStringFirst(obj, "keterangan", "keterangan_rencana")
+
+        return PostRencanaKerjaRequest(
+            id = rawId,
+            id_rencana_kerja = rawId,
+            rencana_id = rawId,
+            status_unit = optStringFirst(obj, "status_unit").ifBlank { "OPERASI" },
+            kode_unit = kodeUnit,
+            unit_kode = kodeUnit,
+            unit = kodeUnit,
+            nama_unit = optStringFirst(obj, "nama_unit", "model_unit").ifBlank { kodeUnit },
+            operator = operator,
+            nama_operator = operator,
+            sap_code = sapCode,
+            kode_sap = sapCode,
+            nama_aktivitas = aktivitas,
+            aktivitas = aktivitas,
+            satuan_aktivitas = satuan,
+            satuan = satuan,
+            kode_lokasi = lokasi,
+            lokasi = lokasi,
+            wilayah = wilayah,
+            shift_kerja = shift,
+            shift = shift,
+            keterangan = keterangan,
+            keterangan_rencana = keterangan,
+            nomor_spk = spk,
+            status_spk = statusSpk,
+            status_tahap = optStringFirst(obj, "status_tahap").ifBlank { "RENCANA" },
+            is_realized = obj.optBoolean("is_realized", false),
+            nama_pengawas = pengawas,
+            pengawas = pengawas,
+            tanggal = tanggal,
+            tanggal_kerja = tanggal
+        )
     }
 
     suspend fun postActivityReport(report: PostActivityReportRequest): String = withContext(Dispatchers.IO) {

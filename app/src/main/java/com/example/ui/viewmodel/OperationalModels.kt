@@ -206,6 +206,7 @@ data class RealisasiFormUiState(
         get() {
             val spk = nomorSpk.trim().ifBlank { selectedRencana?.nomorSpk?.trim() ?: "" }
             val isValidSpkString = spk.isNotBlank() &&
+                    !spk.equals("null", ignoreCase = true) &&
                     !spk.equals("Belum Terbit (Menunggu Admin)", ignoreCase = true) &&
                     !spk.equals("SPK Menyusul", ignoreCase = true) &&
                     spk != "-" &&
@@ -217,7 +218,7 @@ data class RealisasiFormUiState(
                     status.equals("TERBIT", ignoreCase = true) ||
                     status.equals("APPROVED", ignoreCase = true) ||
                     status.equals("SELESAI", ignoreCase = true)
-            return isValidSpkString && (isStatusTerbit || spk.startsWith("SPK", ignoreCase = true) || spk.length >= 3)
+            return isValidSpkString && (isStatusTerbit || spk.startsWith("SPK", ignoreCase = true) || spk.length >= 1)
         }
 
     val parsedStikAwal: Double?

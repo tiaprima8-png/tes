@@ -400,27 +400,35 @@ class HeavyTrackRepository(
             val incomingRencana = payload.resolvedRencanaAktif
             var rencanaUpsertedCount = 0
             for (renReq in incomingRencana) {
-                val kodeUnitVal = renReq.kode_unit ?: continue
+                val kodeUnitVal = renReq.resolvedUnitKode.takeIf { it.isNotBlank() && it != "UNIT" } ?: renReq.kode_unit ?: continue
                 val existing = rencanaDao.findRencana(supervisorName, kodeUnitVal, tanggal)
+                    ?: rencanaDao.getRencanaByUnit(kodeUnitVal)
+                val spkNum = renReq.nomor_spk?.trim() ?: ""
+                val spkStatus = when {
+                    !renReq.status_spk.isNullOrBlank() -> renReq.status_spk
+                    spkNum.isNotBlank() && spkNum != "SPK Menyusul" && spkNum != "-" -> "SPK_TERBIT"
+                    else -> "MENUNGGU_SPK"
+                }
+
                 val entity = RencanaKerjaEntity(
-                    id = existing?.id ?: (renReq.id ?: 0L),
+                    id = existing?.id ?: renReq.numericId,
                     supervisorName = supervisorName,
                     statusUnit = renReq.status_unit ?: "OPERASI",
                     kodeUnit = kodeUnitVal,
-                    operator = renReq.operator ?: "",
-                    sapCode = renReq.sap_code ?: "",
-                    namaAktivitas = renReq.nama_aktivitas ?: "",
-                    satuanAktivitas = renReq.satuan_aktivitas ?: "m3",
-                    kodeLokasi = renReq.kode_lokasi ?: "",
-                    shiftKerja = renReq.shift_kerja ?: "SIANG",
-                    keterangan = renReq.keterangan ?: "",
-                    nomorSpk = renReq.nomor_spk ?: "",
-                    statusSpk = renReq.status_spk ?: "TERBIT_SPK",
+                    operator = renReq.resolvedOperator,
+                    sapCode = renReq.resolvedSapCode,
+                    namaAktivitas = renReq.resolvedAktivitas,
+                    satuanAktivitas = renReq.resolvedSatuan,
+                    kodeLokasi = renReq.resolvedLokasi,
+                    shiftKerja = renReq.resolvedShift,
+                    keterangan = renReq.keterangan ?: renReq.keterangan_rencana ?: "",
+                    nomorSpk = spkNum,
+                    statusSpk = spkStatus,
                     statusTahap = renReq.status_tahap ?: "RENCANA",
                     isRealized = renReq.is_realized ?: false,
                     isSynced = true,
                     createdAt = existing?.createdAt ?: System.currentTimeMillis(),
-                    tanggalFormat = tanggal
+                    tanggalFormat = renReq.tanggal?.takeIf { it.isNotBlank() } ?: renReq.tanggal_kerja?.takeIf { it.isNotBlank() } ?: tanggal
                 )
                 if (existing != null) {
                     rencanaDao.updateRencana(entity)
@@ -506,7 +514,7 @@ class HeavyTrackRepository(
             val savedRencana = rencana.copy(id = insertedId)
 
             val apiReq = PostRencanaKerjaRequest(
-                id = insertedId,
+                id = insertedId.toString(),
                 status_unit = savedRencana.statusUnit,
                 kode_unit = savedRencana.kodeUnit,
                 operator = savedRencana.operator,
@@ -577,33 +585,33 @@ class HeavyTrackRepository(
             val today = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
 
             val newEntities = incomingRequests.mapIndexed { index, renReq ->
-                val kodeUnitVal = renReq.kode_unit?.trim()?.ifBlank { "UNIT-${index + 1}" } ?: "UNIT-${index + 1}"
+                val kodeUnitVal = renReq.resolvedUnitKode.ifBlank { "UNIT-${index + 1}" }
                 val spkNum = renReq.nomor_spk?.trim() ?: ""
                 val spkStatus = when {
                     !renReq.status_spk.isNullOrBlank() -> renReq.status_spk
                     spkNum.isNotBlank() && spkNum != "SPK Menyusul" && spkNum != "-" -> "SPK_TERBIT"
-                    else -> "MENUNGGU"
+                    else -> "MENUNGGU_SPK"
                 }
 
                 RencanaKerjaEntity(
-                    id = if ((renReq.id ?: 0L) > 0) renReq.id!! else 0L,
+                    id = if (renReq.numericId > 0) renReq.numericId else 0L,
                     supervisorName = supervisorName,
                     statusUnit = renReq.status_unit ?: "OPERASI",
                     kodeUnit = kodeUnitVal,
-                    operator = renReq.operator ?: "",
-                    sapCode = renReq.sap_code ?: "",
-                    namaAktivitas = renReq.nama_aktivitas ?: "",
-                    satuanAktivitas = renReq.satuan_aktivitas ?: "m3",
-                    kodeLokasi = renReq.kode_lokasi ?: "",
-                    shiftKerja = renReq.shift_kerja ?: "SIANG",
-                    keterangan = renReq.keterangan ?: "",
+                    operator = renReq.resolvedOperator,
+                    sapCode = renReq.resolvedSapCode,
+                    namaAktivitas = renReq.resolvedAktivitas,
+                    satuanAktivitas = renReq.resolvedSatuan,
+                    kodeLokasi = renReq.resolvedLokasi,
+                    shiftKerja = renReq.resolvedShift,
+                    keterangan = renReq.keterangan ?: renReq.keterangan_rencana ?: "",
                     nomorSpk = spkNum,
                     statusSpk = spkStatus,
                     statusTahap = renReq.status_tahap ?: "RENCANA",
                     isRealized = renReq.is_realized ?: false,
                     isSynced = true,
                     createdAt = System.currentTimeMillis() - (index * 1000L),
-                    tanggalFormat = today
+                    tanggalFormat = renReq.tanggal?.takeIf { it.isNotBlank() } ?: renReq.tanggal_kerja?.takeIf { it.isNotBlank() } ?: today
                 )
             }
 
@@ -906,7 +914,7 @@ class HeavyTrackRepository(
             for (rencana in pendingRencana) {
                 try {
                     val req = PostRencanaKerjaRequest(
-                        id = rencana.id,
+                        id = rencana.id.toString(),
                         status_unit = rencana.statusUnit,
                         kode_unit = rencana.kodeUnit,
                         operator = rencana.operator,
