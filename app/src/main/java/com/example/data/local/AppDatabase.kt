@@ -35,7 +35,7 @@ import com.example.data.local.entity.UnitEntity
         KendalaEntity::class,
         DraftRealisasiEntity::class
     ],
-    version = 12,
+    version = 13,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

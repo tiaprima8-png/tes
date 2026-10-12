@@ -2,6 +2,8 @@ package com.example.data.remote
 
 import android.content.Context
 import android.util.Log
+import io.socket.client.IO
+import io.socket.client.Socket
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -27,11 +29,19 @@ data class RealtimeSpkData(
     val timestamp: Long = System.currentTimeMillis()
 )
 
+data class RealtimeDeleteData(
+    val deletedId: String = "",
+    val numericId: Long = 0L,
+    val unitKode: String = "",
+    val timestamp: Long = System.currentTimeMillis()
+)
+
 /**
- * Real-time Native WebSocket Client connected to Web Admin (/ws).
- * Listens directly to standard WebSocket broadcasts:
+ * Real-time Native WebSocket & Socket.IO Client connected to Web Admin.
+ * Listens directly to real-time events:
  * - SPK_PUBLISHED / SPK_TERBIT / UPDATE_RENCANA / RENCANA_STATUS_UPDATED
- * and dispatches them to Room SQLite and UI.
+ * - RENCANA_KERJA_DELETED (penghapusan rencana kerja oleh Admin Web)
+ * and dispatches them to Room SQLite and UI state.
  */
 class RealtimeSocketManager(
     private val context: Context,
@@ -48,6 +58,7 @@ class RealtimeSocketManager(
         .build()
 
     private var webSocket: WebSocket? = null
+    private var socketIo: Socket? = null
     private var isManuallyClosed = false
 
     private val _isConnected = MutableStateFlow(false)
@@ -56,7 +67,14 @@ class RealtimeSocketManager(
     private val _spkPublishedEvents = MutableSharedFlow<RealtimeSpkData>(extraBufferCapacity = 64)
     val spkPublishedEvents = _spkPublishedEvents.asSharedFlow()
 
+    private val _rencanaDeletedEvents = MutableSharedFlow<RealtimeDeleteData>(extraBufferCapacity = 64)
+    val rencanaDeletedEvents = _rencanaDeletedEvents.asSharedFlow()
+
     var onConnectedCallback: (() -> Unit)? = null
+    var onRencanaDeletedCallback: ((RealtimeDeleteData) -> Unit)? = null
+
+    val socket: Socket?
+        get() = socketIo
 
     private fun extractFirstNonEmpty(vararg sources: JSONObject?, keys: Array<String>): String {
         for (src in sources) {
@@ -73,12 +91,87 @@ class RealtimeSocketManager(
         return ""
     }
 
-    fun connect(serverUrl: String = BASE_URL, onSpkReceived: ((RealtimeSpkData) -> Unit)? = null) {
+    fun connect(
+        serverUrl: String = BASE_URL,
+        onSpkReceived: ((RealtimeSpkData) -> Unit)? = null,
+        onDeletedReceived: ((RealtimeDeleteData) -> Unit)? = null
+    ) {
         disconnect()
         isManuallyClosed = false
 
+        val cleanUrl = if (serverUrl.isBlank()) BASE_URL else serverUrl.trim().removeSuffix("/")
+
+        // 1. Inisialisasi Socket.IO Client (standar Web Admin)
         try {
-            val cleanUrl = if (serverUrl.isBlank()) BASE_URL else serverUrl.trim().removeSuffix("/")
+            val opts = IO.Options().apply {
+                reconnection = true
+                reconnectionAttempts = 10
+                reconnectionDelay = 2000
+                timeout = 10000
+            }
+            val sIo = IO.socket(cleanUrl, opts)
+            socketIo = sIo
+
+            sIo.on(Socket.EVENT_CONNECT) {
+                Log.d("RealtimeSocketManager", "✅ Socket.IO connected to: $cleanUrl")
+                _isConnected.value = true
+                try {
+                    onConnectedCallback?.invoke()
+                } catch (e: Exception) {
+                    Log.e("RealtimeSocketManager", "Error in onConnectedCallback", e)
+                }
+            }
+
+            sIo.on(Socket.EVENT_DISCONNECT) {
+                Log.d("RealtimeSocketManager", "🔌 Socket.IO disconnected")
+                _isConnected.value = false
+            }
+
+            // Real-time Listener SPK
+            val spkEventNames = arrayOf(
+                "SPK_PUBLISHED", "SPK_TERBIT", "UPDATE_RENCANA",
+                "RENCANA_STATUS_UPDATED", "RENCANA_KERJA_UPDATED"
+            )
+            for (evtName in spkEventNames) {
+                sIo.on(evtName) { args ->
+                    handleSocketIoSpk(args, onSpkReceived)
+                }
+            }
+
+            // 2. REAL-TIME LISTENER PENGHAPUSAN (SOCKET.IO)
+            // Sesuai instruksi: socket.on("RENCANA_KERJA_DELETED")
+            sIo.on("RENCANA_KERJA_DELETED") { args ->
+                try {
+                    if (args != null && args.isNotEmpty()) {
+                        val data = when (val first = args[0]) {
+                            is JSONObject -> first
+                            is String -> JSONObject(first)
+                            else -> JSONObject()
+                        }
+                        val deletedId = extractFirstNonEmpty(data, keys = arrayOf("id", "id_rencana_kerja", "rencana_id", "plan_id"))
+                        val unitKode = extractFirstNonEmpty(data, keys = arrayOf("unit_kode", "kode_unit", "unit", "kodeUnit", "unitKode"))
+                        val numId = deletedId.filter { it.isDigit() }.toLongOrNull() ?: 0L
+
+                        Log.d("RealtimeSocketManager", "🗑️ Socket.IO RENCANA_KERJA_DELETED: id=$deletedId, unit=$unitKode")
+                        val delData = RealtimeDeleteData(deletedId, numId, unitKode)
+                        scope.launch {
+                            _rencanaDeletedEvents.emit(delData)
+                        }
+                        onRencanaDeletedCallback?.invoke(delData)
+                        onDeletedReceived?.invoke(delData)
+                    }
+                } catch (e: Exception) {
+                    Log.e("RealtimeSocketManager", "Error handling RENCANA_KERJA_DELETED in Socket.IO", e)
+                }
+            }
+
+            sIo.connect()
+        } catch (e: Exception) {
+            Log.w("RealtimeSocketManager", "Socket.IO connection warning: ${e.localizedMessage}")
+        }
+
+        // 2. Native WebSocket Fallback (/ws)
+        try {
             val wsUrl = when {
                 cleanUrl.startsWith("wss://") -> if (cleanUrl.endsWith("/ws")) cleanUrl else "$cleanUrl/ws"
                 cleanUrl.startsWith("ws://") -> if (cleanUrl.endsWith("/ws")) cleanUrl else "$cleanUrl/ws"
@@ -110,10 +203,36 @@ class RealtimeSocketManager(
                         val root = JSONObject(text)
                         val event = root.optString("event", root.optString("type", ""))
 
-                        // Extract data payload (support nested data or payload objects)
                         val dataObj = root.optJSONObject("data")
                         val payloadObj = root.optJSONObject("payload")
 
+                        // Cek Event Penghapusan Rencana Kerja (RENCANA_KERJA_DELETED)
+                        val isDeleteEvent = event.equals("RENCANA_KERJA_DELETED", ignoreCase = true) ||
+                                event.equals("DELETE_RENCANA", ignoreCase = true) ||
+                                event.equals("RENCANA_DELETED", ignoreCase = true)
+
+                        if (isDeleteEvent) {
+                            val deletedId = extractFirstNonEmpty(
+                                dataObj, payloadObj, root,
+                                keys = arrayOf("id", "id_rencana_kerja", "rencana_id", "plan_id")
+                            )
+                            val unitKode = extractFirstNonEmpty(
+                                dataObj, payloadObj, root,
+                                keys = arrayOf("unit_kode", "kode_unit", "unit", "kodeUnit", "unitKode", "nama_unit")
+                            )
+                            val numId = deletedId.filter { it.isDigit() }.toLongOrNull() ?: 0L
+
+                            Log.d("RealtimeSocketManager", "🗑️ Native WS RENCANA_KERJA_DELETED: id=$deletedId, unit=$unitKode")
+                            val delData = RealtimeDeleteData(deletedId, numId, unitKode)
+                            scope.launch {
+                                _rencanaDeletedEvents.emit(delData)
+                            }
+                            onRencanaDeletedCallback?.invoke(delData)
+                            onDeletedReceived?.invoke(delData)
+                            return
+                        }
+
+                        // Cek Event SPK
                         val nomorSpk = extractFirstNonEmpty(
                             dataObj, payloadObj, root,
                             keys = arrayOf("nomor_spk", "nomorSpk", "no_spk", "spk", "spk_number", "noSpk")
@@ -180,12 +299,11 @@ class RealtimeSocketManager(
                 override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                     Log.w("RealtimeSocketManager", "WebSocket connection failure: ${t.localizedMessage}")
                     _isConnected.value = false
-                    // Auto-reconnect after 3 seconds
                     if (!isManuallyClosed) {
                         scope.launch {
                             delay(3000)
                             if (!isManuallyClosed) {
-                                connect(serverUrl, onSpkReceived)
+                                connect(serverUrl, onSpkReceived, onDeletedReceived)
                             }
                         }
                     }
@@ -193,6 +311,40 @@ class RealtimeSocketManager(
             })
         } catch (e: Exception) {
             Log.e("RealtimeSocketManager", "Failed to connect WebSocket to $serverUrl", e)
+        }
+    }
+
+    private fun handleSocketIoSpk(args: Array<Any>?, onSpkReceived: ((RealtimeSpkData) -> Unit)?) {
+        try {
+            if (args != null && args.isNotEmpty()) {
+                val data = when (val first = args[0]) {
+                    is JSONObject -> first
+                    is String -> JSONObject(first)
+                    else -> JSONObject()
+                }
+                val nomorSpk = extractFirstNonEmpty(data, keys = arrayOf("nomor_spk", "nomorSpk", "no_spk", "spk", "spk_number", "noSpk"))
+                val unitKode = extractFirstNonEmpty(data, keys = arrayOf("kode_unit", "unit_kode", "unit", "kodeUnit", "unitKode", "nama_unit"))
+                val statusSpkRaw = extractFirstNonEmpty(data, keys = arrayOf("status_spk", "statusSpk", "status"))
+                val statusSpk = if (statusSpkRaw.isNotBlank() && !statusSpkRaw.equals("MENUNGGU_SPK", ignoreCase = true)) statusSpkRaw else "SPK_TERBIT"
+                val rawId = extractFirstNonEmpty(data, keys = arrayOf("id", "id_rencana_kerja", "rencana_id", "plan_id"))
+                val numericId = rawId.filter { it.isDigit() }.toLongOrNull() ?: 0L
+
+                if (nomorSpk.isNotBlank()) {
+                    val spkData = RealtimeSpkData(
+                        unitKode = unitKode,
+                        nomorSpk = nomorSpk,
+                        statusSpk = statusSpk,
+                        rencanaId = numericId,
+                        serverPlanId = rawId
+                    )
+                    scope.launch {
+                        _spkPublishedEvents.emit(spkData)
+                    }
+                    onSpkReceived?.invoke(spkData)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("RealtimeSocketManager", "Error handling Socket.IO SPK event", e)
         }
     }
 
@@ -207,8 +359,26 @@ class RealtimeSocketManager(
         }
     }
 
+    fun dispatchRencanaDeleted(deletedId: String, unitKode: String) {
+        val numId = deletedId.filter { it.isDigit() }.toLongOrNull() ?: 0L
+        val event = RealtimeDeleteData(deletedId, numId, unitKode)
+        scope.launch {
+            _rencanaDeletedEvents.emit(event)
+        }
+        onRencanaDeletedCallback?.invoke(event)
+    }
+
     fun disconnect() {
         isManuallyClosed = true
+        try {
+            socketIo?.disconnect()
+            socketIo?.off()
+        } catch (e: Exception) {
+            Log.e("RealtimeSocketManager", "Error disconnecting Socket.IO", e)
+        } finally {
+            socketIo = null
+        }
+
         try {
             webSocket?.close(1000, "Normal Closure")
         } catch (e: Exception) {

@@ -33,6 +33,8 @@ data class PostActivityReportRequest(
     @Json(name = "kendala_id") val kendala_id: String? = null,
     @Json(name = "kendala_nama") val kendala_nama: String? = null,
     @Json(name = "catatan_kendala") val catatan_kendala: String? = null,
+    @Json(name = "kendala_lapangan") val kendala_lapangan: List<KendalaItemPayload>? = null,
+    @Json(name = "kendala_list") val kendala_list: List<KendalaItemPayload>? = null,
     @Json(name = "daftar_kendala") val daftar_kendala: List<KendalaItemPayload>? = null,
     @Json(name = "foto_bukti") val foto_bukti: String? = null,
     @Json(name = "foto") val foto: String? = null,
@@ -94,6 +96,8 @@ data class PostActivityReportRequest(
             kendalaNama: String? = null,
             catatanKendala: String? = null,
             daftarKendala: List<KendalaItemPayload>? = null,
+            kendalaLapangan: List<KendalaItemPayload>? = null,
+            kendalaList: List<KendalaItemPayload>? = null,
             photoBase64: String? = null,
             photoSizeKb: Long? = null,
             photoDimensions: String? = null,
@@ -104,6 +108,7 @@ data class PostActivityReportRequest(
             idRencanaKerja: Long? = null,
             nomorSpk: String? = null
         ): PostActivityReportRequest {
+            val resolvedKendalaItems = (kendalaLapangan ?: kendalaList ?: daftarKendala)?.map { it.toCanonical() }
             return PostActivityReportRequest(
                 // Indonesian exact fields for 1-portalce.ai.studio
                 tanggal = reportDate,
@@ -131,7 +136,9 @@ data class PostActivityReportRequest(
                 kendala_id = kendalaId,
                 kendala_nama = kendalaNama,
                 catatan_kendala = catatanKendala,
-                daftar_kendala = daftarKendala,
+                kendala_lapangan = resolvedKendalaItems,
+                kendala_list = resolvedKendalaItems,
+                daftar_kendala = resolvedKendalaItems,
                 foto_bukti = photoBase64,
                 foto = photoBase64,
                 photo_base64 = photoBase64,
@@ -168,12 +175,146 @@ data class PostActivityReportRequest(
 
 @JsonClass(generateAdapter = true)
 data class KendalaItemPayload(
-    @Json(name = "id_kendala") val id_kendala: String? = null,
     @Json(name = "nama_kendala") val nama_kendala: String? = null,
+    @Json(name = "kode_kendala") val kode_kendala: String? = null,
+    @Json(name = "jam_mulai") val jam_mulai: String? = null,
+    @Json(name = "jam_selesai") val jam_selesai: String? = null,
+    @Json(name = "durasi_jam") val durasi_jam: Double? = null,
+
+    // Backward-compatible keys
+    @Json(name = "id_kendala") val id_kendala: String? = null,
     @Json(name = "waktu_mulai") val waktu_mulai: String? = null,
     @Json(name = "waktu_selesai") val waktu_selesai: String? = null,
-    @Json(name = "durasi_menit") val durasi_menit: Int? = null
-)
+    @Json(name = "durasi_menit") val durasi_menit: Int? = null,
+    @Json(name = "durasi") val durasi: Double? = null
+) {
+    val resolvedNama: String get() = (nama_kendala ?: "").trim()
+    val resolvedKode: String get() = (kode_kendala ?: id_kendala ?: "").trim()
+    val resolvedJamMulai: String get() = (jam_mulai ?: waktu_mulai ?: "").trim()
+    val resolvedJamSelesai: String get() = (jam_selesai ?: waktu_selesai ?: "").trim()
+    val resolvedDurasiMenit: Int get() = durasi_menit ?: ((durasi_jam ?: durasi ?: 0.0) * 60).toInt()
+    val resolvedDurasiJam: Double get() = durasi_jam ?: durasi ?: ((durasi_menit ?: 0) / 60.0)
+
+    fun toCanonical(): KendalaItemPayload {
+        val kode = Companion.resolveKodeKendala(resolvedKode, resolvedNama)
+        val nama = resolvedNama
+        val start = resolvedJamMulai
+        val end = resolvedJamSelesai
+        val durJam = Math.round(resolvedDurasiJam * 10.0) / 10.0
+        val durMin = resolvedDurasiMenit
+        val legacyId = id_kendala ?: kode
+        return KendalaItemPayload(
+            nama_kendala = nama,
+            kode_kendala = kode,
+            jam_mulai = start,
+            jam_selesai = end,
+            durasi_jam = durJam,
+            id_kendala = legacyId,
+            waktu_mulai = start,
+            waktu_selesai = end,
+            durasi_menit = durMin,
+            durasi = durJam
+        )
+    }
+
+    companion object {
+        fun resolveKodeKendala(rawKode: String?, rawNama: String? = null): String {
+            if (!rawNama.isNullOrBlank()) {
+                val namaTrimmed = rawNama.trim().lowercase()
+                when {
+                    namaTrimmed.contains("antar") && namaTrimmed.contains("jemput") -> return "1.0"
+                    namaTrimmed.contains("pemanasan") || (namaTrimmed.contains("cek unit") && namaTrimmed.contains("implement")) -> return "2.0"
+                    namaTrimmed.contains("transport") -> return "3.0"
+                    namaTrimmed == "kerja" -> return "4.0"
+                    namaTrimmed.contains("istirahat") -> return "5.0"
+                    namaTrimmed.contains("perbaikan unit") -> return "6.0"
+                    namaTrimmed.contains("perbaikan implement") -> return "7.0"
+                    namaTrimmed.contains("perawatan unit") -> return "8.0"
+                    namaTrimmed.contains("perawatan implement") -> return "9.0"
+                    namaTrimmed.contains("ganti implement") -> return "10.0"
+                    namaTrimmed.contains("tunggu solar") -> return "11.0"
+                    namaTrimmed.contains("tunggu mekanik") -> return "12.0"
+                    namaTrimmed.contains("tunggu trailler") || namaTrimmed.contains("trailer") -> return "13.0"
+                    namaTrimmed.contains("tunggu lokasi") -> return "14.0"
+                    namaTrimmed.contains("tunggu cuaca") || namaTrimmed.contains("hujan") || namaTrimmed.contains("slippery") -> return "15.0"
+                }
+            }
+            if (rawKode.isNullOrBlank()) return ""
+            val trimmed = rawKode.trim()
+            // Format angka desimal seperti "1.0", "3.0"
+            if (trimmed.matches(Regex("""^\d+(\.\d+)?$"""))) {
+                return if (!trimmed.contains(".")) "$trimmed.0" else trimmed
+            }
+            // Format delay standar "KND-01", "KND-1", "KND-03", dsb.
+            val kndMatch = Regex("""(?i)KND-(\d+)""").find(trimmed)
+            if (kndMatch != null) {
+                val num = kndMatch.groupValues[1].toIntOrNull()
+                if (num != null) return "$num.0"
+            }
+            // Jika ada digit angka
+            val digits = trimmed.filter { it.isDigit() }
+            val num = digits.toIntOrNull()
+            if (num != null && num > 0) {
+                return "$num.0"
+            }
+            return trimmed
+        }
+
+        fun create(
+            namaKendala: String?,
+            kodeKendala: String?,
+            jamMulai: String?,
+            jamSelesai: String?,
+            durasiJam: Double? = null,
+            durasiMenit: Int? = null
+        ): KendalaItemPayload {
+            val nama = (namaKendala ?: "").trim()
+            val kode = resolveKodeKendala(kodeKendala, nama)
+            val start = (jamMulai ?: "").trim()
+            val end = (jamSelesai ?: "").trim()
+
+            val calcHours: Double = when {
+                durasiJam != null -> Math.round(durasiJam * 10.0) / 10.0
+                durasiMenit != null && durasiMenit > 0 -> {
+                    Math.round((durasiMenit / 60.0) * 10.0) / 10.0
+                }
+                start.isNotBlank() && end.isNotBlank() -> {
+                    val sMin = parseTimeToMinutes(start)
+                    val eMin = parseTimeToMinutes(end)
+                    if (sMin != null && eMin != null) {
+                        val m = if (eMin >= sMin) eMin - sMin else (eMin + 1440) - sMin
+                        Math.round((m / 60.0) * 10.0) / 10.0
+                    } else 0.0
+                }
+                else -> 0.0
+            }
+
+            val calcMinutes: Int = durasiMenit ?: (calcHours * 60.0).toInt()
+
+            return KendalaItemPayload(
+                nama_kendala = nama,
+                kode_kendala = kode,
+                jam_mulai = start,
+                jam_selesai = end,
+                durasi_jam = calcHours,
+                id_kendala = kode,
+                waktu_mulai = start,
+                waktu_selesai = end,
+                durasi_menit = calcMinutes,
+                durasi = calcHours
+            )
+        }
+
+        private fun parseTimeToMinutes(timeStr: String): Int? {
+            val parts = timeStr.trim().split(":")
+            if (parts.size != 2) return null
+            val h = parts[0].toIntOrNull() ?: return null
+            val m = parts[1].toIntOrNull() ?: return null
+            if (h !in 0..23 || m !in 0..59) return null
+            return h * 60 + m
+        }
+    }
+}
 
 @JsonClass(generateAdapter = true)
 data class KendalaPayload(
@@ -566,6 +707,8 @@ data class PostHasilAktivitasRequest(
     @Json(name = "kendala_id") val kendala_id: String? = null,
     @Json(name = "kendala_nama") val kendala_nama: String? = null,
     @Json(name = "catatan_kendala") val catatan_kendala: String? = null,
+    @Json(name = "kendala_lapangan") val kendala_lapangan: List<KendalaItemPayload>? = null,
+    @Json(name = "kendala_list") val kendala_list: List<KendalaItemPayload>? = null,
     @Json(name = "daftar_kendala") val daftar_kendala: List<KendalaItemPayload>? = null,
     @Json(name = "hasil_kerja") val hasil_kerja: Double? = 0.0,
     @Json(name = "keterangan") val keterangan: String? = null,

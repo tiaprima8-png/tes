@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudSync
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PrecisionManufacturing
@@ -236,29 +237,36 @@ fun HeavyTrackApp() {
                             }
                         },
                         actions = {
-                            // Tombol Kecil Download Installer APK (Simbol kecil di samping tombol sinkron di atas kanan)
+                            // Tombol Download Installer APK di Pojok Kanan Atas AppBar
                             Surface(
                                 shape = RoundedCornerShape(20.dp),
-                                color = Emerald50,
-                                border = androidx.compose.foundation.BorderStroke(
-                                    1.dp,
-                                    Emerald600.copy(alpha = 0.5f)
-                                ),
+                                color = Emerald600,
+                                shadowElevation = 2.dp,
                                 modifier = Modifier
                                     .padding(end = 8.dp)
-                                    .size(32.dp)
+                                    .height(34.dp)
                                     .clip(RoundedCornerShape(20.dp))
                                     .clickable {
                                         showDistributionDialog = true
                                     }
                                     .testTag("appbar_download_installer_btn")
                             ) {
-                                Box(contentAlignment = Alignment.Center) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                ) {
                                     Icon(
-                                        imageVector = Icons.Default.CloudDownload,
+                                        imageVector = Icons.Default.Download,
                                         contentDescription = "Download Installer APK",
-                                        tint = Emerald700,
-                                        modifier = Modifier.size(17.dp)
+                                        tint = Color.White,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(5.dp))
+                                    Text(
+                                        text = "Unduh APK",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White
                                     )
                                 }
                             }

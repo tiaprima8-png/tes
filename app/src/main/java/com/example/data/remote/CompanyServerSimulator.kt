@@ -20,6 +20,13 @@ data class SpkPublishedEvent(
     val timestamp: Long = System.currentTimeMillis()
 )
 
+data class RencanaDeletedEvent(
+    val planId: Long,
+    val unitKode: String,
+    val supervisorName: String = "",
+    val timestamp: Long = System.currentTimeMillis()
+)
+
 /**
  * Simulates company central backend and Web Admin database.
  * Supports:
@@ -34,6 +41,9 @@ object CompanyServerSimulator {
 
     private val _spkEventFlow = MutableSharedFlow<SpkPublishedEvent>(extraBufferCapacity = 64)
     val spkEventFlow = _spkEventFlow.asSharedFlow()
+
+    private val _rencanaDeletedEventFlow = MutableSharedFlow<RencanaDeletedEvent>(extraBufferCapacity = 64)
+    val rencanaDeletedEventFlow = _rencanaDeletedEventFlow.asSharedFlow()
 
     // Map of planId -> published SPK
     val publishedSpkMap = ConcurrentHashMap<Long, String>()
@@ -405,6 +415,24 @@ object CompanyServerSimulator {
         return spkNum
     }
 
+    /**
+     * Manually triggers admin deleting a work plan (simulates Web Admin deletion)
+     */
+    suspend fun adminDeleteRencana(planId: Long, unitKode: String, supervisorName: String = "") {
+        serverRencanaKerja.removeIf {
+            (planId > 0 && (it.numericId == planId || it.id == planId.toString())) ||
+            (unitKode.isNotBlank() && it.resolvedUnitKode.equals(unitKode, ignoreCase = true))
+        }
+        publishedSpkMap.remove(planId)
+        _rencanaDeletedEventFlow.emit(
+            RencanaDeletedEvent(
+                planId = planId,
+                unitKode = unitKode,
+                supervisorName = supervisorName
+            )
+        )
+    }
+
     fun markRencanaRealized(planId: Long) {
         val idx = serverRencanaKerja.indexOfFirst { it.id == planId.toString() || it.numericId == planId }
         if (idx >= 0) {
@@ -446,11 +474,15 @@ object CompanyServerSimulator {
             serverUnits[index] = old.copy(last_hm = lastHmVal, lastHm = lastHmVal)
         }
 
+        val kendalaItems = request.kendala_lapangan ?: request.kendala_list ?: request.daftar_kendala
+        val kendalaInfo = if (!kendalaItems.isNullOrEmpty()) {
+            " [Kendala: ${kendalaItems.joinToString { "${it.nama_kendala} [${it.kode_kendala}]" }}]"
+        } else ""
         val fuelInfo = if (request.is_isi_solar == true) " [Solar: ${request.jumlah_liter_solar} L]" else ""
         val auditInfo = if (request.is_hm_awal_corrected == true) " [AUDIT ADMIN: Koreksi HM Awal Manual (Alasan: ${request.alasan_koreksi_hm ?: "-"})]" else ""
         return ApiResponse(
             status = "SUCCESS",
-            message = "Realisasi Unit $targetUnitCode berhasil dikirim.$fuelInfo$auditInfo HM Unit diperbarui ke $lastHmVal.",
+            message = "Realisasi Unit $targetUnitCode berhasil dikirim.$kendalaInfo$fuelInfo$auditInfo HM Unit diperbarui ke $lastHmVal.",
             data = "ACK-${System.currentTimeMillis()}"
         )
     }
@@ -486,13 +518,17 @@ object CompanyServerSimulator {
 
         val hasPhoto = !report.foto_bukti.isNullOrBlank() || !report.photo_base64.isNullOrBlank()
         val photoInfo = if (hasPhoto) " [Foto Bukti Kegiatan Terverifikasi (${report.photo_size_kb ?: 145} KB, ${report.photo_dimensions ?: "1280x960 px"})]" else ""
+        val rptKendalaItems = report.kendala_lapangan ?: report.kendala_list ?: report.daftar_kendala
+        val rptKendalaInfo = if (!rptKendalaItems.isNullOrEmpty()) {
+            " [Kendala: ${rptKendalaItems.joinToString { "${it.nama_kendala} [${it.kode_kendala}]" }}]"
+        } else ""
         val statusInfo = " [Status: ${report.status_unit ?: "OPERASI"}]"
         val fuelInfo = if (report.is_isi_solar == true) " [Solar: ${report.jumlah_liter_solar} L]" else ""
         val auditInfo = if (report.is_hm_awal_corrected == true) " [AUDIT: Koreksi HM Awal (${report.hm_awal}) Alasan: ${report.alasan_koreksi_hm ?: "-"}]" else ""
 
         return ApiResponse(
             status = "SUCCESS",
-            message = "Laporan berhasil dikirim dan diverifikasi oleh Server Web Admin.$statusInfo$fuelInfo$auditInfo. HM Unit diperbarui ke $lastHmVal.$photoInfo",
+            message = "Laporan berhasil dikirim dan diverifikasi oleh Server Web Admin.$rptKendalaInfo$statusInfo$fuelInfo$auditInfo. HM Unit diperbarui ke $lastHmVal.$photoInfo",
             data = "REPORT-ACK-${System.currentTimeMillis()}"
         )
     }

@@ -184,21 +184,21 @@ class HeavyTrackRepository(
             lokasiDao.insertLokasiList(initialLokasi)
 
             val initialKendala = listOf(
-                KendalaEntity(kodeKendala = "KND-01", namaKendala = "Antar - jemput", kategori = "OPERASIONAL", deskripsi = "Mobilisasi personel antar - jemput"),
-                KendalaEntity(kodeKendala = "KND-02", namaKendala = "Cek unit, Implement Pemanasan mesin", kategori = "OPERASIONAL", deskripsi = "P2H dan pemanasan unit"),
-                KendalaEntity(kodeKendala = "KND-03", namaKendala = "Transport", kategori = "OPERASIONAL", deskripsi = "Transport unit ke front kerja"),
-                KendalaEntity(kodeKendala = "KND-04", namaKendala = "Kerja", kategori = "OPERASIONAL", deskripsi = "Aktivitas kerja"),
-                KendalaEntity(kodeKendala = "KND-05", namaKendala = "Istirahat", kategori = "OPERASIONAL", deskripsi = "Istirahat operator"),
-                KendalaEntity(kodeKendala = "KND-06", namaKendala = "Perbaikan Unit", kategori = "MEKANIKAL", deskripsi = "Perbaikan kerusakan unit"),
-                KendalaEntity(kodeKendala = "KND-07", namaKendala = "Perbaikan Implement", kategori = "MEKANIKAL", deskripsi = "Perbaikan attachment/implement"),
-                KendalaEntity(kodeKendala = "KND-08", namaKendala = "Perawatan Unit", kategori = "MEKANIKAL", deskripsi = "Servis berkala unit"),
-                KendalaEntity(kodeKendala = "KND-09", namaKendala = "Perawatan Implement", kategori = "MEKANIKAL", deskripsi = "Perawatan attachment/implement"),
-                KendalaEntity(kodeKendala = "KND-10", namaKendala = "Ganti Implement", kategori = "OPERASIONAL", deskripsi = "Ganti attachment unit"),
-                KendalaEntity(kodeKendala = "KND-11", namaKendala = "Tunggu Solar", kategori = "LOGISTIK", deskripsi = "Menunggu pengisian bahan bakar"),
-                KendalaEntity(kodeKendala = "KND-12", namaKendala = "Tunggu Mekanik", kategori = "MEKANIKAL", deskripsi = "Menunggu kedatangan mekanik"),
-                KendalaEntity(kodeKendala = "KND-13", namaKendala = "Tunggu Trailler", kategori = "LOGISTIK", deskripsi = "Menunggu lowbed / trailler"),
-                KendalaEntity(kodeKendala = "KND-14", namaKendala = "Tunggu Lokasi", kategori = "OPERASIONAL", deskripsi = "Menunggu kesiapan front kerja"),
-                KendalaEntity(kodeKendala = "KND-15", namaKendala = "Tunggu Cuaca", kategori = "CUACA", deskripsi = "Menunggu cuaca membaik / hujan / slippery")
+                KendalaEntity(kodeKendala = "1.0", namaKendala = "Antar - jemput", kategori = "OPERASIONAL", deskripsi = "Mobilisasi personel antar - jemput"),
+                KendalaEntity(kodeKendala = "2.0", namaKendala = "Cek unit, Implement Pemanasan mesin", kategori = "OPERASIONAL", deskripsi = "P2H dan pemanasan unit"),
+                KendalaEntity(kodeKendala = "3.0", namaKendala = "Transport", kategori = "OPERASIONAL", deskripsi = "Transport unit ke front kerja"),
+                KendalaEntity(kodeKendala = "4.0", namaKendala = "Kerja", kategori = "OPERASIONAL", deskripsi = "Aktivitas kerja"),
+                KendalaEntity(kodeKendala = "5.0", namaKendala = "Istirahat", kategori = "OPERASIONAL", deskripsi = "Istirahat operator"),
+                KendalaEntity(kodeKendala = "6.0", namaKendala = "Perbaikan Unit", kategori = "MEKANIKAL", deskripsi = "Perbaikan kerusakan unit"),
+                KendalaEntity(kodeKendala = "7.0", namaKendala = "Perbaikan Implement", kategori = "MEKANIKAL", deskripsi = "Perbaikan attachment/implement"),
+                KendalaEntity(kodeKendala = "8.0", namaKendala = "Perawatan Unit", kategori = "MEKANIKAL", deskripsi = "Servis berkala unit"),
+                KendalaEntity(kodeKendala = "9.0", namaKendala = "Perawatan Implement", kategori = "MEKANIKAL", deskripsi = "Perawatan attachment/implement"),
+                KendalaEntity(kodeKendala = "10.0", namaKendala = "Ganti Implement", kategori = "OPERASIONAL", deskripsi = "Ganti attachment unit"),
+                KendalaEntity(kodeKendala = "11.0", namaKendala = "Tunggu Solar", kategori = "LOGISTIK", deskripsi = "Menunggu pengisian bahan bakar"),
+                KendalaEntity(kodeKendala = "12.0", namaKendala = "Tunggu Mekanik", kategori = "MEKANIKAL", deskripsi = "Menunggu kedatangan mekanik"),
+                KendalaEntity(kodeKendala = "13.0", namaKendala = "Tunggu Trailler", kategori = "LOGISTIK", deskripsi = "Menunggu lowbed / trailler"),
+                KendalaEntity(kodeKendala = "14.0", namaKendala = "Tunggu Lokasi", kategori = "OPERASIONAL", deskripsi = "Menunggu kesiapan front kerja"),
+                KendalaEntity(kodeKendala = "15.0", namaKendala = "Tunggu Cuaca", kategori = "CUACA", deskripsi = "Menunggu cuaca membaik / hujan / slippery")
             )
             kendalaDao.clearAll()
             kendalaDao.insertKendalaList(initialKendala)
@@ -396,8 +396,15 @@ class HeavyTrackRepository(
                 kendalaDao.insertKendalaList(kendalaEntities)
             }
 
-            // 2. Process Rencana Aktif -> Insert / Upsert into rencana_kerja
+            // 2. Process Rencana Aktif -> Prune and Upsert into rencana_kerja
             val incomingRencana = payload.resolvedRencanaAktif
+            val activeServerIds = incomingRencana.mapNotNull { it.numericId.takeIf { id -> id > 0L } }
+            if (activeServerIds.isNotEmpty()) {
+                rencanaDao.deletePrunedRencana(supervisorName, activeServerIds)
+            } else if (incomingRencana.isEmpty() && (payload.master_data != null || payload.masterData != null)) {
+                rencanaDao.clearActiveRencanaForSupervisor(supervisorName)
+            }
+
             var rencanaUpsertedCount = 0
             for (renReq in incomingRencana) {
                 val kodeUnitVal = renReq.resolvedUnitKode.takeIf { it.isNotBlank() && it != "UNIT" } ?: renReq.kode_unit ?: continue
@@ -410,9 +417,17 @@ class HeavyTrackRepository(
                     else -> "MENUNGGU_SPK"
                 }
 
+                val serverId = renReq.numericId
+                if (existing != null && serverId > 0 && existing.id != serverId) {
+                    rencanaDao.deleteRencana(existing.id)
+                }
+
+                val targetId = if (serverId > 0) serverId else (existing?.id ?: 0L)
+
                 val entity = RencanaKerjaEntity(
-                    id = existing?.id ?: renReq.numericId,
+                    id = targetId,
                     supervisorName = supervisorName,
+                    pengawas = supervisorName,
                     statusUnit = renReq.status_unit ?: "OPERASI",
                     kodeUnit = kodeUnitVal,
                     operator = renReq.resolvedOperator,
@@ -425,16 +440,13 @@ class HeavyTrackRepository(
                     nomorSpk = spkNum,
                     statusSpk = spkStatus,
                     statusTahap = renReq.status_tahap ?: "RENCANA",
+                    statusRealisasi = if (renReq.is_realized == true) "SUDAH" else "BELUM",
                     isRealized = renReq.is_realized ?: false,
                     isSynced = true,
                     createdAt = existing?.createdAt ?: System.currentTimeMillis(),
                     tanggalFormat = renReq.tanggal?.takeIf { it.isNotBlank() } ?: renReq.tanggal_kerja?.takeIf { it.isNotBlank() } ?: tanggal
                 )
-                if (existing != null) {
-                    rencanaDao.updateRencana(entity)
-                } else {
-                    rencanaDao.insertRencana(entity)
-                }
+                rencanaDao.insertRencana(entity)
                 rencanaUpsertedCount++
             }
 
@@ -575,16 +587,56 @@ class HeavyTrackRepository(
         null
     }
 
+    suspend fun deleteRencanaByIdOrUnit(planId: Long, unitKode: String): Int = withContext(Dispatchers.IO) {
+        val count = rencanaDao.deleteByIdOrUnit(planId, unitKode)
+        if (planId > 0) {
+            draftDao.deleteDraftByRencanaId(planId)
+        }
+        count
+    }
+
+    suspend fun deleteRencanaByIdOrUnit(planIdStr: String?, unitKode: String?): Int = withContext(Dispatchers.IO) {
+        val numId = planIdStr?.filter { it.isDigit() }?.toLongOrNull() ?: 0L
+        val cleanUnit = unitKode?.trim() ?: ""
+        val count = rencanaDao.deleteByIdOrUnit(planIdStr, unitKode)
+        if (numId > 0) {
+            draftDao.deleteDraftByRencanaId(numId)
+        }
+        count
+    }
+
     /**
      * Panggil API GET /api/mobile/rencana-kerja/active?pengawas={pengawas_aktif}
-     * Mengganti seluruh daftar rencana kerja aktif di Room SQLite dengan data terbaru dari server.
+     * SINKRONISASI REKONSILIASI PENUH:
+     * 1. Ambil list ID rencana kerja aktif dari respons server (activeServerIds).
+     * 2. Lakukan pembersihan (Purge / Sync Pruning) di Room SQLite lokal:
+     *    Hapus semua rencana kerja milik pengawas yang belum terealisasi TAPI ID-nya tidak ada di activeServerIds.
+     * 3. Lakukan Upsert untuk sisa data yang valid dari server.
+     * 4. State Flow Room SQLite akan otomatis terbarui secara reaktif ke UI.
      */
     suspend fun fetchAndReplaceActiveRencana(supervisorName: String): Result<Pair<List<RencanaKerjaEntity>, String>> = withContext(Dispatchers.IO) {
         try {
             val (incomingRequests, msg) = apiClientManager.fetchActiveRencanaKerja(supervisorName)
             val today = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
 
-            val newEntities = incomingRequests.mapIndexed { index, renReq ->
+            // 1. Ambil list ID rencana kerja aktif dari respons server
+            val activeServerIds = incomingRequests.mapNotNull { it.numericId.takeIf { id -> id > 0L } }
+
+            // 2. Pembersihan (Sync Pruning):
+            // Hapus semua rencana kerja milik pengawas tersebut yang berstatus belum terealisasi
+            // TAPI ID-nya sudah TIDAK ADA di dalam activeServerIds:
+            if (activeServerIds.isNotEmpty()) {
+                val deletedCount = rencanaDao.deletePrunedRencana(supervisorName, activeServerIds)
+                android.util.Log.d("HeavyTrackRepository", "Sync Pruning: $deletedCount rencana kerja dibersihkan dari SQLite")
+            } else {
+                // Jika server merespons 0 rencana aktif, bersihkan seluruh rencana yang berstatus belum terealisasi
+                val deletedCount = rencanaDao.clearActiveRencanaForSupervisor(supervisorName)
+                android.util.Log.d("HeavyTrackRepository", "Sync Pruning: Seluruh rencana kerja belum terealisasi ($deletedCount) dibersihkan dari SQLite")
+            }
+
+            // 3. Kemudian lakukan Upsert untuk sisa data yang valid dari server
+            val upsertedEntities = mutableListOf<RencanaKerjaEntity>()
+            for ((index, renReq) in incomingRequests.withIndex()) {
                 val kodeUnitVal = renReq.resolvedUnitKode.ifBlank { "UNIT-${index + 1}" }
                 val spkNum = renReq.nomor_spk?.trim() ?: ""
                 val spkStatus = when {
@@ -593,9 +645,23 @@ class HeavyTrackRepository(
                     else -> "MENUNGGU_SPK"
                 }
 
-                RencanaKerjaEntity(
-                    id = if (renReq.numericId > 0) renReq.numericId else 0L,
+                val serverId = renReq.numericId
+                val existing = if (serverId > 0) {
+                    rencanaDao.getRencanaById(serverId)
+                } else {
+                    rencanaDao.findRencana(supervisorName, kodeUnitVal, today) ?: rencanaDao.getRencanaByUnit(kodeUnitVal)
+                }
+
+                if (existing != null && serverId > 0 && existing.id != serverId) {
+                    rencanaDao.deleteRencana(existing.id)
+                }
+
+                val targetId = if (serverId > 0) serverId else (existing?.id ?: 0L)
+
+                val entity = RencanaKerjaEntity(
+                    id = targetId,
                     supervisorName = supervisorName,
+                    pengawas = supervisorName,
                     statusUnit = renReq.status_unit ?: "OPERASI",
                     kodeUnit = kodeUnitVal,
                     operator = renReq.resolvedOperator,
@@ -608,22 +674,20 @@ class HeavyTrackRepository(
                     nomorSpk = spkNum,
                     statusSpk = spkStatus,
                     statusTahap = renReq.status_tahap ?: "RENCANA",
+                    statusRealisasi = if (renReq.is_realized == true) "SUDAH" else "BELUM",
                     isRealized = renReq.is_realized ?: false,
                     isSynced = true,
-                    createdAt = System.currentTimeMillis() - (index * 1000L),
+                    createdAt = existing?.createdAt ?: (System.currentTimeMillis() - (index * 1000L)),
                     tanggalFormat = renReq.tanggal?.takeIf { it.isNotBlank() } ?: renReq.tanggal_kerja?.takeIf { it.isNotBlank() } ?: today
                 )
-            }
 
-            if (newEntities.isNotEmpty()) {
-                // Ganti seluruh daftar rencana kerja di layar dengan data terbaru dari server
-                rencanaDao.clearActiveRencanaForSupervisor(supervisorName)
-                rencanaDao.insertRencanaList(newEntities)
+                rencanaDao.insertRencana(entity)
+                upsertedEntities.add(entity)
             }
 
             _lastSyncTimeMillis.value = System.currentTimeMillis()
-            addLog("GET /api/mobile/rencana-kerja/active", "GET", "200 OK", "${newEntities.size} Rencana Kerja Aktif", true)
-            Result.success(Pair(newEntities, msg))
+            addLog("GET /api/mobile/rencana-kerja/active", "GET", "200 OK", "${upsertedEntities.size} Rencana Aktif disinkronkan", true)
+            Result.success(Pair(upsertedEntities, msg))
         } catch (e: Exception) {
             addLog("GET /api/mobile/rencana-kerja/active", "GET", "ERROR", e.localizedMessage ?: "Gagal", false)
             Result.failure(e)
@@ -649,7 +713,7 @@ class HeavyTrackRepository(
                 CompanyServerSimulator.markRencanaRealized(savedHasil.rencanaId)
             }
 
-            val kendalaPayloads = KendalaJsonConverter.fromJson(savedHasil.daftarKendalaJson)
+            val kendalaPayloads = KendalaJsonConverter.fromJson(savedHasil.daftarKendalaJson).map { it.toCanonical() }
 
             // Also mirror into ActivityReportEntity for historical compatibility and analytics
             val reportMirror = ActivityReportEntity(
@@ -714,6 +778,8 @@ class HeavyTrackRepository(
                 kendala_id = savedHasil.kendalaId,
                 kendala_nama = savedHasil.kendalaNama,
                 catatan_kendala = savedHasil.catatanKendala,
+                kendala_lapangan = if (kendalaPayloads.isNotEmpty()) kendalaPayloads else null,
+                kendala_list = if (kendalaPayloads.isNotEmpty()) kendalaPayloads else null,
                 daftar_kendala = if (kendalaPayloads.isNotEmpty()) kendalaPayloads else null,
                 hasil_kerja = savedHasil.hasilKerja,
                 keterangan = savedHasil.keterangan,
@@ -752,6 +818,8 @@ class HeavyTrackRepository(
                 kendalaId = reportMirror.kendalaId,
                 kendalaNama = reportMirror.kendalaNama,
                 catatanKendala = reportMirror.catatanKendala,
+                kendalaLapangan = if (kendalaPayloads.isNotEmpty()) kendalaPayloads else null,
+                kendalaList = if (kendalaPayloads.isNotEmpty()) kendalaPayloads else null,
                 daftarKendala = if (kendalaPayloads.isNotEmpty()) kendalaPayloads else null,
                 photoBase64 = reportMirror.photoBase64,
                 photoSizeKb = reportMirror.photoSizeKb,
@@ -790,7 +858,7 @@ class HeavyTrackRepository(
         try {
             val insertedId = reportDao.insertReport(report.copy(isSynced = false))
             val savedReport = report.copy(id = insertedId)
-            val kendalaPayloads = KendalaJsonConverter.fromJson(savedReport.daftarKendalaJson)
+            val kendalaPayloads = KendalaJsonConverter.fromJson(savedReport.daftarKendalaJson).map { it.toCanonical() }
 
             val apiReq = PostActivityReportRequest.create(
                 clientUuid = savedReport.clientUuid,
@@ -816,6 +884,8 @@ class HeavyTrackRepository(
                 kendalaId = savedReport.kendalaId,
                 kendalaNama = savedReport.kendalaNama,
                 catatanKendala = savedReport.catatanKendala,
+                kendalaLapangan = if (kendalaPayloads.isNotEmpty()) kendalaPayloads else null,
+                kendalaList = if (kendalaPayloads.isNotEmpty()) kendalaPayloads else null,
                 daftarKendala = if (kendalaPayloads.isNotEmpty()) kendalaPayloads else null,
                 photoBase64 = savedReport.photoBase64,
                 photoSizeKb = savedReport.photoSizeKb,
@@ -854,7 +924,7 @@ class HeavyTrackRepository(
             var successCount = 0
             for (report in pending) {
                 try {
-                    val kendalaPayloads = KendalaJsonConverter.fromJson(report.daftarKendalaJson)
+                    val kendalaPayloads = KendalaJsonConverter.fromJson(report.daftarKendalaJson).map { it.toCanonical() }
                     val apiReq = PostActivityReportRequest.create(
                         clientUuid = report.clientUuid,
                         reportDate = report.reportDate,
@@ -879,6 +949,8 @@ class HeavyTrackRepository(
                         kendalaId = report.kendalaId,
                         kendalaNama = report.kendalaNama,
                         catatanKendala = report.catatanKendala,
+                        kendalaLapangan = if (kendalaPayloads.isNotEmpty()) kendalaPayloads else null,
+                        kendalaList = if (kendalaPayloads.isNotEmpty()) kendalaPayloads else null,
                         daftarKendala = if (kendalaPayloads.isNotEmpty()) kendalaPayloads else null,
                         photoBase64 = report.photoBase64,
                         photoSizeKb = report.photoSizeKb,
@@ -935,7 +1007,7 @@ class HeavyTrackRepository(
             val pendingHasil = hasilDao.getUnsyncedHasilList().filter { !it.isSynced || it.statusKirim == "PENDING" }
             for (hasil in pendingHasil) {
                 try {
-                    val kendalaPayloads = KendalaJsonConverter.fromJson(hasil.daftarKendalaJson)
+                    val kendalaPayloads = KendalaJsonConverter.fromJson(hasil.daftarKendalaJson).map { it.toCanonical() }
                     val req = PostHasilAktivitasRequest(
                         id = hasil.id,
                         rencana_id = hasil.rencanaId,
@@ -949,6 +1021,8 @@ class HeavyTrackRepository(
                         kendala_id = hasil.kendalaId,
                         kendala_nama = hasil.kendalaNama,
                         catatan_kendala = hasil.catatanKendala,
+                        kendala_lapangan = if (kendalaPayloads.isNotEmpty()) kendalaPayloads else null,
+                        kendala_list = if (kendalaPayloads.isNotEmpty()) kendalaPayloads else null,
                         daftar_kendala = if (kendalaPayloads.isNotEmpty()) kendalaPayloads else null,
                         hasil_kerja = hasil.hasilKerja,
                         keterangan = hasil.keterangan,

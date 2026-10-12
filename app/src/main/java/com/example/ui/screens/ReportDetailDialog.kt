@@ -402,15 +402,18 @@ fun ReportDetailDialog(
                                             .padding(vertical = 4.dp)
                                     ) {
                                         Column(modifier = Modifier.padding(10.dp)) {
+                                            val kodeDisp = k.resolvedKode.ifBlank { "-" }
                                             Text(
-                                                text = "#${index + 1} ${k.nama_kendala ?: "Kendala"} [${k.id_kendala ?: "-"}]",
+                                                text = "#${index + 1} ${k.resolvedNama.ifBlank { "Kendala" }} [$kodeDisp]",
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 12.sp,
                                                 color = Color(0xFF991B1B)
                                             )
-                                            if (!k.waktu_mulai.isNullOrBlank() || !k.waktu_selesai.isNullOrBlank()) {
+                                            val startDisp = k.resolvedJamMulai.ifBlank { "-" }
+                                            val endDisp = k.resolvedJamSelesai.ifBlank { "-" }
+                                            if (startDisp != "-" || endDisp != "-") {
                                                 Text(
-                                                    text = "Pukul: ${k.waktu_mulai ?: "-"} s/d ${k.waktu_selesai ?: "-"}${if (durasiStr.isNotBlank()) " • Hambatan: $durasiStr" else ""}",
+                                                    text = "Pukul: $startDisp s/d $endDisp${if (durasiStr.isNotBlank()) " • Hambatan: $durasiStr" else ""}",
                                                     fontSize = 11.sp,
                                                     color = Color(0xFFB91C1C)
                                                 )

@@ -12,6 +12,9 @@ data class RencanaKerjaEntity(
     @ColumnInfo(name = "supervisor_name")
     val supervisorName: String,
 
+    @ColumnInfo(name = "pengawas", defaultValue = "")
+    val pengawas: String = supervisorName,
+
     @ColumnInfo(name = "status_unit")
     val statusUnit: String = "OPERASI", // "OPERASI", "STANDBY", "BREAKDOWN"
 
@@ -50,6 +53,9 @@ data class RencanaKerjaEntity(
 
     @ColumnInfo(name = "is_realized", defaultValue = "0")
     val isRealized: Boolean = false,
+
+    @ColumnInfo(name = "status_realisasi", defaultValue = "BELUM")
+    val statusRealisasi: String = if (isRealized || statusTahap == "REALISASI_SELESAI") "SUDAH" else "BELUM", // "BELUM", "SUDAH"
 
     @ColumnInfo(name = "is_synced")
     val isSynced: Boolean = false,

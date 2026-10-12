@@ -412,10 +412,17 @@ class HeavyTrackViewModel(
         }
         realtimeSocketManager.connect(targetServerUrl)
 
-        // 2. WEBSOCKET LISTENER REAL-TIME (SPK_PUBLISHED)
+        // 2. WEBSOCKET & SOCKET.IO LISTENER REAL-TIME (SPK_PUBLISHED)
         viewModelScope.launch {
             realtimeSocketManager.spkPublishedEvents.collect { event ->
                 handleSpkPublished(event.rencanaId, event.unitKode, event.nomorSpk, event.statusSpk)
+            }
+        }
+
+        // 2b. REAL-TIME LISTENER PENGHAPUSAN (RENCANA_KERJA_DELETED)
+        viewModelScope.launch {
+            realtimeSocketManager.rencanaDeletedEvents.collect { event ->
+                handleRencanaDeleted(event.deletedId, event.unitKode)
             }
         }
 
@@ -423,6 +430,13 @@ class HeavyTrackViewModel(
         viewModelScope.launch {
             CompanyServerSimulator.spkEventFlow.collect { event ->
                 handleSpkPublished(event.planId, event.kodeUnit, event.nomorSpk, "SPK_TERBIT")
+            }
+        }
+
+        // 3b. Listener event penghapusan dari backend simulator (bridge)
+        viewModelScope.launch {
+            CompanyServerSimulator.rencanaDeletedEventFlow.collect { event ->
+                handleRencanaDeleted(event.planId.toString(), event.unitKode)
             }
         }
 
@@ -517,6 +531,48 @@ class HeavyTrackViewModel(
         }
     }
 
+    /**
+     * Listener & Handler Real-Time Penghapusan Rencana Kerja (RENCANA_KERJA_DELETED):
+     * Sesuai instruksi:
+     * 1. Hapus dari database Room SQLite lokal:
+     *    rencanaKerjaDao.deleteByIdOrUnit(deletedId, unitKode)
+     * 2. Hapus dari daftar rencana aktif di UI state secara reaktif:
+     *    Reset form selection jika rencana yang dihapus sedang dipilih pengawas.
+     *    Room Flow otomatis memperbarui daftar rencana di UI secara instan.
+     */
+    fun handleRencanaDeleted(deletedIdStr: String, unitKode: String) {
+        viewModelScope.launch(Dispatchers.Main) {
+            val numId = deletedIdStr.filter { it.isDigit() }.toLongOrNull() ?: 0L
+            val cleanUnit = unitKode.trim()
+
+            // 1. Hapus dari database Room SQLite lokal
+            withContext(Dispatchers.IO) {
+                repository.deleteRencanaByIdOrUnit(deletedIdStr, cleanUnit)
+            }
+
+            // 2. Perbarui State form input realisasi jika unit yang sedang dipilih dihapus di server
+            val cur = _realisasiFormState.value.selectedRencana
+            val isCurrentDeleted = cur != null && (
+                (numId > 0 && cur.id == numId) ||
+                (cleanUnit.isNotBlank() && cur.kodeUnit.equals(cleanUnit, ignoreCase = true))
+            )
+
+            if (isCurrentDeleted) {
+                _realisasiFormState.value = _realisasiFormState.value.copy(
+                    selectedRencana = null,
+                    nomorSpk = "",
+                    statusSpk = "MENUNGGU_SPK"
+                )
+            }
+
+            // 3. Tampilkan pesan informasi ke pengawas
+            val unitLabel = if (cleanUnit.isNotBlank()) "Unit $cleanUnit" else "ID $deletedIdStr"
+            _uiEvents.emit(
+                UiMessage.Info("Rencana kerja $unitLabel telah dihapus oleh Admin Web.")
+            )
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         realtimeSocketManager.disconnect()
@@ -530,7 +586,14 @@ class HeavyTrackViewModel(
                     val cur = _realisasiFormState.value.selectedRencana
                     if (cur != null) {
                         val matching = newPlans.find { it.id == cur.id || it.kodeUnit.equals(cur.kodeUnit, ignoreCase = true) }
-                        if (matching != null && matching.isSpkTerbit && _realisasiFormState.value.nomorSpk.isBlank()) {
+                        if (matching == null) {
+                            // Rencana yang sedang dipilih sudah dihapus di server, reset form selection
+                            _realisasiFormState.value = _realisasiFormState.value.copy(
+                                selectedRencana = null,
+                                nomorSpk = "",
+                                statusSpk = "MENUNGGU_SPK"
+                            )
+                        } else if (matching.isSpkTerbit && _realisasiFormState.value.nomorSpk.isBlank()) {
                             _realisasiFormState.value = _realisasiFormState.value.copy(
                                 nomorSpk = matching.nomorSpk,
                                 statusSpk = "SPK_TERBIT",
@@ -679,8 +742,7 @@ class HeavyTrackViewModel(
                 // Refresh master data pendukung
                 fetchBootstrapData(showOverlay = false)
 
-                // 3. Jika unit terpilih memiliki status_spk == 'SPK_TERBIT',
-                // langsung tampilkan nomor SPK di Card "1. Nomor SPK" dan buka kunci form realisasi
+                // 3. Periksa status unit yang sedang dipilih di form
                 val currentSelected = _realisasiFormState.value.selectedRencana
                 val matchingPlan = if (currentSelected != null) {
                     newPlans.find { it.id == currentSelected.id }
@@ -689,7 +751,14 @@ class HeavyTrackViewModel(
                     null
                 }
 
-                if (matchingPlan != null) {
+                if (currentSelected != null && matchingPlan == null) {
+                    // Rencana yang sedang dipilih sudah dihapus oleh Admin di Web
+                    _realisasiFormState.value = _realisasiFormState.value.copy(
+                        selectedRencana = null,
+                        nomorSpk = "",
+                        statusSpk = "MENUNGGU_SPK"
+                    )
+                } else if (matchingPlan != null) {
                     selectRencanaForRealisasi(matchingPlan)
                     val isSpkPublished = matchingPlan.statusSpk.equals("SPK_TERBIT", ignoreCase = true) ||
                             matchingPlan.statusSpk.equals("TERBIT_SPK", ignoreCase = true) ||
@@ -1133,17 +1202,21 @@ class HeavyTrackViewModel(
                     val payloads = KendalaJsonConverter.fromJson(savedDraft.daftarKendalaJson)
                     if (payloads.isNotEmpty()) {
                         payloads.map { p ->
-                            val kndCode = p.id_kendala ?: ""
-                            val kndName = p.nama_kendala ?: ""
-                            val matched = kendalaList.value.find { it.kodeKendala.equals(kndCode, ignoreCase = true) }
+                            val kndCode = p.resolvedKode
+                            val kndName = p.resolvedNama
+                            val matched = kendalaList.value.find { 
+                                it.kodeKendala.equals(kndCode, ignoreCase = true) ||
+                                KendalaItemPayload.resolveKodeKendala(it.kodeKendala) == kndCode ||
+                                it.namaKendala.equals(kndName, ignoreCase = true)
+                            }
                             KendalaItemFormState(
                                 selectedKendala = matched ?: KendalaEntity(
                                     kodeKendala = kndCode,
                                     namaKendala = kndName,
                                     kategori = "OPERASIONAL"
                                 ),
-                                waktuMulai = p.waktu_mulai ?: "",
-                                waktuSelesai = p.waktu_selesai ?: ""
+                                waktuMulai = p.resolvedJamMulai,
+                                waktuSelesai = p.resolvedJamSelesai
                             )
                         }
                     } else listOf(KendalaItemFormState())
@@ -1297,6 +1370,13 @@ class HeavyTrackViewModel(
                 )
             }
             _uiEvents.emit(UiMessage.Success("Web Admin telah menerbitkan SPK: $spk untuk unit $unitCode"))
+        }
+    }
+
+    fun adminSimulateDeleteRencana(planId: Long, unitCode: String) {
+        viewModelScope.launch {
+            CompanyServerSimulator.adminDeleteRencana(planId, unitCode, _activeSupervisor.value)
+            handleRencanaDeleted(planId.toString(), unitCode)
         }
     }
 
@@ -1578,12 +1658,16 @@ class HeavyTrackViewModel(
             val kendalaPayloads = state.daftarKendala
                 .filter { it.selectedKendala != null || it.waktuMulai.isNotBlank() || it.waktuSelesai.isNotBlank() }
                 .map { item ->
-                    KendalaItemPayload(
-                        id_kendala = item.selectedKendala?.kodeKendala ?: "",
-                        nama_kendala = item.selectedKendala?.namaKendala ?: "",
-                        waktu_mulai = item.waktuMulai,
-                        waktu_selesai = item.waktuSelesai,
-                        durasi_menit = item.durasiMenit ?: 0
+                    val knd = item.selectedKendala
+                    val minutes = item.durasiMenit ?: 0
+                    val hours = Math.round((minutes / 60.0) * 10.0) / 10.0
+                    KendalaItemPayload.create(
+                        namaKendala = knd?.namaKendala ?: "",
+                        kodeKendala = knd?.kodeKendala ?: "",
+                        jamMulai = item.waktuMulai,
+                        jamSelesai = item.waktuSelesai,
+                        durasiJam = hours,
+                        durasiMenit = minutes
                     )
                 }
             val jsonKendala = if (kendalaPayloads.isNotEmpty()) KendalaJsonConverter.toJson(kendalaPayloads) else ""
@@ -1749,12 +1833,16 @@ class HeavyTrackViewModel(
         val validKendalaList: List<KendalaItemFormState> = state.daftarKendala.filter { it.isValid }
 
         val kendalaPayloads = validKendalaList.map { item ->
-            KendalaItemPayload(
-                id_kendala = item.selectedKendala?.kodeKendala,
-                nama_kendala = item.selectedKendala?.namaKendala,
-                waktu_mulai = item.waktuMulai,
-                waktu_selesai = item.waktuSelesai,
-                durasi_menit = item.durasiMenit ?: 0
+            val knd = item.selectedKendala
+            val minutes = item.durasiMenit ?: 0
+            val hours = Math.round((minutes / 60.0) * 10.0) / 10.0
+            KendalaItemPayload.create(
+                namaKendala = knd?.namaKendala ?: "",
+                kodeKendala = knd?.kodeKendala ?: "",
+                jamMulai = item.waktuMulai,
+                jamSelesai = item.waktuSelesai,
+                durasiJam = hours,
+                durasiMenit = minutes
             )
         }
 

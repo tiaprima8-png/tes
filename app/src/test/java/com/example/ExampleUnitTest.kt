@@ -319,6 +319,115 @@ class ExampleUnitTest {
     }
 
     @Test
+    fun test_kendala_lapangan_payload_mapping_post_aktivitas_unit() {
+        val kendala1 = com.example.data.remote.KendalaItemPayload.create(
+            namaKendala = "Antar - jemput",
+            kodeKendala = "1.0",
+            jamMulai = "08:00",
+            jamSelesai = "09:00",
+            durasiJam = 1.0
+        )
+        val kendala2 = com.example.data.remote.KendalaItemPayload.create(
+            namaKendala = "Transport",
+            kodeKendala = "3.0",
+            jamMulai = "09:00",
+            jamSelesai = "10:00",
+            durasiJam = 1.0
+        )
+
+        assertEquals("Antar - jemput", kendala1.nama_kendala)
+        assertEquals("1.0", kendala1.kode_kendala)
+        assertEquals("08:00", kendala1.jam_mulai)
+        assertEquals("09:00", kendala1.jam_selesai)
+        assertEquals(1.0, kendala1.durasi_jam ?: 0.0, 0.001)
+
+        assertEquals("Transport", kendala2.nama_kendala)
+        assertEquals("3.0", kendala2.kode_kendala)
+        assertEquals("09:00", kendala2.jam_mulai)
+        assertEquals("10:00", kendala2.jam_selesai)
+        assertEquals(1.0, kendala2.durasi_jam ?: 0.0, 0.001)
+
+        val listKendala = listOf(kendala1, kendala2)
+
+        val request = com.example.data.remote.PostActivityReportRequest.create(
+            clientUuid = "TEST-UUID-01",
+            reportDate = "12/10/2026",
+            supervisorName = "Budi Santoso",
+            unitCode = "HEH1",
+            unitType = "EXCAVATOR",
+            activityName = "Galian Tanah",
+            sapCode = "ACT-SAP-101",
+            unitOfMeasure = "m3",
+            operatorName = "Ahmad",
+            workLocation = "001A",
+            shift = "SIANG",
+            workDurationHours = 7.0,
+            hmAwal = 4125.0,
+            hmAkhir = 4132.0,
+            hmDailyRunning = 7.0,
+            workOutput = 100.0,
+            notes = "Realisasi harian lancar",
+            kendalaLapangan = listKendala,
+            kendalaList = listKendala,
+            daftarKendala = listKendala
+        )
+
+        assertNotNull(request.kendala_lapangan)
+        assertNotNull(request.kendala_list)
+        assertEquals(2, request.kendala_lapangan?.size)
+        assertEquals(2, request.kendala_list?.size)
+        assertEquals("1.0", request.kendala_lapangan?.get(0)?.kode_kendala)
+        assertEquals("Antar - jemput", request.kendala_lapangan?.get(0)?.nama_kendala)
+        assertEquals("3.0", request.kendala_lapangan?.get(1)?.kode_kendala)
+        assertEquals("Transport", request.kendala_lapangan?.get(1)?.nama_kendala)
+
+        // Verify JSON serialization via Moshi
+        val moshi = com.squareup.moshi.Moshi.Builder().build()
+        val adapter = moshi.adapter(com.example.data.remote.PostActivityReportRequest::class.java)
+        val json = adapter.toJson(request)
+
+        assertTrue(json.contains("\"kendala_lapangan\""))
+        assertTrue(json.contains("\"kendala_list\""))
+        assertTrue(json.contains("\"nama_kendala\":\"Antar - jemput\""))
+        assertTrue(json.contains("\"kode_kendala\":\"1.0\""))
+        assertTrue(json.contains("\"jam_mulai\":\"08:00\""))
+        assertTrue(json.contains("\"jam_selesai\":\"09:00\""))
+        assertTrue(json.contains("\"durasi_jam\":1.0"))
+        assertTrue(json.contains("\"nama_kendala\":\"Transport\""))
+        assertTrue(json.contains("\"kode_kendala\":\"3.0\""))
+
+        // Also verify PostHasilAktivitasRequest serialization with kendala_lapangan and kendala_list
+        val hasilReq = com.example.data.remote.PostHasilAktivitasRequest(
+            id = 101L,
+            rencana_id = 12L,
+            kode_unit = "HEH1",
+            hm_awal = 4125.0,
+            hm_akhir = 4132.0,
+            kendala_lapangan = listKendala,
+            kendala_list = listKendala,
+            daftar_kendala = listKendala
+        )
+        val hasilAdapter = moshi.adapter(com.example.data.remote.PostHasilAktivitasRequest::class.java)
+        val hasilJson = hasilAdapter.toJson(hasilReq)
+        assertTrue(hasilJson.contains("\"kendala_lapangan\""))
+        assertTrue(hasilJson.contains("\"kendala_list\""))
+        assertTrue(hasilJson.contains("\"nama_kendala\":\"Antar - jemput\""))
+        assertTrue(hasilJson.contains("\"kode_kendala\":\"1.0\""))
+        assertTrue(hasilJson.contains("\"nama_kendala\":\"Transport\""))
+        assertTrue(hasilJson.contains("\"kode_kendala\":\"3.0\""))
+    }
+
+    @Test
+    fun test_kendala_resolve_kode_from_name_and_variations() {
+        assertEquals("1.0", com.example.data.remote.KendalaItemPayload.resolveKodeKendala(null, "Antar - jemput"))
+        assertEquals("1.0", com.example.data.remote.KendalaItemPayload.resolveKodeKendala("KND-01", "Antar - jemput"))
+        assertEquals("1.0", com.example.data.remote.KendalaItemPayload.resolveKodeKendala("1", "Antar - jemput"))
+        assertEquals("3.0", com.example.data.remote.KendalaItemPayload.resolveKodeKendala(null, "Transport"))
+        assertEquals("3.0", com.example.data.remote.KendalaItemPayload.resolveKodeKendala("KND-03", "Transport"))
+        assertEquals("3.0", com.example.data.remote.KendalaItemPayload.resolveKodeKendala("3.0", "Transport"))
+    }
+
+    @Test
     fun test_official_apk_distribution_urls() {
         val defaultUrl = com.example.ui.viewmodel.HeavyTrackViewModel.APK_DIRECT_DOWNLOAD_URL
         val repoUrl = com.example.ui.viewmodel.HeavyTrackViewModel.GITHUB_REPO_URL

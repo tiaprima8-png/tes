@@ -216,29 +216,54 @@ fun MasterDataScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Tombol Aksi Elegan: "Download & Bagikan Installer APK"
+                    // Tombol Aksi Utama: "Download & Bagikan Installer APK"
                     Button(
                         onClick = { showDistributionDialog = true },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(48.dp)
+                            .height(52.dp)
                             .testTag("btn_open_distribution"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Emerald600)
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.CloudDownload,
+                            imageVector = Icons.Default.Download,
                             contentDescription = null,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(22.dp),
+                            tint = Color.White
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Download & Bagikan Installer APK",
-                            style = MaterialTheme.typography.labelLarge.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Download Installer APK",
+                                    style = MaterialTheme.typography.labelLarge.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        fontSize = 13.sp
+                                    )
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = Emerald700
+                                ) {
+                                    Text(
+                                        text = "v1.2",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                    )
+                                }
+                            }
+                            Text(
+                                text = "Ekstrak & bagikan berkas APK resmi pembaruan",
+                                fontSize = 10.sp,
+                                color = Color.White.copy(alpha = 0.9f)
                             )
-                        )
+                        }
                     }
 
                     Spacer(modifier = Modifier.height(10.dp))
@@ -996,12 +1021,33 @@ fun DistributionDialog(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Tombol Aksi Utama 1: Bagikan File APK Asli via WhatsApp (Rekomendasi Utama)
+                // Tombol Aksi Utama: DOWNLOAD / SIMPAN FILE APK RESMI KE HP
+                Button(
+                    onClick = onSaveApkLocally,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(54.dp)
+                        .testTag("btn_download_apk"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
+                ) {
+                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(22.dp), tint = Color.White)
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Column {
+                        Text("Unduh Berkas Installer APK (.apk)", fontWeight = FontWeight.Bold, color = Color.White, fontSize = 13.sp)
+                        Text("Simpan file APK versi terbaru langsung ke folder Download HP", fontSize = 10.sp, color = Color.White.copy(alpha = 0.9f))
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Tombol Aksi 2: Bagikan File APK via WhatsApp
                 Button(
                     onClick = onShareWhatsApp,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp)
+                        .height(50.dp)
                         .testTag("btn_share_whatsapp"),
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF25D366))
@@ -1016,12 +1062,12 @@ fun DistributionDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Tombol Aksi 2: Bagikan Berkas APK ke Aplikasi Lain
+                // Tombol Aksi 3: Bagikan Berkas APK ke Aplikasi Lain
                 Button(
                     onClick = onShareGeneral,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
+                        .height(46.dp)
                         .testTag("btn_share_general"),
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Slate800)
@@ -1029,23 +1075,6 @@ fun DistributionDialog(
                     Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp), tint = Color.White)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Kirim File APK ke Aplikasi Lain (Bluetooth / Drive)", fontWeight = FontWeight.SemiBold, fontSize = 12.sp, color = Color.White)
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // Tombol Aksi 3: Simpan / Ekstrak APK ke Folder Download HP Ini
-                Button(
-                    onClick = onSaveApkLocally,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp)
-                        .testTag("btn_download_apk"),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Emerald600)
-                ) {
-                    Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Simpan File APK Pembaruan ke Folder Download HP", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))

@@ -3165,10 +3165,10 @@ fun FormReportScreen(
                 }
             }
 
-            // 3. DAFTAR KARTU RENCANA KERJA YANG SUDAH DIBUAT
+            // 3. DAFTAR KARTU RENCANA KERJA YANG SUDAH DIBUAT (Reaktif membaca Flow Room SQLite)
             val displayedList = when (rencanaFilterIndex) {
-                1 -> allRencanaList.filter { !it.isRealized }
-                2 -> allRencanaList.filter { it.isRealized }
+                1 -> activeRencanaList // Langsung membaca query Room: SELECT * FROM rencana_kerja WHERE pengawas = :pengawas AND status_realisasi = 'BELUM'
+                2 -> allRencanaList.filter { it.isRealized || it.statusRealisasi == "SUDAH" }
                 else -> allRencanaList
             }
 

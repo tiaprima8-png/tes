@@ -13,16 +13,19 @@ interface RencanaKerjaDao {
     @Query("SELECT * FROM rencana_kerja ORDER BY created_at DESC")
     fun getAllRencana(): Flow<List<RencanaKerjaEntity>>
 
-    @Query("SELECT * FROM rencana_kerja WHERE supervisor_name = :supervisor ORDER BY created_at DESC")
+    @Query("SELECT * FROM rencana_kerja WHERE supervisor_name = :supervisor OR pengawas = :supervisor ORDER BY created_at DESC")
     fun getRencanaForSupervisor(supervisor: String): Flow<List<RencanaKerjaEntity>>
 
-    @Query("SELECT * FROM rencana_kerja WHERE supervisor_name = :supervisor AND is_realized = 0 AND status_tahap = 'RENCANA' ORDER BY created_at DESC")
+    @Query("SELECT * FROM rencana_kerja WHERE (supervisor_name = :supervisor OR pengawas = :supervisor) AND (status_realisasi = 'BELUM' OR (is_realized = 0 AND status_tahap = 'RENCANA')) ORDER BY created_at DESC")
     fun getActiveRencanaForSupervisor(supervisor: String): Flow<List<RencanaKerjaEntity>>
+
+    @Query("SELECT * FROM rencana_kerja WHERE (supervisor_name = :pengawas OR pengawas = :pengawas) AND status_realisasi = 'BELUM' ORDER BY created_at DESC")
+    fun getRencanaKerjaBelumRealisasi(pengawas: String): Flow<List<RencanaKerjaEntity>>
 
     @Query("SELECT * FROM rencana_kerja WHERE id = :id LIMIT 1")
     suspend fun getRencanaById(id: Long): RencanaKerjaEntity?
 
-    @Query("SELECT * FROM rencana_kerja WHERE supervisor_name = :supervisor AND kode_unit = :kodeUnit AND tanggal_format = :tanggal LIMIT 1")
+    @Query("SELECT * FROM rencana_kerja WHERE (supervisor_name = :supervisor OR pengawas = :supervisor) AND kode_unit = :kodeUnit AND tanggal_format = :tanggal LIMIT 1")
     suspend fun findRencana(supervisor: String, kodeUnit: String, tanggal: String): RencanaKerjaEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -37,7 +40,7 @@ interface RencanaKerjaDao {
     @Query("UPDATE rencana_kerja SET is_synced = 1 WHERE id = :id")
     suspend fun markAsSynced(id: Long)
 
-    @Query("UPDATE rencana_kerja SET is_realized = 1, status_tahap = 'REALISASI_SELESAI', status_spk = 'SELESAI' WHERE id = :id")
+    @Query("UPDATE rencana_kerja SET is_realized = 1, status_tahap = 'REALISASI_SELESAI', status_spk = 'SELESAI', status_realisasi = 'SUDAH' WHERE id = :id")
     suspend fun markAsRealized(id: Long)
 
     @Query("UPDATE rencana_kerja SET nomor_spk = :spk, status_spk = :status WHERE id = :id")
@@ -46,7 +49,7 @@ interface RencanaKerjaDao {
     @Query("UPDATE rencana_kerja SET nomor_spk = :spk, status_spk = :status WHERE kode_unit = :kodeUnit")
     suspend fun updateSpkByUnit(kodeUnit: String, spk: String, status: String)
 
-    @Query("UPDATE rencana_kerja SET nomor_spk = :spk, status_spk = :status WHERE kode_unit = :kodeUnit AND is_realized = 0")
+    @Query("UPDATE rencana_kerja SET nomor_spk = :spk, status_spk = :status WHERE kode_unit = :kodeUnit AND (status_realisasi = 'BELUM' OR is_realized = 0)")
     suspend fun updateSpkForActiveUnit(kodeUnit: String, spk: String, status: String)
 
     @Query("UPDATE rencana_kerja SET nomor_spk = :spk, status_spk = :status WHERE kode_unit = :kodeUnit")
@@ -62,8 +65,28 @@ interface RencanaKerjaDao {
     suspend fun getUnsyncedRencanaList(): List<RencanaKerjaEntity>
 
     @Query("DELETE FROM rencana_kerja WHERE id = :id")
-    suspend fun deleteRencana(id: Long)
+    suspend fun deleteRencana(id: Long): Int
 
-    @Query("DELETE FROM rencana_kerja WHERE supervisor_name = :supervisor AND is_realized = 0")
-    suspend fun clearActiveRencanaForSupervisor(supervisor: String)
+    // 1. Sync Pruning Query
+    @Query("DELETE FROM rencana_kerja WHERE (supervisor_name = :namaPengawas OR pengawas = :namaPengawas) AND (status_realisasi = 'BELUM' OR is_realized = 0) AND id NOT IN (:activeServerIds)")
+    suspend fun deletePrunedRencana(namaPengawas: String, activeServerIds: List<Long>): Int
+
+    @Query("DELETE FROM rencana_kerja WHERE (supervisor_name = :namaPengawas OR pengawas = :namaPengawas) AND (status_realisasi = 'BELUM' OR is_realized = 0)")
+    suspend fun clearActiveRencanaForSupervisor(namaPengawas: String): Int
+
+    // 2. Real-time Delete Query
+    @Query("DELETE FROM rencana_kerja WHERE (:deletedId > 0 AND id = :deletedId) OR (:unitKode != '' AND kode_unit = :unitKode)")
+    suspend fun deleteByIdOrUnitInternal(deletedId: Long, unitKode: String): Int
+
+    suspend fun deleteByIdOrUnit(deletedId: Long, unitKode: String?): Int {
+        return deleteByIdOrUnitInternal(deletedId, unitKode?.trim() ?: "")
+    }
+
+    suspend fun deleteByIdOrUnit(deletedId: String?, unitKode: String?): Int {
+        val idLong = deletedId?.filter { it.isDigit() }?.toLongOrNull() ?: 0L
+        val cleanUnit = unitKode?.trim() ?: ""
+        return if (idLong > 0 || cleanUnit.isNotBlank()) {
+            deleteByIdOrUnitInternal(idLong, cleanUnit)
+        } else 0
+    }
 }
