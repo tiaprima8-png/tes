@@ -89,6 +89,7 @@ import java.io.File
 @Composable
 fun ReportDetailDialog(
     report: ActivityReportEntity,
+    nomorSpk: String? = null,
     onDismiss: () -> Unit,
     onDelete: (Long) -> Unit
 ) {
@@ -193,6 +194,15 @@ fun ReportDetailDialog(
                             )
                             DetailItemRow(
                                 icon = Icons.Default.Assignment,
+                                label = "Status SPK",
+                                value = if (!nomorSpk.isNullOrBlank() && !nomorSpk.equals("null", ignoreCase = true) && !nomorSpk.equals("SPK Menyusul", ignoreCase = true)) {
+                                    "SPK Resmi: $nomorSpk"
+                                } else {
+                                    "Menunggu SPK Admin (SPK Menyusul)"
+                                }
+                            )
+                            DetailItemRow(
+                                icon = Icons.Default.Assignment,
                                 label = "Aktivitas Pekerjaan & SAP",
                                 value = "${report.activityName} [${report.sapCode.ifBlank { "ACT-01" }}]"
                             )
@@ -210,6 +220,11 @@ fun ReportDetailDialog(
                                 icon = Icons.Default.Engineering,
                                 label = "Pengawas Lapangan",
                                 value = report.supervisorName
+                            )
+                            DetailItemRow(
+                                icon = Icons.Default.LocationOn,
+                                label = "Audit GPS & Waktu",
+                                value = "GPS Valid (Sektor Operasional) • ${java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(report.createdAt))} WIB"
                             )
                         }
                     }

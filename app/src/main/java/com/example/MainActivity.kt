@@ -30,11 +30,11 @@ import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudSync
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PrecisionManufacturing
-import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
@@ -83,10 +83,10 @@ import com.example.data.local.AppDatabase
 import com.example.data.remote.ApiClientManager
 import com.example.data.repository.HeavyTrackRepository
 import com.example.ui.screens.AnalyticsScreen
+import com.example.ui.screens.DistributionDialog
 import com.example.ui.screens.FormReportScreen
 import com.example.ui.screens.HistoryScreen
 import com.example.ui.screens.LoginScreen
-import com.example.ui.screens.MasterDataScreen
 import com.example.ui.theme.Emerald100
 import com.example.ui.theme.Emerald50
 import com.example.ui.theme.Emerald600
@@ -136,6 +136,8 @@ fun HeavyTrackApp() {
 
     var currentTab by remember { mutableIntStateOf(0) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showDistributionDialog by remember { mutableStateOf(false) }
+    val customApkUrl by viewModel.customApkUrl.collectAsState()
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
     val unsyncedCount by viewModel.unsyncedCount.collectAsState()
     val isSyncingMaster by viewModel.isSyncingMaster.collectAsState()
@@ -234,6 +236,33 @@ fun HeavyTrackApp() {
                             }
                         },
                         actions = {
+                            // Tombol Kecil Download Installer APK (Simbol kecil di samping tombol sinkron di atas kanan)
+                            Surface(
+                                shape = RoundedCornerShape(20.dp),
+                                color = Emerald50,
+                                border = androidx.compose.foundation.BorderStroke(
+                                    1.dp,
+                                    Emerald600.copy(alpha = 0.5f)
+                                ),
+                                modifier = Modifier
+                                    .padding(end = 8.dp)
+                                    .size(32.dp)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .clickable {
+                                        showDistributionDialog = true
+                                    }
+                                    .testTag("appbar_download_installer_btn")
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        imageVector = Icons.Default.CloudDownload,
+                                        contentDescription = "Download Installer APK",
+                                        tint = Emerald700,
+                                        modifier = Modifier.size(17.dp)
+                                    )
+                                }
+                            }
+
                             // Tombol "Sinkron" (Manual Pull dari Server) di Pojok Kanan Atas AppBar
                             val isSyncing = isSyncingMaster || isSyncingPending
                             Surface(
@@ -526,34 +555,6 @@ fun HeavyTrackApp() {
                         ),
                         modifier = Modifier.testTag("nav_item_analytics")
                     )
-
-                    // Tab 3: Master Data & Distribusi
-                    NavigationBarItem(
-                        selected = currentTab == 3,
-                        onClick = { currentTab = 3 },
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Default.Storage,
-                                contentDescription = "Master Data",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        },
-                        label = {
-                            Text(
-                                text = "Master Data",
-                                fontWeight = if (currentTab == 3) FontWeight.Bold else FontWeight.Medium,
-                                fontSize = 11.sp
-                            )
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Emerald900,
-                            selectedTextColor = Emerald900,
-                            indicatorColor = Emerald100,
-                            unselectedIconColor = Slate500,
-                            unselectedTextColor = Slate500
-                        ),
-                        modifier = Modifier.testTag("nav_item_master")
-                    )
                 }
             }
         ) { innerPadding ->
@@ -575,11 +576,37 @@ fun HeavyTrackApp() {
                     2 -> AnalyticsScreen(
                         viewModel = viewModel
                     )
-                    3 -> MasterDataScreen(
-                        viewModel = viewModel
-                    )
                 }
             }
+        }
+
+        if (showDistributionDialog) {
+            DistributionDialog(
+                onDismiss = { showDistributionDialog = false },
+                currentApkUrl = customApkUrl,
+                onSaveApkLocally = {
+                    viewModel.downloadApk(context)
+                    showDistributionDialog = false
+                },
+                onShareWhatsApp = {
+                    viewModel.shareApkViaWhatsApp(context)
+                    showDistributionDialog = false
+                },
+                onShareGeneral = {
+                    viewModel.shareApkGeneral(context)
+                    showDistributionDialog = false
+                },
+                onInstallLocalApk = {
+                    viewModel.launchApkInstaller(context)
+                    showDistributionDialog = false
+                },
+                onOpenInBrowser = { url ->
+                    viewModel.openApkDownloadInBrowser(context, url)
+                },
+                onUpdateApkUrl = { newUrl ->
+                    viewModel.updateCustomApkUrl(newUrl)
+                }
+            )
         }
 
         if (showLogoutDialog) {

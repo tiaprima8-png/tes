@@ -496,16 +496,6 @@ class HeavyTrackViewModel(
                         statusSpk = effectiveStatus
                     )
                 )
-            } else if (cur == null && (cleanUnit.isNotBlank() || rencanaId > 0)) {
-                // Jika belum ada rencana yang dipilih di layar, otomatis pilih rencana kerja yang SPK-nya baru diterbitkan
-                val activePlans = repository.getActiveRencanaForSupervisor(_activeSupervisor.value).firstOrNull() ?: emptyList()
-                val target = activePlans.find { 
-                    (cleanUnit.isNotBlank() && it.kodeUnit.equals(cleanUnit, ignoreCase = true)) ||
-                    (rencanaId > 0 && it.id == rencanaId)
-                }
-                if (target != null) {
-                    selectRencanaForRealisasi(target.copy(nomorSpk = cleanSpk, statusSpk = effectiveStatus))
-                }
             }
 
             // 3. Sinkronkan seluruh rencana kerja di background agar konsisten dengan server
@@ -547,11 +537,6 @@ class HeavyTrackViewModel(
                                 selectedRencana = cur.copy(nomorSpk = matching.nomorSpk, statusSpk = "SPK_TERBIT")
                             )
                         }
-                    } else if (newPlans.isNotEmpty()) {
-                        val planWithSpk = newPlans.find { it.isSpkTerbit } ?: newPlans.firstOrNull()
-                        if (planWithSpk != null) {
-                            selectRencanaForRealisasi(planWithSpk)
-                        }
                     }
                     onDone?.invoke(newPlans)
                 }
@@ -577,6 +562,8 @@ class HeavyTrackViewModel(
         _rencanaFormState.value = _rencanaFormState.value.copy(
             shiftKerja = supervisor.defaultShift
         )
+        // Saat user awal login, jangan langsung masuk form realisasi
+        clearSelectedRencanaForRealisasi()
         viewModelScope.launch {
             _uiEvents.emit(UiMessage.Success("Selamat bertugas, Pengawas ${supervisor.name} (${supervisor.nik})"))
             fetchBootstrapData(showOverlay = true)
@@ -658,26 +645,8 @@ class HeavyTrackViewModel(
 
             result.onSuccess { summary ->
                 _uiEvents.emit(UiMessage.Success("Sinkronisasi Selesai: $summary"))
-
-                // Auto-select kartu penugasan unit yang SPK-nya sudah terbit
-                if (_realisasiFormState.value.selectedRencana == null) {
-                    val activePlans = repository.getActiveRencanaForSupervisor(currentSupervisor).firstOrNull() ?: emptyList()
-                    val targetPlan = activePlans.find { it.statusSpk == "TERBIT_SPK" && !it.isRealized }
-                        ?: activePlans.firstOrNull { !it.isRealized }
-                    if (targetPlan != null) {
-                        selectRencanaForRealisasi(targetPlan)
-                    }
-                }
             }.onFailure { err ->
                 _uiEvents.emit(UiMessage.Info("Mode Offline: ${err.message ?: "Data dimuat dari SQLite lokal"}"))
-                if (_realisasiFormState.value.selectedRencana == null) {
-                    val activePlans = repository.getActiveRencanaForSupervisor(currentSupervisor).firstOrNull() ?: emptyList()
-                    val targetPlan = activePlans.find { it.statusSpk == "TERBIT_SPK" && !it.isRealized }
-                        ?: activePlans.firstOrNull { !it.isRealized }
-                    if (targetPlan != null) {
-                        selectRencanaForRealisasi(targetPlan)
-                    }
-                }
             }
         }
     }
@@ -717,7 +686,7 @@ class HeavyTrackViewModel(
                     newPlans.find { it.id == currentSelected.id }
                         ?: newPlans.find { it.kodeUnit.equals(currentSelected.kodeUnit, ignoreCase = true) }
                 } else {
-                    newPlans.firstOrNull()
+                    null
                 }
 
                 if (matchingPlan != null) {
@@ -1046,13 +1015,12 @@ class HeavyTrackViewModel(
                 _uiEvents.emit(
                     UiMessage.Success("Berhasil membuat $totalPlans $planType untuk Unit ${saved.kodeUnit} ($targetDate)$planNotice")
                 )
-                // Reset form
+                // Reset form rencana
                 _rencanaFormState.value = RencanaFormUiState(
                     shiftKerja = state.shiftKerja
                 )
-                // Otomatis beralih ke Tahap 2 Realisasi Kerja dengan rencana baru yang dibuat
-                selectRencanaForRealisasi(saved)
-                _formSubTab.value = 1
+                // Kembalikan ke daftar rencana kerja di layar agar pengawas melihat daftar rencana yang sudah dibuat
+                clearSelectedRencanaForRealisasi()
             }.onFailure { err ->
                 _uiEvents.emit(UiMessage.Error("Gagal menyimpan rencana: ${err.message}"))
             }
@@ -1643,6 +1611,12 @@ class HeavyTrackViewModel(
             )
             repository.saveDraftForRencana(draft)
         }
+    }
+
+    fun clearSelectedRencanaForRealisasi() {
+        _realisasiFormState.value = RealisasiFormUiState(
+            clientTransactionId = "TX-" + java.util.UUID.randomUUID().toString()
+        )
     }
 
     fun resetRealisasiFormManual() {
