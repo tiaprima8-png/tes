@@ -983,7 +983,7 @@ fun UnitSearchableSelectorSheet(
     SearchableSelectorSheet(
         isOpen = isOpen,
         title = "Pilih Unit Alat Berat",
-        searchPlaceholder = "Cari kode unit atau jenis (mis. EX-201, Bulldozer)...",
+        searchPlaceholder = "Cari kode unit atau jenis (mis. HEH1, Excavator, Grader)...",
         items = units,
         filterPredicate = { unit, query ->
             unit.unitCode.contains(query, ignoreCase = true) ||

@@ -52,9 +52,9 @@ interface UnitDao {
           AND (
             :unitType IS NULL OR :unitType = 'Semua Jenis' OR :unitType = '' OR 
             (:unitType LIKE '%EXCAVATOR%' AND (unitType LIKE '%EXCAVATOR%' OR unitType LIKE '%HE%')) OR
-            (:unitType LIKE '%DUMP%' AND (unitType LIKE '%DUMP%' OR unitType LIKE '%DT%')) OR
-            (:unitType LIKE '%WATER%' AND (unitType LIKE '%WATER%' OR unitType LIKE '%WT%')) OR
-            (:unitType LIKE '%BULLDOZER%' AND (unitType LIKE '%BULLDOZER%' OR unitType LIKE '%DOZER%')) OR
+            (:unitType LIKE '%GRADER%' AND unitType LIKE '%GRADER%') OR
+            (:unitType LIKE '%COMPACTOR%' AND unitType LIKE '%COMPACTOR%') OR
+            unitType = :unitType OR
             unitType LIKE '%' || :unitType || '%'
           )
           AND (:unitCode IS NULL OR :unitCode = 'Semua Unit' OR :unitCode = '' OR unitCode = :unitCode)
@@ -64,6 +64,9 @@ interface UnitDao {
 
     @Query("SELECT * FROM units WHERE unitCode = :unitCode LIMIT 1")
     suspend fun getUnitByCode(unitCode: String): UnitEntity?
+
+    @Query("SELECT COUNT(*) FROM units")
+    fun getUnitCount(): Flow<Int>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUnits(units: List<UnitEntity>)
@@ -82,4 +85,10 @@ interface UnitDao {
 
     @Query("DELETE FROM units")
     suspend fun clearAllUnits()
+
+    @Query("DELETE FROM units")
+    suspend fun deleteAll()
+
+    @Query("DELETE FROM units WHERE LOWER(unitType) IN ('dump truck', 'bulldozer') OR LOWER(unitType) LIKE '%dump%' OR LOWER(unitType) LIKE '%bulldozer%'")
+    suspend fun deleteDumpTruckAndBulldozer(): Int
 }

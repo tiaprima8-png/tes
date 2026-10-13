@@ -48,20 +48,19 @@ object CompanyServerSimulator {
     // Map of planId -> published SPK
     val publishedSpkMap = ConcurrentHashMap<Long, String>()
 
-    // Central master units in company web admin
+    // Central master units in company web admin (Hanya Unit Operasional Aktif: Excavator Long Arm, Excavator Mini, Excavator Standar, Motor Grader, Compactor)
     val serverUnits = CopyOnWriteArrayList<UnitPayload>().apply {
         addAll(
             listOf(
-                UnitPayload("HEH1", "EXCAVATOR", "Komatsu PC200-8", 4125.5, "Budi Santoso", "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
-                UnitPayload("EXC-02", "EXCAVATOR", "Caterpillar 320D", 6280.0, "Budi Santoso", "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
-                UnitPayload("DT-101", "DUMP TRUCK", "Hino FM 260 Ti", 3450.2, "Budi Santoso", "OPERASIONAL", 5.5, 9.5, "Geodesi PG1"),
-                UnitPayload("DT-102", "DUMP TRUCK", "Scania P360", 2890.4, "Budi Santoso", "OPERASIONAL", 5.5, 9.5, "Geodesi PG1"),
-                UnitPayload("DZ-01", "BULLDOZER", "Komatsu D85ESS-2", 5130.8, "Budi Santoso", "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
-                UnitPayload("GRD-01", "MOTOR GRADER", "Caterpillar 140K", 1870.0, "Budi Santoso", "OPERASIONAL", 5.0, 9.0, "Geodesi PG1"),
+                UnitPayload("HEH1", "Excavator Standar", "Komatsu PC200-8", 4125.5, "Budi Santoso", "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
+                UnitPayload("EXC-02", "Excavator Long Arm", "Caterpillar 320D Long Arm", 6280.0, "Budi Santoso", "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
+                UnitPayload("EXC-M01", "Excavator Mini", "Kubota U50-5", 1450.0, "Budi Santoso", "OPERASIONAL", 5.0, 8.0, "Geodesi PG1"),
+                UnitPayload("GRD-01", "Motor Grader", "Caterpillar 140K", 1870.0, "Budi Santoso", "OPERASIONAL", 5.0, 9.0, "Geodesi PG1"),
+                UnitPayload("CMP-01", "Compactor", "Bomag BW211 D-40", 2100.0, "Budi Santoso", "OPERASIONAL", 5.0, 8.5, "Geodesi PG1"),
                 // Units assigned to other supervisors
-                UnitPayload("EXC-09", "EXCAVATOR", "Hitachi ZX210-5G", 3990.2, "Agus Wijaya", "OPERASIONAL", 6.0, 10.0, "Geodesi PG2"),
-                UnitPayload("DT-205", "DUMP TRUCK", "Volvo FMX 440", 4150.0, "Agus Wijaya", "OPERASIONAL", 5.5, 9.5, "Geodesi PG2"),
-                UnitPayload("DZ-04", "BULLDOZER", "CAT D6R", 2980.5, "Rudi Hermawan", "OPERASIONAL", 6.0, 10.0, "RC PG1")
+                UnitPayload("EXC-09", "Excavator Standar", "Hitachi ZX210-5G", 3990.2, "Agus Wijaya", "OPERASIONAL", 6.0, 10.0, "Geodesi PG2"),
+                UnitPayload("GRD-02", "Motor Grader", "CAT 140M", 2300.0, "Agus Wijaya", "OPERASIONAL", 5.0, 9.0, "Geodesi PG2"),
+                UnitPayload("CMP-02", "Compactor", "Sakai SV520", 1750.0, "Rudi Hermawan", "OPERASIONAL", 5.0, 8.5, "RC PG1")
             )
         )
     }
@@ -93,11 +92,11 @@ object CompanyServerSimulator {
     val serverActivities = CopyOnWriteArrayList<ActivityPayload>().apply {
         addAll(
             listOf(
-                ActivityPayload("ACT-SAP-101", "Galian Tanah Lunak", "m3", "Penggalian area cut site A", "PRODUKSI", "OPERASI", "EXCAVATOR"),
-                ActivityPayload("ACT-SAP-102", "Loading Overburden", "m3", "Pemuatan tanah penutup ke dump truck", "PRODUKSI", "OPERASI", "EXCAVATOR"),
-                ActivityPayload("ACT-SAP-103", "Ripping Batuan Keras", "m3", "Pemecahan lapisan batuan menggunakan ripper dozer", "PRODUKSI", "OPERASI", "BULLDOZER"),
-                ActivityPayload("ACT-SAP-201", "Dumping & Spreading", "m2", "Penghamparan material di area disposal", "SUPPORT", "OPERASI", "DUMP TRUCK"),
-                ActivityPayload("ACT-SAP-202", "Grading Mainroad Tambang", "m", "Perawatan kerataan dan grading jalan hauling", "INFRASTRUKTUR", "OPERASI", "MOTOR GRADER"),
+                ActivityPayload("ACT-SAP-101", "Galian Tanah Lunak", "m3", "Penggalian area cut site A", "PRODUKSI", "OPERASI", "Excavator Standar"),
+                ActivityPayload("ACT-SAP-102", "Pekerjaan Parit & Saluran", "m3", "Penggalian saluran drainase tambang", "PRODUKSI", "OPERASI", "Excavator Mini"),
+                ActivityPayload("ACT-SAP-103", "Pekerjaan Slope & Cut Long Arm", "m3", "Pekerjaan lereng cuting jarak jauh", "PRODUKSI", "OPERASI", "Excavator Long Arm"),
+                ActivityPayload("ACT-SAP-201", "Pemadatan Subgrade", "m2", "Pemadatan lapisan tanah dasar disposal & jalan", "SUPPORT", "OPERASI", "Compactor"),
+                ActivityPayload("ACT-SAP-202", "Grading Mainroad Tambang", "m", "Perawatan kerataan dan grading jalan hauling", "INFRASTRUKTUR", "OPERASI", "Motor Grader"),
                 ActivityPayload("ACT-SAP-STB-01", "Standby Hujan / Cuaca Buruk", "jam", "Kondisi hujan lebat atau jalur licin", "STANDBY", "STANDBY", "ALL"),
                 ActivityPayload("ACT-SAP-STB-02", "Standby Tunggu Trailler / Front", "jam", "Menunggu lowbed mobilisasi atau kesiapan front", "STANDBY", "STANDBY", "ALL"),
                 ActivityPayload("ACT-SAP-BDN-01", "Breakdown Kerusakan Mesin / Engine", "jam", "Trouble mesin / transmisi unit", "BREAKDOWN", "BREAKDOWN", "ALL"),
@@ -113,13 +112,13 @@ object CompanyServerSimulator {
                 OperatorPayload("OPR-001", "Ahmad Fauzi", "NIK-94821", "Budi Santoso", "Senior Operator - Class A", "AKTIF", "Geodesi PG1"),
                 OperatorPayload("OPR-002", "Bambang Sudrajat", "NIK-88234", "Budi Santoso", "Senior Operator - Class A", "AKTIF", "Geodesi PG1"),
                 OperatorPayload("OPR-003", "Dedi Supriyadi", "NIK-77412", "Budi Santoso", "Operator Alat Berat - Class B", "AKTIF", "Geodesi PG1"),
-                OperatorPayload("OPR-004", "Eko Prasetyo", "NIK-65129", "Budi Santoso", "Operator Dump Truck - Class B", "AKTIF", "Geodesi PG1"),
+                OperatorPayload("OPR-004", "Eko Prasetyo", "NIK-65129", "Budi Santoso", "Operator Compactor - Class B", "AKTIF", "Geodesi PG1"),
                 OperatorPayload("OPR-005", "Hendra Gunawan", "NIK-91203", "Budi Santoso", "Master Grader Operator", "AKTIF", "Geodesi PG1"),
                 // Operators for Agus Wijaya
                 OperatorPayload("OPR-006", "Indra Kusuma", "NIK-83190", "Agus Wijaya", "Senior Excavator Operator", "AKTIF", "Geodesi PG2"),
-                OperatorPayload("OPR-007", "Joko Susilo", "NIK-74102", "Agus Wijaya", "Dump Truck Driver", "AKTIF", "Geodesi PG2"),
+                OperatorPayload("OPR-007", "Joko Susilo", "NIK-74102", "Agus Wijaya", "Grader Operator", "AKTIF", "Geodesi PG2"),
                 // Operators for Rudi Hermawan
-                OperatorPayload("OPR-008", "Kurniawan Putra", "NIK-69214", "Rudi Hermawan", "Dozer Operator", "AKTIF", "RC PG1")
+                OperatorPayload("OPR-008", "Kurniawan Putra", "NIK-69214", "Rudi Hermawan", "Compactor Operator", "AKTIF", "RC PG1")
             )
         )
     }
@@ -237,14 +236,14 @@ object CompanyServerSimulator {
                     PostRencanaKerjaRequest(
                         id = "103",
                         status_unit = "OPERASI",
-                        kode_unit = "DT-101",
-                        operator = "Dedi Supriyadi",
-                        sap_code = "ACT-SAP-301",
-                        nama_aktivitas = "Hauling Material Subgrade",
-                        satuan_aktivitas = "ton",
-                        kode_lokasi = "MAINROAD-01",
+                        kode_unit = "CMP-01",
+                        operator = "Eko Prasetyo",
+                        sap_code = "ACT-SAP-201",
+                        nama_aktivitas = "Pemadatan Subgrade",
+                        satuan_aktivitas = "m2",
+                        kode_lokasi = "002B",
                         shift_kerja = "SIANG",
-                        keterangan = "Hauling subgrade perbaikan jalan hauling",
+                        keterangan = "Pemadatan subgrade jalan akses disposal",
                         nomor_spk = "SPK-2026-X103",
                         status_spk = "TERBIT_SPK",
                         status_tahap = "RENCANA",
@@ -270,7 +269,7 @@ object CompanyServerSimulator {
                         tanggal = tanggal,
                         nama_pengawas = pengawas,
                         kode_unit = "HEH1",
-                        jenis_unit = "EXCAVATOR",
+                        jenis_unit = "Excavator Standar",
                         nama_aktivitas = "Galian Tanah Lunak",
                         kode_sap = "ACT-SAP-101",
                         satuan = "m3",
@@ -295,34 +294,34 @@ object CompanyServerSimulator {
                     PostActivityReportRequest(
                         tanggal = tanggal,
                         nama_pengawas = pengawas,
-                        kode_unit = "DZ-01",
-                        jenis_unit = "BULLDOZER",
-                        nama_aktivitas = "Dumping & Spreading",
+                        kode_unit = "CMP-01",
+                        jenis_unit = "Compactor",
+                        nama_aktivitas = "Pemadatan Subgrade",
                         kode_sap = "ACT-SAP-201",
                         satuan = "m2",
-                        nama_operator = "Bambang Sudrajat",
+                        nama_operator = "Eko Prasetyo",
                         lokasi_kerja = "002B",
                         shift = "SIANG",
-                        durasi_jam_kerja = 7.0,
-                        hm_awal = 5123.0,
-                        hm_akhir = 5130.8,
-                        hm_harian_berjalan = 7.8,
-                        hasil_kerja = 620.0,
-                        keterangan = "Perataan disposal area utara selesai sesuai target.",
+                        durasi_jam_kerja = 6.0,
+                        hm_awal = 2094.0,
+                        hm_akhir = 2100.0,
+                        hm_harian_berjalan = 6.0,
+                        hasil_kerja = 850.0,
+                        keterangan = "Pemadatan subgrade area disposal selesai padat.",
                         status_unit = "OPERASI",
                         is_isi_solar = true,
-                        jumlah_liter_solar = 140.0,
-                        stik_solar_awal = 75.0,
-                        stik_solar_akhir = 42.0,
-                        pemakaian_solar = 173.0,
-                        client_uuid = "SRV-REP-$pengawas-DZ01-5130.8",
+                        jumlah_liter_solar = 75.0,
+                        stik_solar_awal = 60.0,
+                        stik_solar_akhir = 35.0,
+                        pemakaian_solar = 100.0,
+                        client_uuid = "SRV-REP-$pengawas-CMP01-2100.0",
                         client_transaction_id = "TX-SRV-002"
                     ),
                     PostActivityReportRequest(
                         tanggal = tanggal,
                         nama_pengawas = pengawas,
                         kode_unit = "GRD-01",
-                        jenis_unit = "MOTOR GRADER",
+                        jenis_unit = "Motor Grader",
                         nama_aktivitas = "Grading Mainroad Tambang",
                         kode_sap = "ACT-SAP-202",
                         satuan = "m",
@@ -546,6 +545,19 @@ object CompanyServerSimulator {
 
     fun deleteUnit(unitCode: String) {
         serverUnits.removeAll { it.resolvedUnitCode.equals(unitCode, ignoreCase = true) }
+        val remainingCodes = serverUnits.map { it.resolvedUnitCode.lowercase() }.toSet()
+        serverRencanaKerja.removeAll { ren -> ren.resolvedUnitKode.lowercase() !in remainingCodes }
+    }
+
+    fun cleanDumpTruckAndBulldozer() {
+        serverUnits.removeAll { 
+            val type = it.resolvedUnitType.lowercase()
+            type.contains("dump") || type.contains("dozer")
+        }
+        val remainingCodes = serverUnits.map { it.resolvedUnitCode.lowercase() }.toSet()
+        serverRencanaKerja.removeAll { ren ->
+            ren.resolvedUnitKode.lowercase() !in remainingCodes
+        }
     }
 
     fun addOrUpdateActivity(activity: ActivityPayload) {

@@ -38,6 +38,11 @@ interface CompanyApiService {
         @Query("supervisor") supervisor: String? = null
     ): Response<ApiResponse<MasterDataPayload>>
 
+    @GET("api/master-unit")
+    suspend fun getMasterUnit(
+        @Query("supervisor") supervisor: String? = null
+    ): Response<ApiResponse<List<UnitPayload>>>
+
     @GET("api/units")
     suspend fun getUnits(
         @Query("supervisor") supervisor: String? = null

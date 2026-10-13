@@ -46,6 +46,7 @@ import com.example.data.local.entity.UserEntity
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun unitDao(): UnitDao
+    fun masterUnitDao(): UnitDao = unitDao()
     abstract fun activityMasterDao(): ActivityMasterDao
     abstract fun operatorDao(): OperatorDao
     abstract fun activityReportDao(): ActivityReportDao
@@ -69,6 +70,16 @@ abstract class AppDatabase : RoomDatabase() {
                     "heavytrack_database"
                 )
                     .fallbackToDestructiveMigration()
+                    .addCallback(object : RoomDatabase.Callback() {
+                        override fun onOpen(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+                            super.onOpen(db)
+                            try {
+                                db.execSQL("DELETE FROM units WHERE LOWER(unitType) IN ('dump truck', 'bulldozer') OR LOWER(unitType) LIKE '%dump%' OR LOWER(unitType) LIKE '%bulldozer%'")
+                                db.execSQL("DELETE FROM rencana_kerja WHERE kode_unit NOT IN (SELECT unitCode FROM units)")
+                                db.execSQL("CREATE VIEW IF NOT EXISTS master_unit AS SELECT unitCode AS kode_unit, unitType AS jenis_unit, brandModel AS merk_model, lastHm AS last_hm, supervisorAssigned AS supervisor, status, hmMinStandar, hmMaxStandar, wilayah, updatedAt FROM units")
+                            } catch (_: Exception) {}
+                        }
+                    })
                     .build()
                 INSTANCE = instance
                 instance

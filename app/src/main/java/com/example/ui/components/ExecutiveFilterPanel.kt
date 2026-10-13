@@ -338,10 +338,11 @@ fun ExecutiveFilterPanel(
                 }
                 val jenisOptions = listOf(
                     "Semua Jenis" to "Semua",
-                    "EXCAVATOR" to "HE (Excavator)",
-                    "DUMP TRUCK" to "DT (Dump Truck)",
-                    "WATER TRUCK" to "WT (Water Truck)",
-                    "BULLDOZER" to "Bulldozer"
+                    "Excavator Long Arm" to "Excavator Long Arm",
+                    "Excavator Mini" to "Excavator Mini",
+                    "Excavator Standar" to "Excavator Standar",
+                    "Motor Grader" to "Motor Grader",
+                    "Compactor" to "Compactor"
                 )
                 Row(
                     modifier = Modifier

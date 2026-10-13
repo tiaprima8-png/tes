@@ -102,4 +102,7 @@ interface RencanaKerjaDao {
             deleteByIdOrUnitInternal(idLong, cleanUnit)
         } else 0
     }
+
+    @Query("DELETE FROM rencana_kerja WHERE kode_unit NOT IN (SELECT unitCode FROM units)")
+    suspend fun deleteOrphanedRencanaKerja(): Int
 }

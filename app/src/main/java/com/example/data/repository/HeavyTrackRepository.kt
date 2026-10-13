@@ -244,28 +244,23 @@ class HeavyTrackRepository(
             fetchMasterData(activeSupervisor)
         } catch (_: Exception) {
             val initialUnits = listOf(
-                UnitEntity("HEH1", "EXCAVATOR", "Komatsu PC200-8", 4125.5, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
-                UnitEntity("EXC-02", "EXCAVATOR", "Caterpillar 320D", 6280.0, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
-                UnitEntity("MG-01", "MOTOR GRADER", "Caterpillar 140K", 2150.0, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
-                UnitEntity("DT-101", "DUMP TRUCK", "Hino FM 260 Ti", 3450.2, "Agus Wijaya", "OPERASIONAL", 5.5, 9.5, "Geodesi PG2"),
-                UnitEntity("DT-102", "DUMP TRUCK", "Nissan Quon CWB45A", 2890.0, "Agus Wijaya", "OPERASIONAL", 5.5, 9.5, "Geodesi PG2"),
-                UnitEntity("WT-054", "WATER TRUCK", "Hino FM 260 WT", 1980.4, "Rudi Hermawan", "OPERASIONAL", 4.0, 8.0, "RC PG1"),
-                UnitEntity("DZ-01", "BULLDOZER", "Komatsu D85ESS-2", 5130.8, "Rudi Hermawan", "OPERASIONAL", 6.0, 10.0, "RC PG1"),
-                UnitEntity("DT-301", "DUMP TRUCK", "Hino 500 FM260", 3120.0, "Dedi Irawan", "OPERASIONAL", 5.5, 9.5, "RC PG1"),
-                UnitEntity("EXC-15", "EXCAVATOR", "Kobelco SK200", 4500.0, "Hendra Setiawan", "OPERASIONAL", 6.0, 10.0, "RC PG2"),
-                UnitEntity("GRD-02", "MOTOR GRADER", "CAT 140M", 2300.0, "Yanto Prasetyo", "OPERASIONAL", 5.0, 9.0, "RC PG3"),
-                UnitEntity("DZ-08", "BULLDOZER", "Komatsu D65", 3800.0, "Ilham Saputra", "OPERASIONAL", 6.0, 10.0, "LEBUNG PG12"),
-                UnitEntity("WT-060", "WATER TRUCK", "Hino FM 260", 2100.0, "Rizky Pratama", "OPERASIONAL", 4.0, 8.0, "LEBUNG PG3")
+                UnitEntity("HEH1", "Excavator Standar", "Komatsu PC200-8", 4125.5, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
+                UnitEntity("EXC-02", "Excavator Long Arm", "Caterpillar 320D Long Arm", 6280.0, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
+                UnitEntity("EXC-M01", "Excavator Mini", "Kubota U50-5", 1450.0, activeSupervisor, "OPERASIONAL", 5.0, 8.0, "Geodesi PG1"),
+                UnitEntity("MG-01", "Motor Grader", "Caterpillar 140K", 2150.0, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
+                UnitEntity("CMP-01", "Compactor", "Bomag BW211 D-40", 2100.0, "Agus Wijaya", "OPERASIONAL", 5.0, 8.5, "Geodesi PG2"),
+                UnitEntity("EXC-15", "Excavator Standar", "Kobelco SK200", 4500.0, "Hendra Setiawan", "OPERASIONAL", 6.0, 10.0, "RC PG2"),
+                UnitEntity("GRD-02", "Motor Grader", "CAT 140M", 2300.0, "Yanto Prasetyo", "OPERASIONAL", 5.0, 9.0, "RC PG3"),
+                UnitEntity("CMP-02", "Compactor", "Sakai SV520", 1750.0, "Ilham Saputra", "OPERASIONAL", 5.0, 8.5, "LEBUNG PG12")
             )
             unitDao.insertUnits(initialUnits)
 
             val initialActivities = listOf(
-                ActivityMasterEntity("ACT-SAP-101", "Galian Tanah Lunak", "m3", "Galian area cut", "PRODUKSI", "OPERASI", "EXCAVATOR"),
-                ActivityMasterEntity("ACT-SAP-102", "Loading Overburden", "m3", "Pemuatan tanah penutup", "PRODUKSI", "OPERASI", "EXCAVATOR"),
-                ActivityMasterEntity("ACT-SAP-201", "Dumping & Spreading", "m2", "Penghamparan disposal", "SUPPORT", "OPERASI", "DUMP TRUCK"),
-                ActivityMasterEntity("ACT-SAP-202", "Grading Mainroad Tambang", "m", "Perawatan jalan", "INFRASTRUKTUR", "OPERASI", "MOTOR GRADER"),
-                ActivityMasterEntity("ACT-SAP-301", "Ripping & Dozing Material", "jam", "Ripping batuan", "PRODUKSI", "OPERASI", "BULLDOZER"),
-                ActivityMasterEntity("ACT-SAP-401", "Penyiraman Jalan Tambang", "m", "Watering jalan", "SUPPORT", "OPERASI", "WATER TRUCK"),
+                ActivityMasterEntity("ACT-SAP-101", "Galian Tanah Lunak", "m3", "Galian area cut", "PRODUKSI", "OPERASI", "Excavator Standar"),
+                ActivityMasterEntity("ACT-SAP-102", "Pekerjaan Parit & Saluran", "m3", "Saluran drainase", "PRODUKSI", "OPERASI", "Excavator Mini"),
+                ActivityMasterEntity("ACT-SAP-103", "Pekerjaan Slope Long Arm", "m3", "Lereng cuting", "PRODUKSI", "OPERASI", "Excavator Long Arm"),
+                ActivityMasterEntity("ACT-SAP-201", "Pemadatan Subgrade", "m2", "Pemadatan jalan & disposal", "SUPPORT", "OPERASI", "Compactor"),
+                ActivityMasterEntity("ACT-SAP-202", "Grading Mainroad Tambang", "m", "Perawatan jalan", "INFRASTRUKTUR", "OPERASI", "Motor Grader"),
                 ActivityMasterEntity("ACT-SAP-STB-01", "Standby Hujan / Cuaca Buruk", "jam", "Hambatan cuaca buruk / licin", "STANDBY", "STANDBY", "ALL"),
                 ActivityMasterEntity("ACT-SAP-STB-02", "Standby Tunggu Trailler", "jam", "Menunggu lowbed mobilisasi", "STANDBY", "STANDBY", "ALL"),
                 ActivityMasterEntity("ACT-SAP-BDN-01", "Breakdown Kerusakan Unit", "jam", "Perbaikan kerusakan mekanikal", "BREAKDOWN", "BREAKDOWN", "ALL")
@@ -273,12 +268,12 @@ class HeavyTrackRepository(
             activityDao.insertActivities(initialActivities)
 
             val initialOperators = listOf(
-                OperatorEntity("OPR-001", "Ahmad Fauzi", "NIK-94821", activeSupervisor, "Class A - Excavator & Dozer", "AKTIF", "Geodesi PG1"),
-                OperatorEntity("OPR-002", "Bambang Sudrajat", "NIK-88234", "Agus Wijaya", "Class A - Dump Truck", "AKTIF", "Geodesi PG2"),
-                OperatorEntity("OPR-003", "Dedi Supriyadi", "NIK-77412", "Rudi Hermawan", "Class A - Dozer & Water", "AKTIF", "RC PG1"),
-                OperatorEntity("OPR-004", "Suryanto", "NIK-99120", activeSupervisor, "Class A - Excavator", "AKTIF", "Geodesi PG1"),
-                OperatorEntity("OPR-005", "Hasan Basri", "NIK-55101", "Dedi Irawan", "Dump Truck Driver", "AKTIF", "RC PG1"),
-                OperatorEntity("OPR-006", "Bayu Nugroho", "NIK-55104", "Ilham Saputra", "Dozer Operator", "AKTIF", "LEBUNG PG12")
+                OperatorEntity("OPR-001", "Ahmad Fauzi", "NIK-94821", activeSupervisor, "Class A - Excavator", "AKTIF", "Geodesi PG1"),
+                OperatorEntity("OPR-002", "Bambang Sudrajat", "NIK-88234", "Agus Wijaya", "Class A - Compactor", "AKTIF", "Geodesi PG2"),
+                OperatorEntity("OPR-003", "Dedi Supriyadi", "NIK-77412", "Rudi Hermawan", "Class A - Grader", "AKTIF", "RC PG1"),
+                OperatorEntity("OPR-004", "Suryanto", "NIK-99120", activeSupervisor, "Class A - Excavator Mini", "AKTIF", "Geodesi PG1"),
+                OperatorEntity("OPR-005", "Hasan Basri", "NIK-55101", "Dedi Irawan", "Grader Operator", "AKTIF", "RC PG1"),
+                OperatorEntity("OPR-006", "Bayu Nugroho", "NIK-55104", "Ilham Saputra", "Compactor Operator", "AKTIF", "LEBUNG PG12")
             )
             operatorDao.insertOperators(initialOperators)
 
