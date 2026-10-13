@@ -180,7 +180,7 @@ fun MasterDataScreen(
                                     )
                                 )
                                 Text(
-                                    text = "Pengawas: $activeSupervisor",
+                                    text = "Kasie: $activeSupervisor",
                                     style = MaterialTheme.typography.bodySmall.copy(
                                         color = Emerald700,
                                         fontWeight = FontWeight.SemiBold
@@ -289,7 +289,7 @@ fun MasterDataScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Log Out dari Sesi Pengawas",
+                            text = "Log Out dari Sesi Kasie",
                             style = MaterialTheme.typography.labelLarge.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = ErrorRose
@@ -470,7 +470,7 @@ fun MasterDataScreen(
 @Composable
 fun CleanUnitsTab(units: List<UnitEntity>) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Daftar Unit Operasional di bawah Pengawasan:", fontSize = 12.sp, color = Slate500)
+        Text("Daftar Unit Operasional di bawah Tugas Kasie:", fontSize = 12.sp, color = Slate500)
         if (units.isEmpty()) {
             Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
                 Text("Belum ada data unit terdaftar.", color = Slate400, fontSize = 13.sp)
@@ -504,7 +504,7 @@ fun CleanUnitsTab(units: List<UnitEntity>) {
                             }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "${unit.brandModel} • Pengawas: ${unit.supervisorAssigned}",
+                                text = "${unit.brandModel} • Kasie: ${unit.supervisorAssigned}",
                                 fontSize = 11.sp,
                                 color = Slate500
                             )
@@ -621,7 +621,7 @@ fun CleanOperatorsTab(operators: List<OperatorEntity>) {
                                     )
                                 }
                             }
-                            Text("Pengawas: ${op.supervisorAssigned} • Status: ${op.status}", fontSize = 11.sp, color = Slate500)
+                            Text("Kasie: ${op.supervisorAssigned} • Status: ${op.status}", fontSize = 11.sp, color = Slate500)
                         }
                     }
                 }

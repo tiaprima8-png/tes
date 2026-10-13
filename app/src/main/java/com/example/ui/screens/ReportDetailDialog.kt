@@ -219,7 +219,7 @@ fun ReportDetailDialog(
                             )
                             DetailItemRow(
                                 icon = Icons.Default.Engineering,
-                                label = "Pengawas Lapangan",
+                                label = "Kasie Lapangan",
                                 value = report.supervisorName
                             )
                             DetailItemRow(

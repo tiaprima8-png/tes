@@ -668,7 +668,7 @@ fun OperatorSelectorItemCard(
 
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Pengawas: ${operator.supervisorAssigned}",
+                    text = "Kasie: ${operator.supervisorAssigned}",
                     style = MaterialTheme.typography.bodySmall.copy(color = Slate500)
                 )
             }

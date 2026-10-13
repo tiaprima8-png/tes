@@ -178,10 +178,19 @@ class HeavyTrackViewModel(
 
     val lastSyncTimeMillis: StateFlow<Long> = repository.lastSyncTimeMillis
 
-    // Master Units (filtered by supervisor)
-    val units: StateFlow<List<UnitEntity>> = _activeSupervisor
-        .flatMapLatest { supervisor -> repository.getUnitsForSupervisor(supervisor) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    // Master Units (filtered by supervisor, or all units for Manager)
+    val units: StateFlow<List<UnitEntity>> = combine(
+        _currentSupervisorSession,
+        _activeSupervisor
+    ) { session, supervisor ->
+        session to supervisor
+    }.flatMapLatest { (session, supervisor) ->
+        if (session?.isManager == true) {
+            repository.getAllUnits()
+        } else {
+            repository.getUnitsForSupervisor(supervisor)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Master Activities
     val activities: StateFlow<List<ActivityMasterEntity>> = repository.getAllActivities()
@@ -428,26 +437,41 @@ class HeavyTrackViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val filteredUnits: StateFlow<List<UnitEntity>> = combine(
-        allUnitsGlobal,
         _filterWilayah,
         _filterJenisUnit,
         _filterKodeUnit
-    ) { allUnits, wilayah, jenis, kode ->
-        allUnits.filter { u ->
-            val matchWilayah = wilayah == "Semua Wilayah" || wilayah.isBlank() || u.wilayah.equals(wilayah, ignoreCase = true)
-            val matchJenis = jenis == "Semua Jenis" || jenis.isBlank() || matchesJenisUnit(u.unitType, jenis)
-            val matchKode = kode == "Semua Unit" || kode.isBlank() || u.unitCode.equals(kode, ignoreCase = true)
-            matchWilayah && matchJenis && matchKode
-        }
+    ) { wilayah, jenis, kode ->
+        Triple(wilayah, jenis, kode)
+    }.flatMapLatest { (wilayah, jenis, kode) ->
+        repository.getUnitsByFilter(wilayah, jenis, kode)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val filteredReports: StateFlow<List<ActivityReportEntity>> = combine(
+        _filterWilayah,
+        _filterJenisUnit,
+        _filterKodeUnit
+    ) { wilayah, jenis, kode ->
+        Triple(wilayah, jenis, kode)
+    }.flatMapLatest { (wilayah, jenis, kode) ->
+        repository.getReportsFiltered(wilayah, jenis, kode)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val filteredRencanaList: StateFlow<List<RencanaKerjaEntity>> = combine(
+        _filterWilayah,
+        _filterKodeUnit
+    ) { wilayah, kode ->
+        Pair(wilayah, kode)
+    }.flatMapLatest { (wilayah, kode) ->
+        repository.getRencanaFiltered(wilayah, kode)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val analyticsState: StateFlow<FleetAnalyticsState> = combine(
         _currentSupervisorSession,
         reports,
-        allReports,
+        filteredReports,
         executiveFilterState
-    ) { session, supervisorReports, allRepList, filters ->
-        val targetReports = if (session?.isManager == true) allRepList else supervisorReports
+    ) { session, supervisorReports, filteredRepList, filters ->
+        val targetReports = if (session?.isManager == true) filteredRepList else supervisorReports
         calculateAnalytics(targetReports, filters.period, filters.kodeUnit, filters.wilayah, filters.jenisUnit)
     }.stateIn(
         viewModelScope,

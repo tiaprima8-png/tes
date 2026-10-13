@@ -624,7 +624,7 @@ fun FormReportScreen(
                                         )
                                         Text(
                                             text = when {
-                                                rencanaState.isBacklog -> "Unit belum diisi kemarin. Pengawas wajib menyelesaikan pengisian backlog ini terlebih dahulu."
+                                                rencanaState.isBacklog -> "Unit belum diisi kemarin. Kasie wajib menyelesaikan pengisian backlog ini terlebih dahulu."
                                                 rencanaState.isSusulan -> "Unit ini sudah memiliki rencana kerja hari ini. Anda sedang membuat Rencana Kerja Tambahan/Susulan."
                                                 else -> "Tanggal otomatis terisi oleh sistem. Pengguna tidak perlu menginput tanggal manual."
                                             },
@@ -3085,7 +3085,7 @@ fun FormReportScreen(
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column {
                                     Text(
-                                        text = "Rencana Kerja Pengawas",
+                                        text = "Rencana Kerja Kasie",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 16.sp,
                                         color = Slate900

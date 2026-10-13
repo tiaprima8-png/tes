@@ -87,44 +87,10 @@ object SupervisorDirectory {
     fun authenticate(nikOrName: String, pin: String): Supervisor? {
         val trimmedIdentifier = nikOrName.trim()
         val trimmedPin = pin.trim()
-        val matched = predefinedSupervisors.find { spv ->
+        return predefinedSupervisors.find { spv ->
             (spv.nik.equals(trimmedIdentifier, ignoreCase = true) ||
                     spv.name.equals(trimmedIdentifier, ignoreCase = true)) &&
                     (spv.passwordPin == trimmedPin || trimmedPin == "1234" || trimmedPin.isEmpty())
         }
-        if (matched != null) return matched
-
-        // Deteksi dinamis jika username mengandung keyword manager
-        if (trimmedIdentifier.contains("manager", ignoreCase = true) ||
-            trimmedIdentifier.startsWith("mgr", ignoreCase = true) ||
-            trimmedIdentifier.startsWith("gm", ignoreCase = true)
-        ) {
-            return Supervisor(
-                id = "MGR-${System.currentTimeMillis().toString().takeLast(3)}",
-                name = trimmedIdentifier,
-                nik = trimmedIdentifier.uppercase(),
-                passwordPin = trimmedPin,
-                defaultShift = "ALL",
-                assignedSector = "Seluruh Proyek & Armada (Eksekutif)",
-                phone = "+62 812-0000-9999",
-                roleTitle = "Manager Operasional",
-                role = "MANAGER",
-                wilayah = "Semua Wilayah"
-            )
-        }
-
-        // Default login Kasie
-        return Supervisor(
-            id = "SPV-${System.currentTimeMillis().toString().takeLast(3)}",
-            name = trimmedIdentifier,
-            nik = trimmedIdentifier.uppercase(),
-            passwordPin = trimmedPin,
-            defaultShift = "SIANG",
-            assignedSector = "Sektor Operasional Lapangan (PG1)",
-            phone = "+62 812-3456-7890",
-            roleTitle = "Kasie Lapangan",
-            role = "KASIE",
-            wilayah = "PG1"
-        )
     }
 }

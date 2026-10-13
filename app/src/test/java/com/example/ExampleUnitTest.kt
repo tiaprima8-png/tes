@@ -770,4 +770,54 @@ class ExampleUnitTest {
         assertNotNull(planWithSpk)
         assertTrue(planWithSpk!!.nomor_spk?.startsWith("SPK-") == true)
     }
+
+    @Test
+    fun test_user_entity_kasie_and_manager_role_and_wilayah() {
+        val kasieUser = com.example.data.local.entity.UserEntity(
+            username = "budi",
+            name = "Budi Santoso",
+            nik = "SPV-901",
+            role = "KASIE",
+            roleTitle = "Kasie",
+            wilayah = "PG1"
+        )
+        assertTrue(kasieUser.isKasie)
+        assertFalse(kasieUser.isManager)
+        assertEquals("PG1", kasieUser.wilayah)
+
+        val managerUser = com.example.data.local.entity.UserEntity(
+            username = "farid",
+            name = "Farid Hadi Sofian",
+            nik = "MGR-101",
+            role = "MANAGER",
+            roleTitle = "Manager Operasional",
+            wilayah = "Semua Wilayah"
+        )
+        assertTrue(managerUser.isManager)
+        assertFalse(managerUser.isKasie)
+        assertEquals("Semua Wilayah", managerUser.wilayah)
+    }
+
+    @Test
+    fun test_supervisor_directory_wilayah_and_manager_role() {
+        val spvPg1 = SupervisorDirectory.authenticate("Budi Santoso", "1234")
+        assertNotNull(spvPg1)
+        assertEquals("PG1", spvPg1?.wilayah)
+        assertEquals("KASIE", spvPg1?.role)
+        assertTrue(spvPg1!!.isKasie)
+
+        val spvPg2 = SupervisorDirectory.authenticate("Agus Wijaya", "1234")
+        assertNotNull(spvPg2)
+        assertEquals("PG2", spvPg2?.wilayah)
+        assertEquals("KASIE", spvPg2?.role)
+
+        val spvPg3 = SupervisorDirectory.authenticate("Rudi Hermawan", "1234")
+        assertNotNull(spvPg3)
+        assertEquals("PG3", spvPg3?.wilayah)
+
+        val mgr = SupervisorDirectory.authenticate("Farid Hadi Sofian", "1234")
+        assertNotNull(mgr)
+        assertTrue(mgr!!.isManager)
+        assertEquals("Semua Wilayah", mgr.wilayah)
+    }
 }

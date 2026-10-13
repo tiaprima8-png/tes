@@ -90,6 +90,15 @@ class HeavyTrackRepository(
     fun getAllUnits(): Flow<List<UnitEntity>> =
         unitDao.getAllUnits()
 
+    fun getUnitsByFilter(wilayah: String, unitType: String, unitCode: String): Flow<List<UnitEntity>> =
+        unitDao.getUnitsByFilter(wilayah, unitType, unitCode)
+
+    fun getReportsFiltered(wilayah: String, unitType: String, unitCode: String): Flow<List<ActivityReportEntity>> =
+        reportDao.getReportsFiltered(wilayah, unitType, unitCode)
+
+    fun getRencanaFiltered(wilayah: String, kodeUnit: String): Flow<List<RencanaKerjaEntity>> =
+        rencanaDao.getRencanaFiltered(wilayah, kodeUnit)
+
     fun getAllActivities(): Flow<List<ActivityMasterEntity>> =
         activityDao.getAllActivities()
 

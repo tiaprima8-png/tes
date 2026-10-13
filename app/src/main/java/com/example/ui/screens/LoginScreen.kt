@@ -63,6 +63,7 @@ import com.example.data.model.SupervisorDirectory
 import com.example.ui.theme.Emerald100
 import com.example.ui.theme.Emerald50
 import com.example.ui.theme.Emerald600
+import com.example.ui.theme.Emerald700
 import com.example.ui.theme.Emerald900
 import com.example.ui.theme.ErrorRose
 import com.example.ui.theme.ErrorRose50
@@ -278,7 +279,7 @@ fun LoginScreen(
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
                     ) {
                         Surface(
                             shape = RoundedCornerShape(8.dp),
@@ -294,11 +295,11 @@ fun LoginScreen(
                                 .testTag("chip_login_kasie_pg1")
                         ) {
                             Column(
-                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 6.dp),
+                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("Budi Santoso", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (usernameInput == "Budi Santoso") Emerald900 else Slate700, maxLines = 1)
-                                Text("Kasie • PG1", fontSize = 9.sp, color = if (usernameInput == "Budi Santoso") Emerald700 else Slate500)
+                                Text("Budi", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (usernameInput == "Budi Santoso") Emerald900 else Slate700, maxLines = 1)
+                                Text("Kasie PG1", fontSize = 8.5.sp, color = if (usernameInput == "Budi Santoso") Emerald700 else Slate500, maxLines = 1)
                             }
                         }
 
@@ -316,11 +317,33 @@ fun LoginScreen(
                                 .testTag("chip_login_kasie_pg2")
                         ) {
                             Column(
-                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 6.dp),
+                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("Agus Wijaya", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (usernameInput == "Agus Wijaya") Emerald900 else Slate700, maxLines = 1)
-                                Text("Kasie • PG2", fontSize = 9.sp, color = if (usernameInput == "Agus Wijaya") Emerald700 else Slate500)
+                                Text("Agus", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (usernameInput == "Agus Wijaya") Emerald900 else Slate700, maxLines = 1)
+                                Text("Kasie PG2", fontSize = 8.5.sp, color = if (usernameInput == "Agus Wijaya") Emerald700 else Slate500, maxLines = 1)
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (usernameInput == "Rudi Hermawan") Emerald50 else Color(0xFFF1F5F9),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (usernameInput == "Rudi Hermawan") Emerald600 else Slate200),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    usernameInput = "Rudi Hermawan"
+                                    passwordInput = "1234"
+                                    errorMessage = null
+                                }
+                                .testTag("chip_login_kasie_pg3")
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("Rudi", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (usernameInput == "Rudi Hermawan") Emerald900 else Slate700, maxLines = 1)
+                                Text("Kasie PG3", fontSize = 8.5.sp, color = if (usernameInput == "Rudi Hermawan") Emerald700 else Slate500, maxLines = 1)
                             }
                         }
 
@@ -338,11 +361,11 @@ fun LoginScreen(
                                 .testTag("chip_login_manager")
                         ) {
                             Column(
-                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 6.dp),
+                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("Farid Hadi", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (isTargetManager) Color(0xFF92400E) else Slate700, maxLines = 1)
-                                Text("Manager", fontSize = 9.sp, color = if (isTargetManager) Color(0xFFB45309) else Slate500)
+                                Text("Farid", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (isTargetManager) Color(0xFF92400E) else Slate700, maxLines = 1)
+                                Text("Manager", fontSize = 8.5.sp, color = if (isTargetManager) Color(0xFFB45309) else Slate500, maxLines = 1)
                             }
                         }
                     }

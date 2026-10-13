@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.local.entity.ActivityReportEntity
 import com.example.data.local.entity.RencanaKerjaEntity
+import com.example.ui.components.ExecutiveFilterPanel
 import com.example.ui.components.FuelBadge
 import com.example.ui.components.FullscreenPhotoPreviewDialog
 import com.example.ui.components.ReportPhotoThumbnail
@@ -137,6 +138,10 @@ fun HistoryScreen(
     val myReports by viewModel.reports.collectAsState()
     val allReports by viewModel.allReports.collectAsState()
     val allRencanaGlobal by viewModel.allRencanaGlobal.collectAsState()
+    val allUnitsGlobal by viewModel.allUnitsGlobal.collectAsState()
+    val selectedWilayah by viewModel.filterWilayah.collectAsState()
+    val selectedJenisUnit by viewModel.filterJenisUnit.collectAsState()
+    val selectedKodeUnit by viewModel.filterKodeUnit.collectAsState()
     val hasilAktivitasList by viewModel.hasilAktivitasList.collectAsState()
     val unsyncedCount by viewModel.unsyncedCount.collectAsState()
     val isSyncingPending by viewModel.isSyncingPending.collectAsState()
@@ -145,13 +150,13 @@ fun HistoryScreen(
     // Sub-tab: "HASIL" vs "RENCANA" untuk monitoring menyeluruh oleh Manager
     var historySubTab by remember { mutableStateOf("HASIL") }
 
-    // Cakupan data: true = Semua Data Terinput Lapangan, false = Hanya Pengawas Aktif
+    // Cakupan data: true = Semua Data Terinput Lapangan, false = Hanya Kasie Aktif
     var showAllDataScope by remember(isManagerSession) { mutableStateOf(isManagerSession || true) }
 
     // Filter status sinkron: ALL, PENDING, SYNCED
     var selectedFilter by remember { mutableStateOf("ALL") }
 
-    // Pencarian cepat (Unit, Operator, Aktivitas, Lokasi, Pengawas, Tanggal)
+    // Pencarian cepat (Unit, Operator, Aktivitas, Lokasi, Kasie, Tanggal)
     var searchQuery by remember { mutableStateOf("") }
 
     var selectedRecordForDetail by remember { mutableStateOf<CompletedOperationalRecord?>(null) }
@@ -159,13 +164,21 @@ fun HistoryScreen(
 
     val baseReports = if (showAllDataScope || isManagerSession) allReports else myReports
 
-    // Filter Rencana Kerja Lapangan berdasarkan pencarian cepat
-    val filteredRencana = remember(allRencanaGlobal, searchQuery) {
-        if (searchQuery.isBlank()) {
-            allRencanaGlobal
-        } else {
-            val q = searchQuery.trim().lowercase()
-            allRencanaGlobal.filter { ren ->
+    // Filter Rencana Kerja Lapangan berdasarkan filter eksekutif dan pencarian cepat
+    val filteredRencana = remember(allRencanaGlobal, searchQuery, selectedWilayah, selectedJenisUnit, selectedKodeUnit, allUnitsGlobal) {
+        allRencanaGlobal.filter { ren ->
+            val matchWilayah = selectedWilayah == "Semua Wilayah" || selectedWilayah.isBlank() || ren.wilayah.equals(selectedWilayah, ignoreCase = true)
+            val matchKode = selectedKodeUnit == "Semua Unit" || selectedKodeUnit.isBlank() || ren.kodeUnit.equals(selectedKodeUnit, ignoreCase = true)
+            val matchJenis = if (selectedJenisUnit == "Semua Jenis" || selectedJenisUnit.isBlank()) {
+                true
+            } else {
+                val matchedUnit = allUnitsGlobal.find { it.unitCode.equals(ren.kodeUnit, ignoreCase = true) }
+                matchedUnit != null && viewModel.matchesJenisUnit(matchedUnit.unitType, selectedJenisUnit)
+            }
+            val matchQuery = if (searchQuery.isBlank()) {
+                true
+            } else {
+                val q = searchQuery.trim().lowercase()
                 ren.kodeUnit.lowercase().contains(q) ||
                         ren.operator.lowercase().contains(q) ||
                         ren.namaAktivitas.lowercase().contains(q) ||
@@ -174,6 +187,7 @@ fun HistoryScreen(
                         ren.supervisorName.lowercase().contains(q) ||
                         ren.tanggalFormat.lowercase().contains(q)
             }
+            matchWilayah && matchKode && matchJenis && matchQuery
         }
     }
 
@@ -259,9 +273,12 @@ fun HistoryScreen(
         }
     }
 
-    // Filter berdasarkan query pencarian cepat dan status sinkronisasi
-    val filteredRecords = remember(completedRecords, selectedFilter, searchQuery) {
+    // Filter berdasarkan query pencarian cepat, status sinkronisasi, dan filter eksekutif
+    val filteredRecords = remember(completedRecords, selectedFilter, searchQuery, selectedWilayah, selectedJenisUnit, selectedKodeUnit) {
         completedRecords.filter { rec ->
+            val matchWilayah = selectedWilayah == "Semua Wilayah" || selectedWilayah.isBlank() || rec.report.wilayah.equals(selectedWilayah, ignoreCase = true)
+            val matchKode = selectedKodeUnit == "Semua Unit" || selectedKodeUnit.isBlank() || rec.report.unitCode.equals(selectedKodeUnit, ignoreCase = true)
+            val matchJenis = selectedJenisUnit == "Semua Jenis" || selectedJenisUnit.isBlank() || viewModel.matchesJenisUnit(rec.report.unitType, selectedJenisUnit)
             val matchesFilter = when (selectedFilter) {
                 "PENDING" -> !rec.isSynced
                 "SYNCED" -> rec.isSynced
@@ -280,7 +297,7 @@ fun HistoryScreen(
                         rec.supervisorName.lowercase().contains(q) ||
                         rec.reportDate.lowercase().contains(q)
             }
-            matchesFilter && matchesQuery
+            matchWilayah && matchKode && matchJenis && matchesFilter && matchesQuery
         }
     }
 
@@ -492,6 +509,16 @@ fun HistoryScreen(
             }
         }
 
+        // PANEL FILTER EKSEKUTIF (Wilayah, Jenis Unit, Kode Unit)
+        if (isManagerSession) {
+            item {
+                ExecutiveFilterPanel(
+                    viewModel = viewModel,
+                    isManagerSession = true
+                )
+            }
+        }
+
         // ==========================================
         // 2. SEARCH & FILTER KONTROL CEPAT
         // ==========================================
@@ -610,7 +637,7 @@ fun HistoryScreen(
                         message = if (searchQuery.isNotBlank()) {
                             "Tidak ada laporan selesai yang cocok dengan pencarian '$searchQuery'."
                         } else if (isManagerSession) {
-                            "Belum ada laporan realisasi kerja selesai yang disubmit oleh para pengawas lapangan."
+                            "Belum ada laporan realisasi kerja selesai yang disubmit oleh para Kasie lapangan."
                         } else {
                             "Pekerjaan yang telah dilaporkan melalui tab Formulir akan otomatis masuk ke arsip komprehensif ini."
                         },
@@ -1019,7 +1046,7 @@ fun CompletedOperationCard(
                         }
                     }
 
-                    // 4. Personel: Pengawas dan Operator Pelaksana
+                    // 4. Personel: Kasie dan Operator Pelaksana
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -1029,7 +1056,7 @@ fun CompletedOperationCard(
                             Icon(Icons.Default.Engineering, contentDescription = null, tint = Slate400, modifier = Modifier.size(12.dp))
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "Pengawas: ${record.supervisorName}",
+                                text = "Kasie: ${record.supervisorName}",
                                 fontSize = 10.sp,
                                 color = Slate500
                             )
@@ -1163,7 +1190,7 @@ fun ExecutiveRencanaCard(
                             color = Slate900
                         )
                         Text(
-                            text = "Pengawas: ${rencana.supervisorName.ifBlank { "Semua" }} • Shift ${rencana.shiftKerja}",
+                            text = "Kasie: ${rencana.supervisorName.ifBlank { "Semua" }} • Shift ${rencana.shiftKerja}",
                             fontSize = 10.sp,
                             color = Slate500
                         )

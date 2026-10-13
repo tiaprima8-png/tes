@@ -405,25 +405,26 @@ fun HeavyTrackApp() {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Text(
                                             text = supervisorSession?.name ?: activeSupervisorName,
-                                            fontWeight = FontWeight.Bold,
+                                            fontWeight = FontWeight.ExtraBold,
                                             fontSize = 13.sp,
                                             color = Slate900
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Surface(
                                             shape = RoundedCornerShape(6.dp),
-                                            color = if (isManagerSession) Color(0xFFFEF3C7) else Emerald100
+                                            color = if (isManagerSession) Color(0xFFFEF3C7) else Emerald100,
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isManagerSession) Color(0xFFF59E0B) else Emerald600.copy(alpha = 0.5f))
                                         ) {
                                             val badgeText = if (isManagerSession) {
-                                                "Manager • ${supervisorSession?.wilayah ?: "Semua Wilayah"}"
+                                                "[Manager • ${supervisorSession?.wilayah ?: "Semua Wilayah"}]"
                                             } else {
-                                                "Kasie • ${supervisorSession?.wilayah ?: "PG1"}"
+                                                "[Kasie • ${supervisorSession?.wilayah ?: "PG1"}]"
                                             }
                                             Text(
                                                 text = badgeText,
                                                 color = if (isManagerSession) Color(0xFF92400E) else Emerald900,
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                fontSize = 10.sp,
                                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                             )
                                         }

@@ -61,6 +61,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.components.ExecutiveFilterPanel
 import com.example.ui.theme.Emerald100
 import com.example.ui.theme.Emerald200
 import com.example.ui.theme.Emerald50
@@ -154,9 +155,9 @@ fun AnalyticsScreen(
                                 }
                                 Text(
                                     text = if (isManagerSession) {
-                                        "Mode Monitoring Eksekutif • Rekapitulasi Menyeluruh Seluruh Pengawas & Armada"
+                                        "Mode Monitoring Eksekutif • Rekapitulasi Menyeluruh Seluruh Kasie & Armada"
                                     } else {
-                                        "Pengawas: $activeSupervisor"
+                                        "Kasie: $activeSupervisor"
                                     },
                                     style = MaterialTheme.typography.bodySmall.copy(color = Slate500)
                                 )
@@ -304,6 +305,16 @@ fun AnalyticsScreen(
             }
         }
 
+        // PANEL FILTER EKSEKUTIF (Wilayah, Jenis Unit, Kode Unit)
+        if (isManagerSession) {
+            item {
+                ExecutiveFilterPanel(
+                    viewModel = viewModel,
+                    isManagerSession = true
+                )
+            }
+        }
+
         // 2. TOP KPI CARDS (Agregasi Sesuai Filter)
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -360,7 +371,7 @@ fun AnalyticsScreen(
                     KpiSummaryCard(
                         title = "Total Solar Digunakan",
                         value = "${String.format(Locale.US, "%.1f", analyticsState.totalSolarLiters)} L",
-                        subtitle = "Akumulasi BBM Pengawas",
+                        subtitle = if (isManagerSession) "Akumulasi BBM Seluruh Fleet" else "Akumulasi BBM Kasie",
                         icon = Icons.Default.LocalGasStation,
                         iconColor = Color(0xFFD97706),
                         iconBg = Color(0xFFFEF3C7),
