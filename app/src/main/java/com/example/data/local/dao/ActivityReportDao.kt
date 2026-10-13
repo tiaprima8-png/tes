@@ -18,7 +18,12 @@ interface ActivityReportDao {
 
     @Query("""
         SELECT * FROM activity_reports 
-        WHERE (:wilayah IS NULL OR :wilayah = 'SEMUA' OR :wilayah = 'Semua Wilayah' OR :wilayah = '' OR wilayah = :wilayah)
+        WHERE (:wilayah IS NULL OR :wilayah = 'SEMUA' OR :wilayah = 'Semua Wilayah' OR :wilayah = '' 
+               OR wilayah = :wilayah 
+               OR REPLACE(wilayah, ' PG', ' ') = :wilayah 
+               OR REPLACE(wilayah, ' ', ' PG') = :wilayah
+               OR wilayah = REPLACE(:wilayah, ' ', ' PG')
+               OR wilayah = REPLACE(:wilayah, ' PG', ' '))
           AND (
             :unitType IS NULL OR :unitType = 'Semua Jenis' OR :unitType = '' OR 
             (:unitType LIKE '%EXCAVATOR%' AND (unitType LIKE '%EXCAVATOR%' OR unitType LIKE '%HE%')) OR

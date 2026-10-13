@@ -396,51 +396,35 @@ fun FormReportScreen(
         // ==========================================
         if (showNewPlanForm) {
             item {
-                Card(
-                    shape = RoundedCornerShape(14.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
-                    modifier = Modifier.fillMaxWidth().testTag("header_buat_rencana_subpage")
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                    OutlinedButton(
+                        onClick = { showNewPlanForm = false },
+                        shape = RoundedCornerShape(10.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = Color.White,
+                            contentColor = Slate700
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Slate300),
+                        modifier = Modifier.testTag("btn_back_from_rencana")
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(
-                                onClick = { showNewPlanForm = false },
-                                modifier = Modifier.size(36.dp).testTag("btn_back_from_rencana")
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Kembali ke Penugasan",
-                                    tint = Slate700
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Column {
-                                Text(
-                                    text = "Buat Penugasan Rencana Unit",
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 15.sp,
-                                    color = Slate900
-                                )
-                                Text(
-                                    text = "Rencana baru akan muncul di daftar penugasan berjalan",
-                                    fontSize = 11.sp,
-                                    color = Slate500
-                                )
-                            }
-                        }
-                        OutlinedButton(
-                            onClick = { showNewPlanForm = false },
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Slate300)
-                        ) {
-                            Text("Batal", fontSize = 11.sp, color = Slate700, fontWeight = FontWeight.SemiBold)
-                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Kembali",
+                            modifier = Modifier.size(16.dp),
+                            tint = Slate700
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Kembali",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Slate700
+                        )
                     }
                 }
             }
@@ -509,63 +493,7 @@ fun FormReportScreen(
                             }
                         }
 
-                        // Status Unit Operasional (Otomatis dari Master Aktivitas - Read Only Badge)
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = when (rencanaState.statusUnit) {
-                                "OPERASI" -> Emerald50
-                                "STANDBY" -> Color(0xFFFFFBEB)
-                                else -> Color(0xFFFFF1F2)
-                            },
-                            border = androidx.compose.foundation.BorderStroke(
-                                1.dp,
-                                when (rencanaState.statusUnit) {
-                                    "OPERASI" -> Emerald200
-                                    "STANDBY" -> Color(0xFFFDE68A)
-                                    else -> Color(0xFFFECDD3)
-                                }
-                            ),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("badge_rencana_status_otomatis")
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .background(
-                                            when (rencanaState.statusUnit) {
-                                                "OPERASI" -> Emerald600
-                                                "STANDBY" -> WarningAmber
-                                                else -> ErrorRose
-                                            },
-                                            CircleShape
-                                        )
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Status Unit: ${rencanaState.statusUnit}",
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = when (rencanaState.statusUnit) {
-                                        "OPERASI" -> Emerald800
-                                        "STANDBY" -> Color(0xFF92400E)
-                                        else -> Color(0xFF9F1239)
-                                    }
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "• Otomatis dari Master Aktivitas",
-                                    fontSize = 11.sp,
-                                    color = Slate500
-                                )
-                            }
-                        }
 
-                        Spacer(modifier = Modifier.height(14.dp))
 
                         // 2. Unit Alat Berat Searchable Selector (Otomatis Tanggal, Deteksi Backlog & Tambah Susulan)
                         SelectorFieldTrigger(
@@ -1980,7 +1908,7 @@ fun FormReportScreen(
                                                 )
                                                 Spacer(modifier = Modifier.width(6.dp))
                                                 Text(
-                                                    text = "Peringatan: HM Awal telah diubah dari nilai riwayat sistem (${String.format(Locale.US, "%.1f", realisasiState.hmAwalOriginal)} ➔ ${String.format(Locale.US, "%.1f", realisasiState.hmAwal)})",
+                                                    text = "Anda mengubah HM Awal dari nilai riwayat sistem (${String.format(Locale.US, "%.1f", realisasiState.hmAwalOriginal)} -> ${String.format(Locale.US, "%.1f", realisasiState.hmAwal)})",
                                                     fontSize = 11.sp,
                                                     fontWeight = FontWeight.SemiBold,
                                                     color = Color(0xFF92400E)
@@ -1991,7 +1919,7 @@ fun FormReportScreen(
 
                                     Column(modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
                                         Text(
-                                            text = "Alasan Koreksi HM Awal (wajib diisi jika dikoreksi):",
+                                            text = "Alasan Koreksi HM Awal (misal: salah input shift sebelumnya / pergantian meteran alat):",
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = if (realisasiState.alasanKoreksiHm.isBlank()) Color(0xFFDC2626) else Slate700
@@ -2000,7 +1928,7 @@ fun FormReportScreen(
                                         OutlinedTextField(
                                             value = realisasiState.alasanKoreksiHm,
                                             onValueChange = { viewModel.setRealisasiAlasanKoreksiHm(it) },
-                                            placeholder = { Text("Contoh: Salah input shift sebelumnya / pergantian meteran alat", fontSize = 12.sp, color = Slate400) },
+                                            placeholder = { Text("misal: salah input shift sebelumnya / pergantian meteran alat", fontSize = 12.sp, color = Slate400) },
                                             singleLine = true,
                                             isError = realisasiState.alasanKoreksiHm.isBlank(),
                                             colors = OutlinedTextFieldDefaults.colors(
@@ -2014,7 +1942,7 @@ fun FormReportScreen(
                                         )
                                         if (realisasiState.alasanKoreksiHm.isBlank()) {
                                             Text(
-                                                text = "Alasan Koreksi HM Awal (wajib diisi jika dikoreksi)",
+                                                text = "Alasan Koreksi HM Awal wajib diisi saat koreksi manual aktif",
                                                 color = Color(0xFFDC2626),
                                                 fontSize = 10.sp,
                                                 fontWeight = FontWeight.Medium,
@@ -2411,9 +2339,9 @@ fun FormReportScreen(
                                                                         Spacer(modifier = Modifier.width(6.dp))
                                                                         Text(
                                                                             text = if (item.startMinutes == null || item.endMinutes == null) {
-                                                                                "Format jam salah (gunakan format JJ:MM, misal 08:00 atau 23:00)"
+                                                                                "Format jam salah (gunakan format JJ:MM, misal 08:00)"
                                                                             } else {
-                                                                                "Waktu Mulai dan Waktu Selesai kendala tidak boleh sama (JJ:MM)"
+                                                                                "Waktu Selesai harus selalu lebih besar dari Waktu Mulai pada baris ini"
                                                                             },
                                                                             fontSize = 11.sp,
                                                                             fontWeight = FontWeight.Medium,
@@ -2441,7 +2369,11 @@ fun FormReportScreen(
                                                                         )
                                                                         Spacer(modifier = Modifier.width(6.dp))
                                                                         Text(
-                                                                            text = "Jam kendala bertabrakan dengan kendala lainnya!",
+                                                                            text = if (realisasiState.isKendalaOverlappingWithPrevious(index)) {
+                                                                                "Jam kendala bertabrakan dengan kendala sebelumnya!"
+                                                                            } else {
+                                                                                "Jam kendala bertabrakan dengan kendala lainnya!"
+                                                                            },
                                                                             fontSize = 11.sp,
                                                                             fontWeight = FontWeight.Bold,
                                                                             color = Color(0xFFB91C1C)
@@ -2495,7 +2427,7 @@ fun FormReportScreen(
                                                         Icon(Icons.Default.ErrorOutline, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(18.dp))
                                                         Spacer(modifier = Modifier.width(8.dp))
                                                         Text(
-                                                            text = "Jam kendala bertabrakan dengan kendala lainnya! Perbaiki rentang waktu kendala sebelum mengirim.",
+                                                            text = "Jam kendala bertabrakan dengan kendala sebelumnya! Perbaiki jam input kendala sebelum mengirim.",
                                                             fontSize = 11.sp,
                                                             fontWeight = FontWeight.Bold,
                                                             color = Color(0xFFB91C1C)
@@ -3101,45 +3033,9 @@ fun FormReportScreen(
                     modifier = Modifier.fillMaxWidth().testTag("card_penugasan_berjalan_header")
                 ) {
                     Column(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        modifier = Modifier.fillMaxWidth().padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(38.dp)
-                                        .background(Emerald50, RoundedCornerShape(10.dp)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.PrecisionManufacturing,
-                                        contentDescription = null,
-                                        tint = Emerald600,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column {
-                                    Text(
-                                        text = "Rencana Kerja Kasie",
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp,
-                                        color = Slate900
-                                    )
-                                    Text(
-                                        text = "Kelola rencana penugasan unit & input realisasi shift",
-                                        fontSize = 11.sp,
-                                        color = Slate500
-                                    )
-                                }
-                            }
-                        }
-
                         // TOMBOL UTAMA BESAR: "+ BUAT RENCANA KERJA BARU"
                         Button(
                             onClick = { showNewPlanForm = true },

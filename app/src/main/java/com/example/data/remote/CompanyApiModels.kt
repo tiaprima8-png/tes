@@ -463,7 +463,7 @@ data class UnitPayload(
         status: String = "OPERASIONAL",
         hmMinStandar: Double = 6.0,
         hmMaxStandar: Double = 10.0,
-        wilayah: String = "PG1"
+        wilayah: String = "Geodesi PG1"
     ) : this(
         kode_unit = unitCode,
         unit_code = unitCode,
@@ -495,9 +495,9 @@ data class UnitPayload(
     val resolvedHmMinStandar: Double get() = hm_min_standar ?: hm_min ?: min_standar ?: hmMinStandar ?: 6.0
     val resolvedHmMaxStandar: Double get() = hm_max_standar ?: hm_max ?: max_standar ?: hmMaxStandar ?: 10.0
     val resolvedWilayah: String get() = wilayah?.takeIf { it.isNotBlank() } ?: when {
-        resolvedSupervisor.contains("Agus", ignoreCase = true) -> "PG2"
-        resolvedSupervisor.contains("Rudi", ignoreCase = true) -> "PG3"
-        else -> "PG1"
+        resolvedSupervisor.contains("Agus", ignoreCase = true) -> "Geodesi PG2"
+        resolvedSupervisor.contains("Rudi", ignoreCase = true) -> "RC PG1"
+        else -> "Geodesi PG1"
     }
 }
 
@@ -622,7 +622,7 @@ data class OperatorPayload(
         supervisorAssigned: String,
         skillLevel: String = "Class A",
         status: String = "AKTIF",
-        wilayah: String = "PG1"
+        wilayah: String = "Geodesi PG1"
     ) : this(
         nama_operator = name,
         name = name,
@@ -649,9 +649,9 @@ data class OperatorPayload(
     val resolvedSkillLevel: String get() = jabatan ?: skill_level ?: skillLevel ?: "Class A"
     val resolvedStatus: String get() = status ?: "AKTIF"
     val resolvedWilayah: String get() = wilayah?.takeIf { it.isNotBlank() } ?: when {
-        resolvedSupervisor.contains("Agus", ignoreCase = true) -> "PG2"
-        resolvedSupervisor.contains("Rudi", ignoreCase = true) -> "PG3"
-        else -> "PG1"
+        resolvedSupervisor.contains("Agus", ignoreCase = true) -> "Geodesi PG2"
+        resolvedSupervisor.contains("Rudi", ignoreCase = true) -> "RC PG1"
+        else -> "Geodesi PG1"
     }
 }
 
@@ -680,7 +680,7 @@ data class LokasiPayload(
     )
 
     val resolvedKode: String get() = kode_lokasi ?: kodeLokasi ?: "LOK-001"
-    val resolvedWilayah: String get() = wilayah ?: "PG1"
+    val resolvedWilayah: String get() = wilayah ?: "Geodesi PG1"
     val resolvedLuasBruto: Double get() = luas_bruto ?: 0.0
     val resolvedLuasNetto: Double get() = luas_netto ?: 0.0
 }

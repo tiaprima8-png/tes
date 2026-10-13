@@ -18,7 +18,12 @@ interface RencanaKerjaDao {
 
     @Query("""
         SELECT * FROM rencana_kerja 
-        WHERE (:wilayah IS NULL OR :wilayah = 'SEMUA' OR :wilayah = 'Semua Wilayah' OR :wilayah = '' OR wilayah = :wilayah)
+        WHERE (:wilayah IS NULL OR :wilayah = 'SEMUA' OR :wilayah = 'Semua Wilayah' OR :wilayah = '' 
+               OR wilayah = :wilayah 
+               OR REPLACE(wilayah, ' PG', ' ') = :wilayah 
+               OR REPLACE(wilayah, ' ', ' PG') = :wilayah
+               OR wilayah = REPLACE(:wilayah, ' ', ' PG')
+               OR wilayah = REPLACE(:wilayah, ' PG', ' '))
           AND (:kodeUnit IS NULL OR :kodeUnit = 'Semua Unit' OR :kodeUnit = '' OR kode_unit = :kodeUnit)
         ORDER BY created_at DESC
     """)

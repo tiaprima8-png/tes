@@ -52,16 +52,16 @@ object CompanyServerSimulator {
     val serverUnits = CopyOnWriteArrayList<UnitPayload>().apply {
         addAll(
             listOf(
-                UnitPayload("HEH1", "EXCAVATOR", "Komatsu PC200-8", 4125.5, "Budi Santoso", "OPERASIONAL", 6.0, 10.0, "PG1"),
-                UnitPayload("EXC-02", "EXCAVATOR", "Caterpillar 320D", 6280.0, "Budi Santoso", "OPERASIONAL", 6.0, 10.0, "PG1"),
-                UnitPayload("DT-101", "DUMP TRUCK", "Hino FM 260 Ti", 3450.2, "Budi Santoso", "OPERASIONAL", 5.5, 9.5, "PG1"),
-                UnitPayload("DT-102", "DUMP TRUCK", "Scania P360", 2890.4, "Budi Santoso", "OPERASIONAL", 5.5, 9.5, "PG1"),
-                UnitPayload("DZ-01", "BULLDOZER", "Komatsu D85ESS-2", 5130.8, "Budi Santoso", "OPERASIONAL", 6.0, 10.0, "PG1"),
-                UnitPayload("GRD-01", "MOTOR GRADER", "Caterpillar 140K", 1870.0, "Budi Santoso", "OPERASIONAL", 5.0, 9.0, "PG1"),
+                UnitPayload("HEH1", "EXCAVATOR", "Komatsu PC200-8", 4125.5, "Budi Santoso", "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
+                UnitPayload("EXC-02", "EXCAVATOR", "Caterpillar 320D", 6280.0, "Budi Santoso", "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
+                UnitPayload("DT-101", "DUMP TRUCK", "Hino FM 260 Ti", 3450.2, "Budi Santoso", "OPERASIONAL", 5.5, 9.5, "Geodesi PG1"),
+                UnitPayload("DT-102", "DUMP TRUCK", "Scania P360", 2890.4, "Budi Santoso", "OPERASIONAL", 5.5, 9.5, "Geodesi PG1"),
+                UnitPayload("DZ-01", "BULLDOZER", "Komatsu D85ESS-2", 5130.8, "Budi Santoso", "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
+                UnitPayload("GRD-01", "MOTOR GRADER", "Caterpillar 140K", 1870.0, "Budi Santoso", "OPERASIONAL", 5.0, 9.0, "Geodesi PG1"),
                 // Units assigned to other supervisors
-                UnitPayload("EXC-09", "EXCAVATOR", "Hitachi ZX210-5G", 3990.2, "Agus Wijaya", "OPERASIONAL", 6.0, 10.0, "PG2"),
-                UnitPayload("DT-205", "DUMP TRUCK", "Volvo FMX 440", 4150.0, "Agus Wijaya", "OPERASIONAL", 5.5, 9.5, "PG2"),
-                UnitPayload("DZ-04", "BULLDOZER", "CAT D6R", 2980.5, "Rudi Hermawan", "OPERASIONAL", 6.0, 10.0, "PG3")
+                UnitPayload("EXC-09", "EXCAVATOR", "Hitachi ZX210-5G", 3990.2, "Agus Wijaya", "OPERASIONAL", 6.0, 10.0, "Geodesi PG2"),
+                UnitPayload("DT-205", "DUMP TRUCK", "Volvo FMX 440", 4150.0, "Agus Wijaya", "OPERASIONAL", 5.5, 9.5, "Geodesi PG2"),
+                UnitPayload("DZ-04", "BULLDOZER", "CAT D6R", 2980.5, "Rudi Hermawan", "OPERASIONAL", 6.0, 10.0, "RC PG1")
             )
         )
     }
@@ -110,16 +110,16 @@ object CompanyServerSimulator {
     val serverOperators = CopyOnWriteArrayList<OperatorPayload>().apply {
         addAll(
             listOf(
-                OperatorPayload("OPR-001", "Ahmad Fauzi", "NIK-94821", "Budi Santoso", "Senior Operator - Class A", "AKTIF", "PG1"),
-                OperatorPayload("OPR-002", "Bambang Sudrajat", "NIK-88234", "Budi Santoso", "Senior Operator - Class A", "AKTIF", "PG1"),
-                OperatorPayload("OPR-003", "Dedi Supriyadi", "NIK-77412", "Budi Santoso", "Operator Alat Berat - Class B", "AKTIF", "PG1"),
-                OperatorPayload("OPR-004", "Eko Prasetyo", "NIK-65129", "Budi Santoso", "Operator Dump Truck - Class B", "AKTIF", "PG1"),
-                OperatorPayload("OPR-005", "Hendra Gunawan", "NIK-91203", "Budi Santoso", "Master Grader Operator", "AKTIF", "PG1"),
+                OperatorPayload("OPR-001", "Ahmad Fauzi", "NIK-94821", "Budi Santoso", "Senior Operator - Class A", "AKTIF", "Geodesi PG1"),
+                OperatorPayload("OPR-002", "Bambang Sudrajat", "NIK-88234", "Budi Santoso", "Senior Operator - Class A", "AKTIF", "Geodesi PG1"),
+                OperatorPayload("OPR-003", "Dedi Supriyadi", "NIK-77412", "Budi Santoso", "Operator Alat Berat - Class B", "AKTIF", "Geodesi PG1"),
+                OperatorPayload("OPR-004", "Eko Prasetyo", "NIK-65129", "Budi Santoso", "Operator Dump Truck - Class B", "AKTIF", "Geodesi PG1"),
+                OperatorPayload("OPR-005", "Hendra Gunawan", "NIK-91203", "Budi Santoso", "Master Grader Operator", "AKTIF", "Geodesi PG1"),
                 // Operators for Agus Wijaya
-                OperatorPayload("OPR-006", "Indra Kusuma", "NIK-83190", "Agus Wijaya", "Senior Excavator Operator", "AKTIF", "PG2"),
-                OperatorPayload("OPR-007", "Joko Susilo", "NIK-74102", "Agus Wijaya", "Dump Truck Driver", "AKTIF", "PG2"),
+                OperatorPayload("OPR-006", "Indra Kusuma", "NIK-83190", "Agus Wijaya", "Senior Excavator Operator", "AKTIF", "Geodesi PG2"),
+                OperatorPayload("OPR-007", "Joko Susilo", "NIK-74102", "Agus Wijaya", "Dump Truck Driver", "AKTIF", "Geodesi PG2"),
                 // Operators for Rudi Hermawan
-                OperatorPayload("OPR-008", "Kurniawan Putra", "NIK-69214", "Rudi Hermawan", "Dozer Operator", "AKTIF", "PG3")
+                OperatorPayload("OPR-008", "Kurniawan Putra", "NIK-69214", "Rudi Hermawan", "Dozer Operator", "AKTIF", "RC PG1")
             )
         )
     }
@@ -128,11 +128,11 @@ object CompanyServerSimulator {
     val serverLokasi = CopyOnWriteArrayList<LokasiPayload>().apply {
         addAll(
             listOf(
-                LokasiPayload("001A", "PG1", 10.5, 8.2, "Area Front Utama"),
-                LokasiPayload("002B", "PG1", 14.0, 11.5, "Disposal North"),
-                LokasiPayload("100A", "PG2", 20.0, 16.8, "Pit Cut Site B"),
-                LokasiPayload("101B", "PG2", 18.5, 15.0, "Loading Area 2"),
-                LokasiPayload("201C", "PG3", 25.0, 21.4, "Hauling Route South"),
+                LokasiPayload("001A", "Geodesi PG1", 10.5, 8.2, "Area Front Utama"),
+                LokasiPayload("002B", "Geodesi PG1", 14.0, 11.5, "Disposal North"),
+                LokasiPayload("100A", "Geodesi PG2", 20.0, 16.8, "Pit Cut Site B"),
+                LokasiPayload("101B", "Geodesi PG2", 18.5, 15.0, "Loading Area 2"),
+                LokasiPayload("201C", "RC PG1", 25.0, 21.4, "Hauling Route South"),
                 LokasiPayload("MAINROAD-01", "INFRA", 30.0, 28.0, "Jalan Tambang Utama"),
                 LokasiPayload("DISPOSAL-W", "DISP", 15.0, 12.0, "Penimbunan Barat"),
                 LokasiPayload("PIT-NORTH", "PIT", 35.0, 30.5, "Pit Penambangan Utara")

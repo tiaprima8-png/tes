@@ -109,22 +109,21 @@ fun AnalyticsScreen(
                 modifier = Modifier.fillMaxWidth().testTag("card_analytics_filters")
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isManagerSession) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Box(
                                 modifier = Modifier
                                     .size(38.dp)
-                                    .background(if (isManagerSession) Color(0xFFFEF3C7) else Emerald50, RoundedCornerShape(10.dp)),
+                                    .background(Color(0xFFFEF3C7), RoundedCornerShape(10.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.BarChart,
                                     contentDescription = null,
-                                    tint = if (isManagerSession) Color(0xFFB45309) else Emerald600,
+                                    tint = Color(0xFFB45309),
                                     modifier = Modifier.size(22.dp)
                                 )
                             }
@@ -132,103 +131,99 @@ fun AnalyticsScreen(
                             Column {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Text(
-                                        text = if (isManagerSession) "Dashboard Analitik Eksekutif" else "Analitik Operasional",
+                                        text = "Dashboard Analitik Eksekutif",
                                         style = MaterialTheme.typography.titleMedium.copy(
                                             fontWeight = FontWeight.Bold,
                                             color = Slate900
                                         )
                                     )
-                                    if (isManagerSession) {
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Surface(
-                                            shape = RoundedCornerShape(6.dp),
-                                            color = Color(0xFFFEF3C7)
-                                        ) {
-                                            Text(
-                                                text = "EKSEKUTIF",
-                                                color = Color(0xFF92400E),
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
-                                            )
-                                        }
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = Color(0xFFFEF3C7)
+                                    ) {
+                                        Text(
+                                            text = "EKSEKUTIF",
+                                            color = Color(0xFF92400E),
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                        )
                                     }
                                 }
                                 Text(
-                                    text = if (isManagerSession) {
-                                        "Mode Monitoring Eksekutif • Rekapitulasi Menyeluruh Seluruh Kasie & Armada"
-                                    } else {
-                                        "Kasie: $activeSupervisor"
-                                    },
+                                    text = "Mode Monitoring Eksekutif • Rekapitulasi Menyeluruh Seluruh Kasie & Armada",
                                     style = MaterialTheme.typography.bodySmall.copy(color = Slate500)
                                 )
                             }
                         }
+                        Spacer(modifier = Modifier.height(14.dp))
+                    }
 
-                        // Actions: Refresh & Unit Filter Dropdown Trigger
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            // Tombol Refresh / Sinkronkan data terbaru dari server
-                            IconButton(
-                                onClick = { viewModel.refreshAnalyticsData() },
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .background(Emerald50, RoundedCornerShape(10.dp))
-                                    .testTag("btn_refresh_analytics")
+                    // Actions: Filter Unit & Refresh Button
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Unit Filter Dropdown Trigger
+                        Box {
+                            OutlinedButton(
+                                onClick = { isUnitDropdownExpanded = true },
+                                shape = RoundedCornerShape(10.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Emerald600),
+                                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.height(34.dp).testTag("btn_filter_unit")
                             ) {
-                                Icon(
-                                    imageVector = Icons.Default.Refresh,
-                                    contentDescription = "Sinkronkan Data Analitik",
-                                    tint = Emerald600,
-                                    modifier = Modifier.size(18.dp)
+                                Icon(Icons.Default.FilterList, contentDescription = null, tint = Emerald600, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = unitFilter,
+                                    color = Emerald700,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    maxLines = 1
                                 )
                             }
 
-                            // Unit Filter Dropdown Trigger
-                            Box {
-                                OutlinedButton(
-                                    onClick = { isUnitDropdownExpanded = true },
-                                    shape = RoundedCornerShape(10.dp),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Emerald600),
-                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                                    modifier = Modifier.height(34.dp).testTag("btn_filter_unit")
-                                ) {
-                                    Icon(Icons.Default.FilterList, contentDescription = null, tint = Emerald600, modifier = Modifier.size(14.dp))
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = unitFilter,
-                                        color = Emerald700,
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        maxLines = 1
-                                    )
-                                }
-
-                                DropdownMenu(
-                                    expanded = isUnitDropdownExpanded,
-                                    onDismissRequest = { isUnitDropdownExpanded = false },
-                                    modifier = Modifier.heightIn(max = 240.dp)
-                                ) {
+                            DropdownMenu(
+                                expanded = isUnitDropdownExpanded,
+                                onDismissRequest = { isUnitDropdownExpanded = false },
+                                modifier = Modifier.heightIn(max = 240.dp)
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Semua Unit (${units.size})") },
+                                    onClick = {
+                                        viewModel.setAnalyticsUnitFilter("Semua Unit")
+                                        isUnitDropdownExpanded = false
+                                    }
+                                )
+                                units.forEach { u ->
                                     DropdownMenuItem(
-                                        text = { Text("Semua Unit (${units.size})") },
+                                        text = { Text("${u.unitCode} - ${u.brandModel}") },
                                         onClick = {
-                                            viewModel.setAnalyticsUnitFilter("Semua Unit")
+                                            viewModel.setAnalyticsUnitFilter(u.unitCode)
                                             isUnitDropdownExpanded = false
                                         }
                                     )
-                                    units.forEach { u ->
-                                        DropdownMenuItem(
-                                            text = { Text("${u.unitCode} - ${u.brandModel}") },
-                                            onClick = {
-                                                viewModel.setAnalyticsUnitFilter(u.unitCode)
-                                                isUnitDropdownExpanded = false
-                                            }
-                                        )
-                                    }
                                 }
                             }
+                        }
+
+                        // Tombol Refresh / Sinkronkan data terbaru dari server
+                        IconButton(
+                            onClick = { viewModel.refreshAnalyticsData() },
+                            modifier = Modifier
+                                .size(34.dp)
+                                .background(Emerald50, RoundedCornerShape(10.dp))
+                                .testTag("btn_refresh_analytics")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Sinkronkan Data Analitik",
+                                tint = Emerald600,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
 

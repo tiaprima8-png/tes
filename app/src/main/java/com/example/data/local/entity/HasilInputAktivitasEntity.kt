@@ -123,6 +123,6 @@ data class HasilInputAktivitasEntity(
     @ColumnInfo(name = "status_kirim", defaultValue = "'PENDING'")
     val statusKirim: String = "PENDING",
 
-    @ColumnInfo(name = "wilayah", defaultValue = "PG1")
-    val wilayah: String? = "PG1"
+    @ColumnInfo(name = "wilayah", defaultValue = "Geodesi PG1")
+    val wilayah: String? = "Geodesi PG1"
 )

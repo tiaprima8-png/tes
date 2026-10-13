@@ -334,7 +334,7 @@ class ApiClientManager(val context: Context) {
         val aktivitas = optStringFirst(obj, "nama_aktivitas", "aktivitas", "keterangan_rencana")
         val satuan = optStringFirst(obj, "satuan_aktivitas", "satuan").ifBlank { "m3" }
         val lokasi = optStringFirst(obj, "kode_lokasi", "lokasi").ifBlank { "001A" }
-        val wilayah = optStringFirst(obj, "wilayah").ifBlank { "PG1" }
+        val wilayah = optStringFirst(obj, "wilayah").ifBlank { "Geodesi PG1" }
         val shift = optStringFirst(obj, "shift_kerja", "shift").ifBlank { "SIANG" }
         val pengawas = optStringFirst(obj, "nama_pengawas", "pengawas").ifBlank { "Budi Santoso" }
         val tanggal = optStringFirst(obj, "tanggal", "tanggal_kerja")

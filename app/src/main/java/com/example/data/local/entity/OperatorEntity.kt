@@ -11,7 +11,7 @@ data class OperatorEntity(
     val supervisorAssigned: String,      // e.g. "Budi Santoso", "Agus Wijaya"
     val skillLevel: String = "Class A - Excavator & Dozer",
     val status: String = "AKTIF",
-    val wilayah: String? = "PG1",
+    val wilayah: String? = "Geodesi PG1",
     val updatedAt: Long = System.currentTimeMillis()
 )
 

@@ -18,7 +18,12 @@ interface OperatorDao {
 
     @Query("""
         SELECT * FROM operators 
-        WHERE (:wilayah IS NOT NULL AND :wilayah != '' AND :wilayah != 'SEMUA' AND :wilayah != 'Semua Wilayah' AND wilayah = :wilayah)
+        WHERE (:wilayah IS NOT NULL AND :wilayah != '' AND :wilayah != 'SEMUA' AND :wilayah != 'Semua Wilayah' 
+               AND (wilayah = :wilayah 
+                    OR REPLACE(wilayah, ' PG', ' ') = :wilayah 
+                    OR REPLACE(wilayah, ' ', ' PG') = :wilayah
+                    OR wilayah = REPLACE(:wilayah, ' ', ' PG')
+                    OR wilayah = REPLACE(:wilayah, ' PG', ' ')))
            OR ((:wilayah IS NULL OR :wilayah = '' OR :wilayah = 'SEMUA' OR :wilayah = 'Semua Wilayah') AND (supervisorAssigned = :supervisor OR :supervisor = '' OR :supervisor = 'ALL'))
         ORDER BY name ASC
     """)
@@ -26,7 +31,12 @@ interface OperatorDao {
 
     @Query("""
         SELECT * FROM operators 
-        WHERE (:wilayah IS NULL OR :wilayah = 'SEMUA' OR :wilayah = 'Semua Wilayah' OR :wilayah = '' OR wilayah = :wilayah)
+        WHERE (:wilayah IS NULL OR :wilayah = 'SEMUA' OR :wilayah = 'Semua Wilayah' OR :wilayah = '' 
+               OR wilayah = :wilayah 
+               OR REPLACE(wilayah, ' PG', ' ') = :wilayah 
+               OR REPLACE(wilayah, ' ', ' PG') = :wilayah
+               OR wilayah = REPLACE(:wilayah, ' ', ' PG')
+               OR wilayah = REPLACE(:wilayah, ' PG', ' '))
         ORDER BY name ASC
     """)
     fun getOperatorsFiltered(wilayah: String?): Flow<List<OperatorEntity>>

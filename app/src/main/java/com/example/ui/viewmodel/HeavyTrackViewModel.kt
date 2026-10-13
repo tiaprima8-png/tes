@@ -23,6 +23,7 @@ import com.example.data.local.entity.UnitEntity
 import com.example.data.local.entity.UserEntity
 import com.example.data.model.Supervisor
 import com.example.data.model.SupervisorDirectory
+import com.example.data.model.WilayahConstants
 import com.example.data.remote.ActivityPayload
 import com.example.data.remote.CompanyServerSimulator
 import com.example.data.remote.KendalaItemPayload
@@ -524,7 +525,7 @@ class HeavyTrackViewModel(
                         phone = savedSession.phone,
                         roleTitle = savedSession.roleTitle,
                         role = savedSession.role,
-                        wilayah = savedSession.wilayah ?: "PG1"
+                        wilayah = savedSession.wilayah ?: "Geodesi PG1"
                     )
                     _currentSupervisorSession.value = spv
                     _activeSupervisor.value = spv.name
@@ -815,11 +816,11 @@ class HeavyTrackViewModel(
                 nik = trimmedUser.uppercase(),
                 passwordPin = trimmedPin,
                 defaultShift = if (isManagerRole) "ALL" else "SIANG",
-                assignedSector = if (isManagerRole) "Seluruh Proyek & Armada (Eksekutif)" else "Sektor Operasional Lapangan (PG1)",
+                assignedSector = if (isManagerRole) "Seluruh Proyek & Armada (Eksekutif)" else "Sektor Operasional Lapangan (Geodesi PG1)",
                 phone = "+62 812-0000-0000",
                 roleTitle = if (isManagerRole) "Manager Operasional" else "Kasie Lapangan",
                 role = if (isManagerRole) "MANAGER" else "KASIE",
-                wilayah = if (isManagerRole) "Semua Wilayah" else "PG1"
+                wilayah = if (isManagerRole) "Semua Wilayah" else "Geodesi PG1"
             )
             login(fallback)
             return true
@@ -1964,7 +1965,7 @@ class HeavyTrackViewModel(
         // Validasi Tumpang Tindih (Anti-Overlapping) Jam Kendala
         if (state.hasAnyKendalaOverlap) {
             viewModelScope.launch {
-                _uiEvents.emit(UiMessage.Error("Jam kendala bertabrakan dengan kendala lainnya! Perbaiki jam input kendala."))
+                _uiEvents.emit(UiMessage.Error("Jam kendala bertabrakan dengan kendala sebelumnya! Perbaiki jam input kendala."))
             }
             return
         }
@@ -2471,7 +2472,7 @@ Halo Rekan Pengawas, berkas installer APK pembaruan aplikasi resmi terlampir ($f
         val wilayahFiltered = if (wilayahFilter == "Semua Wilayah" || wilayahFilter.isBlank()) {
             periodFiltered
         } else {
-            periodFiltered.filter { it.wilayah.equals(wilayahFilter, ignoreCase = true) }
+            periodFiltered.filter { WilayahConstants.matches(it.wilayah, wilayahFilter) }
         }
 
         // Filter by Jenis Unit

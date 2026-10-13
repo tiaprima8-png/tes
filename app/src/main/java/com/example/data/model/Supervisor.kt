@@ -10,7 +10,7 @@ data class Supervisor(
     val phone: String,
     val roleTitle: String = "Kasie",
     val role: String = "KASIE", // "KASIE" (alias "SUPERVISOR") vs "MANAGER"
-    val wilayah: String = "PG1" // "PG1", "PG2", "PG3", "Semua Wilayah"
+    val wilayah: String = "Geodesi PG1" // 8 Wilayah Kerja baru atau "Semua Wilayah"
 ) {
     val isManager: Boolean get() = role.equals("MANAGER", ignoreCase = true)
     val isSupervisor: Boolean get() = !isManager
@@ -26,11 +26,11 @@ object SupervisorDirectory {
             nik = "SPV-901",
             passwordPin = "1234",
             defaultShift = "SIANG",
-            assignedSector = "Pit North & Mainroad 001A (PG1)",
+            assignedSector = "Pit North & Mainroad 001A (Geodesi PG1)",
             phone = "+62 812-3456-7890",
             roleTitle = "Kasie Lapangan",
             role = "KASIE",
-            wilayah = "PG1"
+            wilayah = "Geodesi PG1"
         ),
         Supervisor(
             id = "SPV-02",
@@ -38,11 +38,11 @@ object SupervisorDirectory {
             nik = "SPV-902",
             passwordPin = "1234",
             defaultShift = "MALAM",
-            assignedSector = "Disposal West & Cut Site B (PG2)",
+            assignedSector = "Disposal West & Cut Site B (Geodesi PG2)",
             phone = "+62 813-9876-5432",
             roleTitle = "Kasie Lapangan",
             role = "KASIE",
-            wilayah = "PG2"
+            wilayah = "Geodesi PG2"
         ),
         Supervisor(
             id = "SPV-03",
@@ -50,11 +50,11 @@ object SupervisorDirectory {
             nik = "SPV-903",
             passwordPin = "1234",
             defaultShift = "SIANG",
-            assignedSector = "Hauling Road East & Stockpile (PG3)",
+            assignedSector = "Hauling Road East & Stockpile (RC PG1)",
             phone = "+62 811-2233-4455",
             roleTitle = "Kasie Lapangan",
             role = "KASIE",
-            wilayah = "PG3"
+            wilayah = "RC PG1"
         ),
 
         // Akun Manager / Mode Monitoring Eksekutif (Semua Wilayah)

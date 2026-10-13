@@ -200,13 +200,18 @@ class HeavyTrackRepository(
             fetchMasterData(activeSupervisor)
         } catch (_: Exception) {
             val initialUnits = listOf(
-                UnitEntity("HEH1", "EXCAVATOR", "Komatsu PC200-8", 4125.5, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "PG1"),
-                UnitEntity("EXC-02", "EXCAVATOR", "Caterpillar 320D", 6280.0, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "PG1"),
-                UnitEntity("MG-01", "MOTOR GRADER", "Caterpillar 140K", 2150.0, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "PG1"),
-                UnitEntity("DT-101", "DUMP TRUCK", "Hino FM 260 Ti", 3450.2, "Agus Wijaya", "OPERASIONAL", 5.5, 9.5, "PG2"),
-                UnitEntity("DT-102", "DUMP TRUCK", "Nissan Quon CWB45A", 2890.0, "Agus Wijaya", "OPERASIONAL", 5.5, 9.5, "PG2"),
-                UnitEntity("WT-054", "WATER TRUCK", "Hino FM 260 WT", 1980.4, "Rudi Hermawan", "OPERASIONAL", 4.0, 8.0, "PG3"),
-                UnitEntity("DZ-01", "BULLDOZER", "Komatsu D85ESS-2", 5130.8, "Rudi Hermawan", "OPERASIONAL", 6.0, 10.0, "PG3")
+                UnitEntity("HEH1", "EXCAVATOR", "Komatsu PC200-8", 4125.5, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
+                UnitEntity("EXC-02", "EXCAVATOR", "Caterpillar 320D", 6280.0, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
+                UnitEntity("MG-01", "MOTOR GRADER", "Caterpillar 140K", 2150.0, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
+                UnitEntity("DT-101", "DUMP TRUCK", "Hino FM 260 Ti", 3450.2, "Agus Wijaya", "OPERASIONAL", 5.5, 9.5, "Geodesi PG2"),
+                UnitEntity("DT-102", "DUMP TRUCK", "Nissan Quon CWB45A", 2890.0, "Agus Wijaya", "OPERASIONAL", 5.5, 9.5, "Geodesi PG2"),
+                UnitEntity("WT-054", "WATER TRUCK", "Hino FM 260 WT", 1980.4, "Rudi Hermawan", "OPERASIONAL", 4.0, 8.0, "Geodesi PG3"),
+                UnitEntity("DZ-01", "BULLDOZER", "Komatsu D85ESS-2", 5130.8, "Rudi Hermawan", "OPERASIONAL", 6.0, 10.0, "Geodesi PG3"),
+                UnitEntity("DT-301", "DUMP TRUCK", "Hino 500 FM260", 3120.0, "Dedi Irawan", "OPERASIONAL", 5.5, 9.5, "RC PG1"),
+                UnitEntity("EXC-15", "EXCAVATOR", "Kobelco SK200", 4500.0, "Hendra Setiawan", "OPERASIONAL", 6.0, 10.0, "RC PG2"),
+                UnitEntity("GRD-02", "MOTOR GRADER", "CAT 140M", 2300.0, "Yanto Prasetyo", "OPERASIONAL", 5.0, 9.0, "RC PG3"),
+                UnitEntity("DZ-08", "BULLDOZER", "Komatsu D65", 3800.0, "Ilham Saputra", "OPERASIONAL", 6.0, 10.0, "LEBUNG PG12"),
+                UnitEntity("WT-060", "WATER TRUCK", "Hino FM 260", 2100.0, "Rizky Pratama", "OPERASIONAL", 4.0, 8.0, "LEBUNG PG3")
             )
             unitDao.insertUnits(initialUnits)
 
@@ -224,20 +229,24 @@ class HeavyTrackRepository(
             activityDao.insertActivities(initialActivities)
 
             val initialOperators = listOf(
-                OperatorEntity("OPR-001", "Ahmad Fauzi", "NIK-94821", activeSupervisor, "Class A - Excavator & Dozer", "AKTIF", "PG1"),
-                OperatorEntity("OPR-002", "Bambang Sudrajat", "NIK-88234", "Agus Wijaya", "Class A - Dump Truck", "AKTIF", "PG2"),
-                OperatorEntity("OPR-003", "Dedi Supriyadi", "NIK-77412", "Rudi Hermawan", "Class A - Dozer & Water", "AKTIF", "PG3"),
-                OperatorEntity("OPR-004", "Suryanto", "NIK-99120", activeSupervisor, "Class A - Excavator", "AKTIF", "PG1")
+                OperatorEntity("OPR-001", "Ahmad Fauzi", "NIK-94821", activeSupervisor, "Class A - Excavator & Dozer", "AKTIF", "Geodesi PG1"),
+                OperatorEntity("OPR-002", "Bambang Sudrajat", "NIK-88234", "Agus Wijaya", "Class A - Dump Truck", "AKTIF", "Geodesi PG2"),
+                OperatorEntity("OPR-003", "Dedi Supriyadi", "NIK-77412", "Rudi Hermawan", "Class A - Dozer & Water", "AKTIF", "Geodesi PG3"),
+                OperatorEntity("OPR-004", "Suryanto", "NIK-99120", activeSupervisor, "Class A - Excavator", "AKTIF", "Geodesi PG1"),
+                OperatorEntity("OPR-005", "Hasan Basri", "NIK-55101", "Dedi Irawan", "Dump Truck Driver", "AKTIF", "RC PG1"),
+                OperatorEntity("OPR-006", "Bayu Nugroho", "NIK-55104", "Ilham Saputra", "Dozer Operator", "AKTIF", "LEBUNG PG12")
             )
             operatorDao.insertOperators(initialOperators)
 
             val initialLokasi = listOf(
-                LokasiEntity("001A", "PG1", 10.5, 8.2, "Area Front Utama"),
-                LokasiEntity("002B", "PG1", 14.0, 11.5, "Disposal North"),
-                LokasiEntity("100A", "PG2", 20.0, 16.8, "Pit Cut Site B"),
-                LokasiEntity("101B", "PG2", 18.5, 15.0, "Loading Area 2"),
-                LokasiEntity("201C", "PG3", 25.0, 21.4, "Hauling Route South"),
-                LokasiEntity("MAINROAD-01", "INFRA", 30.0, 28.0, "Jalan Tambang Utama")
+                LokasiEntity("001A", "Geodesi PG1", 10.5, 8.2, "Area Front Utama"),
+                LokasiEntity("002B", "Geodesi PG1", 14.0, 11.5, "Disposal North"),
+                LokasiEntity("100A", "Geodesi PG2", 20.0, 16.8, "Pit Cut Site B"),
+                LokasiEntity("101B", "Geodesi PG2", 18.5, 15.0, "Loading Area 2"),
+                LokasiEntity("201C", "Geodesi PG3", 25.0, 21.4, "Hauling Route South"),
+                LokasiEntity("301D", "RC PG1", 15.0, 12.0, "Pit West Front"),
+                LokasiEntity("401G", "LEBUNG PG12", 30.0, 26.0, "Lebung Wetland Area"),
+                LokasiEntity("MAINROAD-01", "Geodesi PG1", 30.0, 28.0, "Jalan Tambang Utama")
             )
             lokasiDao.insertLokasiList(initialLokasi)
 
@@ -274,10 +283,10 @@ class HeavyTrackRepository(
                     namaAktivitas = "Galian Tanah Lunak",
                     satuanAktivitas = "m3",
                     kodeLokasi = "001A",
-                    wilayah = "PG1",
+                    wilayah = "Geodesi PG1",
                     shiftKerja = "SIANG",
                     keterangan = "Penggalian front 001A",
-                    nomorSpk = "SPK-PG1-001",
+                    nomorSpk = "SPK-GEO1-001",
                     statusSpk = "SPK_TERBIT",
                     statusTahap = "REALISASI_SELESAI",
                     statusRealisasi = "SUDAH",
@@ -295,10 +304,10 @@ class HeavyTrackRepository(
                     namaAktivitas = "Dumping & Spreading",
                     satuanAktivitas = "m2",
                     kodeLokasi = "100A",
-                    wilayah = "PG2",
+                    wilayah = "Geodesi PG2",
                     shiftKerja = "SIANG",
                     keterangan = "Hauling disposal pit B",
-                    nomorSpk = "SPK-PG2-045",
+                    nomorSpk = "SPK-GEO2-045",
                     statusSpk = "SPK_TERBIT",
                     statusTahap = "REALISASI_SELESAI",
                     statusRealisasi = "SUDAH",
@@ -316,10 +325,10 @@ class HeavyTrackRepository(
                     namaAktivitas = "Grading Mainroad Tambang",
                     satuanAktivitas = "m",
                     kodeLokasi = "201C",
-                    wilayah = "PG3",
+                    wilayah = "Geodesi PG3",
                     shiftKerja = "SIANG",
                     keterangan = "Penyiraman hauling route",
-                    nomorSpk = "SPK-PG3-089",
+                    nomorSpk = "SPK-GEO3-089",
                     statusSpk = "SPK_TERBIT",
                     statusTahap = "REALISASI_SELESAI",
                     statusRealisasi = "SUDAH",
@@ -342,7 +351,7 @@ class HeavyTrackRepository(
                     unitOfMeasure = "m3",
                     operatorName = "Ahmad Fauzi",
                     workLocation = "001A",
-                    wilayah = "PG1",
+                    wilayah = "Geodesi PG1",
                     shift = "SIANG",
                     workDurationHours = 8.0,
                     hmAwal = 4125.5,
@@ -367,7 +376,7 @@ class HeavyTrackRepository(
                     unitOfMeasure = "m2",
                     operatorName = "Bambang Sudrajat",
                     workLocation = "100A",
-                    wilayah = "PG2",
+                    wilayah = "Geodesi PG2",
                     shift = "SIANG",
                     workDurationHours = 7.5,
                     hmAwal = 3450.2,
@@ -392,7 +401,7 @@ class HeavyTrackRepository(
                     unitOfMeasure = "m",
                     operatorName = "Dedi Supriyadi",
                     workLocation = "201C",
-                    wilayah = "PG3",
+                    wilayah = "Geodesi PG3",
                     shift = "SIANG",
                     workDurationHours = 6.0,
                     hmAwal = 1980.4,
@@ -417,7 +426,7 @@ class HeavyTrackRepository(
                     unitOfMeasure = "jam",
                     operatorName = "Dedi Supriyadi",
                     workLocation = "201C",
-                    wilayah = "PG3",
+                    wilayah = "Geodesi PG3",
                     shift = "SIANG",
                     workDurationHours = 4.0,
                     hmAwal = 5130.8,
@@ -673,7 +682,7 @@ class HeavyTrackRepository(
                     namaAktivitas = renReq.resolvedAktivitas,
                     satuanAktivitas = renReq.resolvedSatuan,
                     kodeLokasi = renReq.resolvedLokasi,
-                    wilayah = renReq.wilayah?.takeIf { it.isNotBlank() } ?: "PG1",
+                    wilayah = renReq.wilayah?.takeIf { it.isNotBlank() } ?: "Geodesi PG1",
                     shiftKerja = renReq.resolvedShift,
                     keterangan = renReq.keterangan ?: renReq.keterangan_rencana ?: "",
                     nomorSpk = spkNum,
@@ -714,7 +723,7 @@ class HeavyTrackRepository(
                     unitOfMeasure = repReq.satuan ?: repReq.unit_of_measure ?: "m3",
                     operatorName = repReq.nama_operator ?: repReq.operator_name ?: "",
                     workLocation = repReq.lokasi_kerja ?: repReq.work_location ?: "",
-                    wilayah = repReq.wilayah?.takeIf { it.isNotBlank() } ?: "PG1",
+                    wilayah = repReq.wilayah?.takeIf { it.isNotBlank() } ?: "Geodesi PG1",
                     shift = repReq.shift ?: "SIANG",
                     workDurationHours = repReq.durasi_jam_kerja ?: repReq.work_duration_hours ?: 7.0,
                     hmAwal = repReq.hm_awal ?: 0.0,
@@ -996,7 +1005,7 @@ class HeavyTrackRepository(
             val activeUser = userDao.getActiveUser()
             val targetWilayah = reportMirror.wilayah.takeIf { it.isNotBlank() }
                 ?: activeUser?.wilayah
-                ?: "PG1"
+                ?: "Geodesi PG1"
 
             aktivitasUnitDao.insert(
                 AktivitasUnitEntity(
@@ -1130,7 +1139,7 @@ class HeavyTrackRepository(
             val activeUser = userDao.getActiveUser()
             val targetWilayah = savedReport.wilayah.takeIf { it.isNotBlank() }
                 ?: activeUser?.wilayah
-                ?: "PG1"
+                ?: "Geodesi PG1"
 
             aktivitasUnitDao.insert(
                 AktivitasUnitEntity(

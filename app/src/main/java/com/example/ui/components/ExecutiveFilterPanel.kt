@@ -54,6 +54,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.data.model.WilayahConstants
 import com.example.ui.theme.Emerald50
 import com.example.ui.theme.Emerald600
 import com.example.ui.theme.Emerald700
@@ -77,6 +78,7 @@ fun ExecutiveFilterPanel(
     val selectedKodeUnit by viewModel.filterKodeUnit.collectAsState()
     val allUnits by viewModel.allUnitsGlobal.collectAsState()
 
+    var isWilayahDropdownExpanded by remember { mutableStateOf(false) }
     var isKodeUnitDropdownExpanded by remember { mutableStateOf(false) }
 
     val isFilterActive = selectedWilayah != "Semua Wilayah" ||
@@ -86,7 +88,7 @@ fun ExecutiveFilterPanel(
     // Filter available unit codes for dropdown based on currently chosen wilayah & jenis
     val candidateUnits = remember(allUnits, selectedWilayah, selectedJenisUnit) {
         allUnits.filter { u ->
-            val matchWilayah = selectedWilayah == "Semua Wilayah" || u.wilayah.equals(selectedWilayah, ignoreCase = true)
+            val matchWilayah = selectedWilayah == "Semua Wilayah" || WilayahConstants.matches(u.wilayah, selectedWilayah)
             val matchJenis = selectedJenisUnit == "Semua Jenis" || viewModel.matchesJenisUnit(u.unitType, selectedJenisUnit)
             matchWilayah && matchJenis
         }
@@ -167,51 +169,156 @@ fun ExecutiveFilterPanel(
                 }
             }
 
-            // 1. FILTER WILAYAH (Semua Wilayah, PG1, PG2, PG3)
+            // 1. FILTER WILAYAH (Dropdown 8 Wilayah Baru + Semua Wilayah)
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = Slate400, modifier = Modifier.size(13.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "Wilayah Kerja Operasional:",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Slate700
-                    )
-                }
                 Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.LocationOn, contentDescription = null, tint = Slate400, modifier = Modifier.size(13.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Filter Wilayah Kerja:",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Slate700
+                        )
+                    }
+                    if (selectedWilayah != "Semua Wilayah") {
+                        Text(
+                            text = "Aktif: $selectedWilayah",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Emerald700
+                        )
+                    }
+                }
+
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { isWilayahDropdownExpanded = true },
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, if (selectedWilayah != "Semua Wilayah") Emerald600 else Slate200),
+                        colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                            containerColor = if (selectedWilayah != "Semua Wilayah") Emerald50 else Color(0xFFF8FAFC)
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .testTag("btn_dropdown_filter_wilayah")
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Default.LocationOn,
+                                    contentDescription = null,
+                                    tint = if (selectedWilayah != "Semua Wilayah") Emerald600 else Slate400,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (selectedWilayah == "Semua Wilayah") "Semua Wilayah (Monitoring Menyeluruh)" else "Wilayah: $selectedWilayah",
+                                    color = if (selectedWilayah != "Semua Wilayah") Emerald900 else Slate800,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (selectedWilayah != "Semua Wilayah") FontWeight.Bold else FontWeight.Medium
+                                )
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (selectedWilayah != "Semua Wilayah") {
+                                    IconButton(
+                                        onClick = {
+                                            viewModel.setFilterWilayah("Semua Wilayah")
+                                            if (selectedKodeUnit != "Semua Unit") {
+                                                viewModel.setFilterKodeUnit("Semua Unit")
+                                            }
+                                        },
+                                        modifier = Modifier.size(20.dp)
+                                    ) {
+                                        Icon(Icons.Default.Clear, contentDescription = "Clear Wilayah", tint = Slate500, modifier = Modifier.size(14.dp))
+                                    }
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                }
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Slate500)
+                            }
+                        }
+                    }
+
+                    DropdownMenu(
+                        expanded = isWilayahDropdownExpanded,
+                        onDismissRequest = { isWilayahDropdownExpanded = false },
+                        modifier = Modifier.fillMaxWidth(0.85f).heightIn(max = 280.dp)
+                    ) {
+                        WilayahConstants.LIST_WILAYAH_MANAGER_FILTER.forEach { wilayahOpt ->
+                            val isChosen = selectedWilayah.equals(wilayahOpt, ignoreCase = true) ||
+                                    (wilayahOpt == "Semua Wilayah" && (selectedWilayah.isBlank() || selectedWilayah == "Semua Wilayah"))
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        if (isChosen) {
+                                            Icon(Icons.Default.Check, contentDescription = null, tint = Emerald600, modifier = Modifier.size(16.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                        }
+                                        Text(
+                                            text = wilayahOpt,
+                                            fontWeight = if (isChosen) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (isChosen) Emerald900 else Slate800,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                },
+                                onClick = {
+                                    viewModel.setFilterWilayah(wilayahOpt)
+                                    if (selectedKodeUnit != "Semua Unit") {
+                                        viewModel.setFilterKodeUnit("Semua Unit")
+                                    }
+                                    isWilayahDropdownExpanded = false
+                                },
+                                modifier = Modifier.testTag("item_filter_wilayah_${wilayahOpt.lowercase().replace(" ", "_")}")
+                            )
+                        }
+                    }
+                }
+
+                // Quick scrollable chips for fast one-tap switching
+                androidx.compose.foundation.lazy.LazyRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    listOf("Semua Wilayah", "PG1", "PG2", "PG3").forEach { wilayah ->
-                        val isSelected = selectedWilayah.equals(wilayah, ignoreCase = true)
+                    items(WilayahConstants.LIST_WILAYAH_MANAGER_FILTER.size) { idx ->
+                        val wilayahChip = WilayahConstants.LIST_WILAYAH_MANAGER_FILTER[idx]
+                        val isSelected = selectedWilayah.equals(wilayahChip, ignoreCase = true) ||
+                                (wilayahChip == "Semua Wilayah" && (selectedWilayah.isBlank() || selectedWilayah == "Semua Wilayah"))
                         Surface(
                             shape = RoundedCornerShape(8.dp),
                             color = if (isSelected) Emerald600 else Color(0xFFF1F5F9),
                             border = BorderStroke(1.dp, if (isSelected) Emerald600 else Slate200),
                             modifier = Modifier
-                                .weight(1f)
                                 .clip(RoundedCornerShape(8.dp))
                                 .clickable {
-                                    viewModel.setFilterWilayah(wilayah)
-                                    // If current selected unit is not in candidate list, reset unit
+                                    viewModel.setFilterWilayah(wilayahChip)
                                     if (selectedKodeUnit != "Semua Unit") {
                                         viewModel.setFilterKodeUnit("Semua Unit")
                                     }
                                 }
-                                .testTag("chip_filter_wilayah_${wilayah.lowercase().replace(" ", "_")}")
+                                .testTag("chip_filter_wilayah_${wilayahChip.lowercase().replace(" ", "_")}")
                         ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier.padding(vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = wilayah,
-                                    fontSize = 11.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) Color.White else Slate700
-                                )
-                            }
+                            Text(
+                                text = wilayahChip,
+                                fontSize = 10.5.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = if (isSelected) Color.White else Slate700,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                            )
                         }
                     }
                 }

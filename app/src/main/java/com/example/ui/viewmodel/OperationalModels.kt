@@ -72,6 +72,13 @@ data class KendalaItemFormState(
             return s > e
         }
 
+    val isTimeOrderValid: Boolean
+        get() {
+            val startMin = startMinutes ?: return false
+            val endMin = endMinutes ?: return false
+            return endMin > startMin
+        }
+
     val durasiMenit: Int?
         get() {
             val startMin = startMinutes ?: return null
@@ -120,12 +127,6 @@ data class KendalaItemFormState(
             return h * 60 + m
         }
 
-        /**
-         * Mengurai rentang waktu menjadi potongan segmen dalam siklus 24 jam.
-         * Rentang normal (misal 08:00 - 10:00) menjadi 1 segmen [480, 600).
-         * Rentang lintas tengah malam (misal 23:00 - 02:00) menjadi 2 segmen:
-         * [1380, 1440) hari berjalan dan [0, 120) dini hari berikutnya.
-         */
         fun getIntervalPieces(item: KendalaItemFormState): List<Pair<Int, Int>> {
             val s = item.startMinutes ?: return emptyList()
             val e = item.endMinutes ?: return emptyList()
@@ -139,8 +140,8 @@ data class KendalaItemFormState(
 
         /**
          * Validasi Tumpang Tindih (Anti-Overlapping):
-         * Rentang waktu kendala baru TIDAK BOLEH bertabrakan dengan rentang kendala lainnya.
-         * Mendukung perhitungan rentang normal maupun lintas tengah malam.
+         * Waktu kejadian kendala baru TIDAK BOLEH berada di dalam rentang waktu kendala yang sudah diinput sebelumnya.
+         * Mendukung rentang normal maupun lintas tengah malam.
          */
         fun hasOverlap(itemA: KendalaItemFormState, itemB: KendalaItemFormState): Boolean {
             val piecesA = getIntervalPieces(itemA)
@@ -164,7 +165,7 @@ data class RealisasiFormUiState(
     val selectedLokasi: LokasiEntity? = null,
     val nomorSpk: String = "",
     val statusSpk: String = "MENUNGGU",
-    val durasiJamKerja: Double = 7.0,
+    val durasiJamKerja: Double = 8.0,
     // Fleksibilitas Koreksi HM Awal & Logika Pergantian Shift
     val hmAwalOriginal: Double = 0.0,
     val hmAwal: Double = 0.0,

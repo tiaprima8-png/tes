@@ -329,57 +329,7 @@ fun HistoryScreen(
                         .fillMaxWidth()
                         .padding(16.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .background(Emerald50, RoundedCornerShape(8.dp)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.History,
-                                    contentDescription = null,
-                                    tint = Emerald600,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(
-                                    text = if (isManagerSession) "Monitoring Hasil Kerja Lapangan" else "Arsip Riwayat Operasional",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = Slate900,
-                                        fontSize = 17.sp
-                                    )
-                                )
-                                Text(
-                                    text = if (isManagerSession) "Mode Eksekutif: Memantau seluruh rencana & realisasi pengawas" else "Rekapitulasi lengkap rencana vs realisasi selesai",
-                                    style = MaterialTheme.typography.bodySmall.copy(color = Slate500, fontSize = 11.sp)
-                                )
-                            }
-                        }
 
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (isManagerSession) Color(0xFFFEF3C7) else Emerald50
-                        ) {
-                            Text(
-                                text = if (isManagerSession) "EKSEKUTIF" else "${completedRecords.size} Selesai",
-                                color = if (isManagerSession) Color(0xFF92400E) else Emerald900,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
 
                     // Stats Grid Ringkas
                     Row(
@@ -570,7 +520,7 @@ fun HistoryScreen(
                         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             listOf(
                                 "ALL" to "Semua",
-                                "SYNCED" to "Tersinkron",
+                                "SYNCED" to "✓",
                                 "PENDING" to "Tertunda"
                             ).forEach { (key, label) ->
                                 val isSelected = selectedFilter == key

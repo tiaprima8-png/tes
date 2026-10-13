@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.HourglassTop
@@ -46,16 +47,16 @@ fun SyncStatusBadge(isSynced: Boolean, modifier: Modifier = Modifier) {
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.CloudDone,
+                    imageVector = Icons.Default.Check,
                     contentDescription = "Tersinkron",
                     tint = Emerald900,
                     modifier = Modifier.size(14.dp)
                 )
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(3.dp))
                 Text(
-                    text = "Tersinkron",
+                    text = "✓",
                     color = Emerald900,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
