@@ -44,6 +44,7 @@ class HeavyTrackRepository(
     val userSessionManager: com.example.data.local.UserSessionManager = com.example.data.local.UserSessionManager(apiClientManager.context)
 ) {
     private val unitDao = database.unitDao()
+    val masterUnitDao = unitDao
     private val activityDao = database.activityMasterDao()
     private val operatorDao = database.operatorDao()
     private val reportDao = database.activityReportDao()
@@ -337,15 +338,15 @@ class HeavyTrackRepository(
                     supervisorName = "Agus Wijaya",
                     pengawas = "Agus Wijaya",
                     statusUnit = "OPERASI",
-                    kodeUnit = "DT-101",
+                    kodeUnit = "EXC-09",
                     operator = "Bambang Sudrajat",
-                    sapCode = "ACT-SAP-201",
-                    namaAktivitas = "Dumping & Spreading",
-                    satuanAktivitas = "m2",
+                    sapCode = "ACT-SAP-101",
+                    namaAktivitas = "Galian Tanah Lunak",
+                    satuanAktivitas = "m3",
                     kodeLokasi = "100A",
                     wilayah = "Geodesi PG2",
                     shiftKerja = "SIANG",
-                    keterangan = "Hauling disposal pit B",
+                    keterangan = "Penggalian area cut pit B",
                     nomorSpk = "SPK-GEO2-045",
                     statusSpk = "SPK_TERBIT",
                     statusTahap = "REALISASI_SELESAI",
@@ -358,15 +359,15 @@ class HeavyTrackRepository(
                     supervisorName = "Rudi Hermawan",
                     pengawas = "Rudi Hermawan",
                     statusUnit = "OPERASI",
-                    kodeUnit = "WT-054",
+                    kodeUnit = "CMP-02",
                     operator = "Dedi Supriyadi",
-                    sapCode = "ACT-SAP-202",
-                    namaAktivitas = "Grading Mainroad Tambang",
-                    satuanAktivitas = "m",
+                    sapCode = "ACT-SAP-201",
+                    namaAktivitas = "Pemadatan Subgrade",
+                    satuanAktivitas = "m2",
                     kodeLokasi = "201C",
                     wilayah = "RC PG1",
                     shiftKerja = "SIANG",
-                    keterangan = "Penyiraman hauling route",
+                    keterangan = "Pemadatan jalan hauling route",
                     nomorSpk = "SPK-GEO3-089",
                     statusSpk = "SPK_TERBIT",
                     statusTahap = "REALISASI_SELESAI",
@@ -384,7 +385,7 @@ class HeavyTrackRepository(
                     reportDate = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date()),
                     supervisorName = "Budi Santoso",
                     unitCode = "HEH1",
-                    unitType = "EXCAVATOR",
+                    unitType = "Excavator Standar",
                     activityName = "Galian Tanah Lunak",
                     sapCode = "ACT-SAP-101",
                     unitOfMeasure = "m3",
@@ -408,21 +409,21 @@ class HeavyTrackRepository(
                     clientUuid = "SEED-REP-02",
                     reportDate = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date()),
                     supervisorName = "Agus Wijaya",
-                    unitCode = "DT-101",
-                    unitType = "DUMP TRUCK",
-                    activityName = "Dumping & Spreading",
-                    sapCode = "ACT-SAP-201",
-                    unitOfMeasure = "m2",
+                    unitCode = "EXC-09",
+                    unitType = "Excavator Standar",
+                    activityName = "Galian Tanah Lunak",
+                    sapCode = "ACT-SAP-101",
+                    unitOfMeasure = "m3",
                     operatorName = "Bambang Sudrajat",
                     workLocation = "100A",
                     wilayah = "Geodesi PG2",
                     shift = "SIANG",
                     workDurationHours = 7.5,
-                    hmAwal = 3450.2,
-                    hmAkhir = 3457.7,
+                    hmAwal = 3982.7,
+                    hmAkhir = 3990.2,
                     hmDailyRunning = 7.5,
-                    workOutput = 320.0,
-                    notes = "Hauling disposal",
+                    workOutput = 380.0,
+                    notes = "Galian pit B",
                     unitStatus = "OPERASI",
                     isRefueled = true,
                     fuelLiters = 140.0,
@@ -433,48 +434,47 @@ class HeavyTrackRepository(
                     clientUuid = "SEED-REP-03",
                     reportDate = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date()),
                     supervisorName = "Rudi Hermawan",
-                    unitCode = "WT-054",
-                    unitType = "WATER TRUCK",
-                    activityName = "Grading Mainroad Tambang",
-                    sapCode = "ACT-SAP-202",
-                    unitOfMeasure = "m",
+                    unitCode = "CMP-02",
+                    unitType = "Compactor",
+                    activityName = "Pemadatan Subgrade",
+                    sapCode = "ACT-SAP-201",
+                    unitOfMeasure = "m2",
                     operatorName = "Dedi Supriyadi",
                     workLocation = "201C",
                     wilayah = "RC PG1",
                     shift = "SIANG",
                     workDurationHours = 6.0,
-                    hmAwal = 1980.4,
-                    hmAkhir = 1986.4,
+                    hmAwal = 1744.0,
+                    hmAkhir = 1750.0,
                     hmDailyRunning = 6.0,
-                    workOutput = 1200.0,
-                    notes = "Penyiraman jalan hauling",
+                    workOutput = 950.0,
+                    notes = "Pemadatan jalan hauling",
                     unitStatus = "OPERASI",
                     isRefueled = true,
-                    fuelLiters = 90.0,
+                    fuelLiters = 85.0,
                     isSynced = true
                 ),
                 ActivityReportEntity(
                     id = 204L,
                     clientUuid = "SEED-REP-04",
                     reportDate = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date()),
-                    supervisorName = "Rudi Hermawan",
-                    unitCode = "DZ-01",
-                    unitType = "BULLDOZER",
-                    activityName = "Perbaikan Unit",
-                    sapCode = "ACT-SAP-BDN-01",
-                    unitOfMeasure = "jam",
-                    operatorName = "Dedi Supriyadi",
-                    workLocation = "201C",
-                    wilayah = "RC PG1",
+                    supervisorName = "Agus Wijaya",
+                    unitCode = "GRD-02",
+                    unitType = "Motor Grader",
+                    activityName = "Grading Mainroad Tambang",
+                    sapCode = "ACT-SAP-202",
+                    unitOfMeasure = "m",
+                    operatorName = "Joko Susilo",
+                    workLocation = "101B",
+                    wilayah = "Geodesi PG2",
                     shift = "SIANG",
-                    workDurationHours = 4.0,
-                    hmAwal = 5130.8,
-                    hmAkhir = 5132.8,
-                    hmDailyRunning = 2.0,
-                    workOutput = 0.0,
-                    notes = "Kendala hidrolik blade",
-                    unitStatus = "BREAKDOWN",
-                    kendalaNama = "Perbaikan Unit",
+                    workDurationHours = 5.0,
+                    hmAwal = 2295.0,
+                    hmAkhir = 2300.0,
+                    hmDailyRunning = 5.0,
+                    workOutput = 1100.0,
+                    notes = "Grading area front loading",
+                    unitStatus = "OPERASI",
                     isRefueled = false,
                     isSynced = true
                 )
@@ -487,8 +487,15 @@ class HeavyTrackRepository(
         try {
             val (payload, message) = apiClientManager.fetchMasterData(supervisorName)
 
+            // PEMBERSIHAN LOKAL SQLITE: masterUnitDao.deleteAll()
+            masterUnitDao.deleteAll()
+            database.cleanDumpTruckAndBulldozerDirect()
+            unitDao.deleteDumpTruckAndBulldozer()
+            rencanaDao.deleteOrphanedRencanaKerja()
+            reportDao.deleteOrphanedReports()
+
             // 1. Process Units
-            val incomingUnits = payload.units ?: emptyList()
+            val incomingUnits = (payload.units ?: emptyList()).filter { com.example.data.model.UnitConstants.isJenisUnitValid(it.resolvedUnitType) }
             if (incomingUnits.isNotEmpty()) {
                 val unitEntities = incomingUnits.map {
                     UnitEntity(
@@ -506,6 +513,7 @@ class HeavyTrackRepository(
                 }
                 unitDao.insertUnits(unitEntities)
             }
+            rencanaDao.deleteOrphanedRencanaKerja()
 
             // 2. Process Activities
             val incomingActivities = payload.resolvedActivities
@@ -591,6 +599,10 @@ class HeavyTrackRepository(
         }
     }
 
+    suspend fun syncBootstrapData(supervisorName: String, tanggal: String): Result<String> = withContext(Dispatchers.IO) {
+        fetchBootstrapData(supervisorName, tanggal)
+    }
+
     suspend fun fetchBootstrapData(supervisorName: String, tanggal: String): Result<String> = withContext(Dispatchers.IO) {
         try {
             val (payload, message) = apiClientManager.fetchBootstrapData(supervisorName, tanggal)
@@ -598,7 +610,14 @@ class HeavyTrackRepository(
             // 1. Process Master Data
             val master = payload.resolvedMasterData
 
-            val incomingUnits = master.units ?: emptyList()
+            // PEMBERSIHAN LOKAL SQLITE: masterUnitDao.deleteAll()
+            masterUnitDao.deleteAll()
+            database.cleanDumpTruckAndBulldozerDirect()
+            unitDao.deleteDumpTruckAndBulldozer()
+            rencanaDao.deleteOrphanedRencanaKerja()
+            reportDao.deleteOrphanedReports()
+
+            val incomingUnits = (master.units ?: emptyList()).filter { com.example.data.model.UnitConstants.isJenisUnitValid(it.resolvedUnitType) }
             if (incomingUnits.isNotEmpty()) {
                 val unitEntities = incomingUnits.map {
                     UnitEntity(
@@ -616,6 +635,7 @@ class HeavyTrackRepository(
                 }
                 unitDao.insertUnits(unitEntities)
             }
+            rencanaDao.deleteOrphanedRencanaKerja()
 
             val incomingActivities = master.resolvedActivities
             if (incomingActivities.isNotEmpty()) {
@@ -1429,5 +1449,40 @@ class HeavyTrackRepository(
 
     suspend fun deleteDraftForRencana(rencanaId: Long) = withContext(Dispatchers.IO) {
         draftDao.deleteDraftByRencanaId(rencanaId)
+    }
+
+    suspend fun addOrUpdateUnit(unit: UnitEntity) = withContext(Dispatchers.IO) {
+        if (!com.example.data.model.UnitConstants.isJenisUnitValid(unit.unitType)) {
+            throw IllegalArgumentException("Jenis unit tidak valid atau telah dihapus")
+        }
+        unitDao.insertUnit(unit)
+        CompanyServerSimulator.addOrUpdateUnit(
+            com.example.data.remote.UnitPayload(
+                unitCode = unit.unitCode,
+                unitType = unit.unitType,
+                brandModel = unit.brandModel,
+                lastHm = unit.lastHm,
+                supervisorAssigned = unit.supervisorAssigned,
+                status = unit.status,
+                hmMinStandar = unit.hmMinStandar,
+                hmMaxStandar = unit.hmMaxStandar,
+                wilayah = unit.wilayah
+            )
+        )
+    }
+
+    suspend fun deleteUnit(unitCode: String) = withContext(Dispatchers.IO) {
+        unitDao.deleteUnit(unitCode)
+        rencanaDao.deleteOrphanedRencanaKerja()
+        reportDao.deleteOrphanedReports()
+        CompanyServerSimulator.deleteUnit(unitCode)
+    }
+
+    suspend fun cleanDumpTruckAndBulldozer() = withContext(Dispatchers.IO) {
+        database.cleanDumpTruckAndBulldozerDirect()
+        unitDao.deleteDumpTruckAndBulldozer()
+        rencanaDao.deleteOrphanedRencanaKerja()
+        reportDao.deleteOrphanedReports()
+        CompanyServerSimulator.cleanDumpTruckAndBulldozer()
     }
 }

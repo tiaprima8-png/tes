@@ -105,6 +105,7 @@ import com.example.ui.theme.Slate400
 import com.example.ui.theme.Slate500
 import com.example.ui.theme.Slate600
 import com.example.ui.theme.Slate700
+import com.example.ui.theme.Slate800
 import com.example.ui.theme.Slate900
 import com.example.ui.theme.WarningAmber
 import com.example.ui.viewmodel.HeavyTrackViewModel
@@ -139,6 +140,7 @@ fun HeavyTrackApp() {
     )
 
     var currentTab by remember { mutableIntStateOf(0) }
+    var showMasterDataScreen by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showProfilePopup by remember { mutableStateOf(false) }
     var showDistributionDialog by remember { mutableStateOf(false) }
@@ -154,9 +156,13 @@ fun HeavyTrackApp() {
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
-    // Handle back button: return to default main tab (Tab 0) if in other tabs
-    BackHandler(enabled = isLoggedIn && currentTab != 0) {
-        currentTab = 0
+    // Handle back button: return to default main tab (Tab 0) if in other tabs, or close master data
+    BackHandler(enabled = isLoggedIn && (showMasterDataScreen || currentTab != 0)) {
+        if (showMasterDataScreen) {
+            showMasterDataScreen = false
+        } else {
+            currentTab = 0
+        }
     }
 
     // Reset tab ke posisi awal saat role berganti atau login baru
@@ -364,6 +370,38 @@ fun HeavyTrackApp() {
                                                     .background(Color(0xFF10B981), CircleShape)
                                             )
                                         }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(6.dp))
+
+                                // Tombol Web Admin Master Unit
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (showMasterDataScreen) Emerald600 else Color(0xFFF1F5F9),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (showMasterDataScreen) Emerald600 else Slate300),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .clickable { showMasterDataScreen = !showMasterDataScreen }
+                                        .testTag("btn_top_master_data")
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.PrecisionManufacturing,
+                                            contentDescription = "Kelola Master Unit (Web Admin)",
+                                            tint = if (showMasterDataScreen) Color.White else Slate700,
+                                            modifier = Modifier.size(15.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = "Master",
+                                            fontSize = 11.5.sp,
+                                            color = if (showMasterDataScreen) Color.White else Slate800,
+                                            fontWeight = FontWeight.Bold
+                                        )
                                     }
                                 }
                             }
@@ -678,7 +716,12 @@ fun HeavyTrackApp() {
                     .padding(innerPadding)
                     .imePadding()
             ) {
-                if (isManagerSession) {
+                if (showMasterDataScreen) {
+                    com.example.ui.screens.MasterDataScreen(
+                        viewModel = viewModel,
+                        onBack = { showMasterDataScreen = false }
+                    )
+                } else if (isManagerSession) {
                     when (currentTab) {
                         0 -> HistoryScreen(
                             viewModel = viewModel,
@@ -819,6 +862,21 @@ fun HeavyTrackApp() {
                             ProfileDetailRow("Jabatan / Role", supervisorSession?.roleTitle ?: if (isManagerSession) "Manager Operasional" else "Kasie Lapangan")
                             ProfileDetailRow("Wilayah Kerja", supervisorSession?.wilayah ?: if (isManagerSession) "Semua Wilayah" else "Geodesi 1")
                             ProfileDetailRow("Status Akun", "Aktif", isStatusSuccess = true)
+
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Button(
+                                onClick = {
+                                    showProfilePopup = false
+                                    showMasterDataScreen = true
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
+                                modifier = Modifier.fillMaxWidth().testTag("btn_profile_open_master_data")
+                            ) {
+                                Icon(Icons.Default.PrecisionManufacturing, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Buka Web Admin Master Unit", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                     }
                 },

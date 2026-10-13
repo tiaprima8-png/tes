@@ -565,11 +565,11 @@ data class ActivityPayload(
         }
         val name = resolvedActivityName.uppercase()
         return when {
-            name.contains("GALIAN") || name.contains("LOADING") || name.contains("EXCAVATOR") -> "EXCAVATOR"
-            name.contains("DUMPING") || name.contains("SPREADING") || name.contains("HAULING") || name.contains("DUMP TRUCK") -> "DUMP TRUCK"
-            name.contains("RIPPING") || name.contains("DOZING") || name.contains("BULLDOZER") -> "BULLDOZER"
-            name.contains("GRADING") || name.contains("MOTOR GRADER") || name.contains("GRADER") -> "MOTOR GRADER"
-            name.contains("PENYIRAMAN") || name.contains("WATER TRUCK") -> "WATER TRUCK"
+            name.contains("GALIAN") || name.contains("LOADING") || name.contains("EXCAVATOR") -> "Excavator Standar"
+            name.contains("LONG ARM") -> "Excavator Long Arm"
+            name.contains("MINI") -> "Excavator Mini"
+            name.contains("GRADING") || name.contains("MOTOR GRADER") || name.contains("GRADER") -> "Motor Grader"
+            name.contains("PEMADATAN") || name.contains("COMPACTOR") -> "Compactor"
             else -> raw?.ifBlank { "ALL" } ?: "ALL"
         }
     }

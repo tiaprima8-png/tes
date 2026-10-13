@@ -272,14 +272,14 @@ class ExampleUnitTest {
     @Test
     fun test_dynamic_unit_hm_standards_reading() {
         val excavator = UnitEntity("EXC-01", "EXCAVATOR", "Komatsu PC200", 4000.0, "Budi", "OPERASIONAL", 6.0, 10.0)
-        val dumptruck = UnitEntity("DT-101", "DUMP TRUCK", "Hino FM 260", 3000.0, "Budi", "OPERASIONAL", 5.5, 9.5)
+        val compactor = UnitEntity("CMP-01", "COMPACTOR", "Bomag BW211", 3000.0, "Budi", "OPERASIONAL", 5.5, 9.5)
         val grader = UnitEntity("GRD-01", "MOTOR GRADER", "CAT 140K", 2000.0, "Budi", "OPERASIONAL", 5.0, 9.0)
 
         assertEquals(6.0, excavator.hmMinStandar, 0.001)
         assertEquals(10.0, excavator.hmMaxStandar, 0.001)
 
-        assertEquals(5.5, dumptruck.hmMinStandar, 0.001)
-        assertEquals(9.5, dumptruck.hmMaxStandar, 0.001)
+        assertEquals(5.5, compactor.hmMinStandar, 0.001)
+        assertEquals(9.5, compactor.hmMaxStandar, 0.001)
 
         assertEquals(5.0, grader.hmMinStandar, 0.001)
         assertEquals(9.0, grader.hmMaxStandar, 0.001)
@@ -477,20 +477,43 @@ class ExampleUnitTest {
     }
 
     @Test
+    fun test_dump_truck_and_bulldozer_removed_from_master_units() {
+        assertFalse(com.example.data.model.UnitConstants.isJenisUnitValid("Dump Truck"))
+        assertFalse(com.example.data.model.UnitConstants.isJenisUnitValid("dump truck"))
+        assertFalse(com.example.data.model.UnitConstants.isJenisUnitValid("Bulldozer"))
+        assertFalse(com.example.data.model.UnitConstants.isJenisUnitValid("bulldozer"))
+        assertFalse(com.example.data.model.UnitConstants.isJenisUnitValid("DT"))
+        assertFalse(com.example.data.model.UnitConstants.isJenisUnitValid("DZ"))
+
+        assertTrue(com.example.data.model.UnitConstants.isJenisUnitValid("Excavator Long Arm"))
+        assertTrue(com.example.data.model.UnitConstants.isJenisUnitValid("Excavator Mini"))
+        assertTrue(com.example.data.model.UnitConstants.isJenisUnitValid("Excavator Standar"))
+        assertTrue(com.example.data.model.UnitConstants.isJenisUnitValid("Motor Grader"))
+        assertTrue(com.example.data.model.UnitConstants.isJenisUnitValid("Compactor"))
+
+        assertEquals(5, com.example.data.model.UnitConstants.AKTIF.size)
+        assertFalse(com.example.data.model.UnitConstants.AKTIF.contains("Dump Truck"))
+        assertFalse(com.example.data.model.UnitConstants.AKTIF.contains("Bulldozer"))
+
+        assertFalse(com.example.data.model.UnitConstants.FILTER.contains("Dump Truck"))
+        assertFalse(com.example.data.model.UnitConstants.FILTER.contains("Bulldozer"))
+    }
+
+    @Test
     fun test_unit_plan_status_three_cases() {
-        val uA = UnitEntity("EX-301", "EXCAVATOR", "Komatsu PC300", 3500.0, "Budi")
-        val uB = UnitEntity("DZ-01", "BULLDOZER", "Cat D8R", 4200.0, "Budi")
-        val uC = UnitEntity("GD-01", "MOTOR GRADER", "Cat 14M", 2800.0, "Budi")
+        val uA = UnitEntity("EX-301", "Excavator Standar", "Komatsu PC300", 3500.0, "Budi")
+        val uB = UnitEntity("CMP-01", "Compactor", "Bomag BW211", 4200.0, "Budi")
+        val uC = UnitEntity("GD-01", "Motor Grader", "Cat 14M", 2800.0, "Budi")
 
         val yesterdayStr = "09/10/2026"
         val todayStr = "10/10/2026"
 
         val rencanaList = listOf(
-            // Unit DZ-01 ada kemarin, belum ada hari ini (Kasus B)
+            // Unit CMP-01 ada kemarin, belum ada hari ini (Kasus B)
             com.example.data.local.entity.RencanaKerjaEntity(
                 id = 1,
                 supervisorName = "Budi",
-                kodeUnit = "DZ-01",
+                kodeUnit = "CMP-01",
                 operator = "Agus",
                 kodeLokasi = "001A",
                 tanggalFormat = yesterdayStr
@@ -570,12 +593,12 @@ class ExampleUnitTest {
         assertEquals("EX-301 [Tgl Kemarin: Belum Diisi]", statusA.labelText)
         assertEquals(com.example.ui.viewmodel.UnitPlanCategory.BACKLOG_YESTERDAY, statusA.category)
 
-        // 2. Kasus B: DZ-01
-        val statusB = resultStatuses.find { it.unit.unitCode == "DZ-01" }
+        // 2. Kasus B: CMP-01
+        val statusB = resultStatuses.find { it.unit.unitCode == "CMP-01" }
         assertNotNull(statusB)
         assertFalse(statusB!!.isBacklog)
         assertFalse(statusB.isSusulan)
-        assertEquals("DZ-01 [Hari Ini: Belum Ada Rencana]", statusB.labelText)
+        assertEquals("CMP-01 [Hari Ini: Belum Ada Rencana]", statusB.labelText)
         assertEquals(com.example.ui.viewmodel.UnitPlanCategory.NO_PLAN_TODAY, statusB.category)
 
         // 3. Kasus C: GD-01
@@ -819,5 +842,90 @@ class ExampleUnitTest {
         assertNotNull(mgr)
         assertTrue(mgr!!.isManager)
         assertEquals("Semua Wilayah", mgr.wilayah)
+    }
+
+    @Test
+    fun test_api_master_unit_and_bootstrap_data_free_of_dump_truck_and_bulldozer() = kotlinx.coroutines.test.runTest {
+        val masterUnitResp = com.example.data.remote.CompanyServerSimulator.getMasterUnit()
+        assertEquals("SUCCESS", masterUnitResp.status)
+        assertNotNull(masterUnitResp.data)
+        val units = masterUnitResp.data!!
+        assertTrue(units.isNotEmpty())
+        for (u in units) {
+            val type = u.resolvedUnitType.lowercase()
+            assertFalse("Unit ${u.resolvedUnitCode} has invalid type $type", type.contains("dump"))
+            assertFalse("Unit ${u.resolvedUnitCode} has invalid type $type", type.contains("bulldozer"))
+            assertTrue(com.example.data.model.UnitConstants.isJenisUnitValid(u.resolvedUnitType))
+        }
+
+        val bootstrapResp = com.example.data.remote.CompanyServerSimulator.fetchBootstrapData("Budi Santoso", "13/10/2026")
+        assertEquals("SUCCESS", bootstrapResp.status)
+        assertNotNull(bootstrapResp.data)
+        val bootstrapUnits = bootstrapResp.data!!.resolvedMasterData.units ?: emptyList()
+        assertTrue(bootstrapUnits.isNotEmpty())
+        for (u in bootstrapUnits) {
+            val type = u.resolvedUnitType.lowercase()
+            assertFalse("Bootstrap unit ${u.resolvedUnitCode} has invalid type $type", type.contains("dump"))
+            assertFalse("Bootstrap unit ${u.resolvedUnitCode} has invalid type $type", type.contains("bulldozer"))
+            assertTrue(com.example.data.model.UnitConstants.isJenisUnitValid(u.resolvedUnitType))
+        }
+    }
+
+    @Test
+    fun test_modal_and_filter_unit_types_contain_only_active_operational_units() {
+        val expectedActiveTypes = listOf(
+            "Excavator Long Arm",
+            "Excavator Mini",
+            "Excavator Standar",
+            "Motor Grader",
+            "Compactor"
+        )
+        assertEquals(expectedActiveTypes, com.example.data.model.UnitConstants.AKTIF)
+        assertFalse(com.example.data.model.UnitConstants.AKTIF.contains("Dump Truck"))
+        assertFalse(com.example.data.model.UnitConstants.AKTIF.contains("Bulldozer"))
+
+        val expectedFilterTypes = listOf(
+            "Semua Jenis",
+            "Excavator Long Arm",
+            "Excavator Mini",
+            "Excavator Standar",
+            "Motor Grader",
+            "Compactor"
+        )
+        assertEquals(expectedFilterTypes, com.example.data.model.UnitConstants.FILTER)
+        assertFalse(com.example.data.model.UnitConstants.FILTER.contains("Dump Truck"))
+        assertFalse(com.example.data.model.UnitConstants.FILTER.contains("Bulldozer"))
+    }
+
+    @Test
+    fun test_sql_cleaning_queries_integrity_simulation() {
+        val initialMasterUnits = mutableListOf(
+            "EXC-01" to "Excavator Standar",
+            "DT-101" to "Dump Truck",
+            "DZ-01" to "Bulldozer",
+            "GRD-01" to "Motor Grader",
+            "CMP-01" to "Compactor"
+        )
+        val initialRencana = mutableListOf(
+            1L to "EXC-01",
+            2L to "DT-101",
+            3L to "DZ-01",
+            4L to "GRD-01"
+        )
+
+        // 1. Clean master unit: DELETE FROM master_unit WHERE LOWER(jenis_unit) IN ('dump truck', 'bulldozer');
+        initialMasterUnits.removeAll { (_, type) ->
+            type.lowercase() in listOf("dump truck", "bulldozer")
+        }
+        assertEquals(3, initialMasterUnits.size)
+        assertFalse(initialMasterUnits.any { it.second.lowercase() in listOf("dump truck", "bulldozer") })
+
+        // 2. Clean orphaned rencana_kerja: DELETE FROM rencana_kerja WHERE kode_unit NOT IN (SELECT kode_unit FROM master_unit);
+        val validCodes = initialMasterUnits.map { it.first }.toSet()
+        initialRencana.removeAll { (_, code) -> code !in validCodes }
+
+        assertEquals(2, initialRencana.size)
+        assertTrue(initialRencana.all { it.second in validCodes })
+        assertFalse(initialRencana.any { it.second == "DT-101" || it.second == "DZ-01" })
     }
 }

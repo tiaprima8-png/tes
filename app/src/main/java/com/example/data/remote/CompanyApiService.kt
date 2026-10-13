@@ -214,6 +214,33 @@ class ApiClientManager(val context: Context) {
         Pair(simResponse.data ?: MasterDataPayload(), "Data master berhasil disinkronkan.")
     }
 
+    suspend fun fetchMasterUnit(supervisor: String? = null): Pair<List<UnitPayload>, String> = withContext(Dispatchers.IO) {
+        if (CompanyServerSimulator.isSimulatedOffline) {
+            val simResp = CompanyServerSimulator.getMasterUnit(supervisor)
+            return@withContext Pair(simResp.data ?: emptyList(), "Mode Offline Lapangan: Master unit dimuat dari simulator lokal")
+        }
+
+        try {
+            val response = apiService.getMasterUnit(supervisor)
+            if (response.isSuccessful && response.body()?.data != null) {
+                val clean = response.body()!!.data!!.filter { com.example.data.model.UnitConstants.isJenisUnitValid(it.resolvedUnitType) }
+                return@withContext Pair(clean, "Berhasil sinkron master unit dari Web Admin API (${response.code()})")
+            }
+        } catch (e: Exception) {
+            if (useSimulationFallback) {
+                val simResp = CompanyServerSimulator.getMasterUnit(supervisor)
+                return@withContext Pair(
+                    simResp.data ?: emptyList(),
+                    "Web Admin remote tidak merespons (${e.localizedMessage}). Menggunakan data sinkronisasi lokal."
+                )
+            }
+            throw e
+        }
+
+        val simResp = CompanyServerSimulator.getMasterUnit(supervisor)
+        Pair(simResp.data ?: emptyList(), "Master unit berhasil disinkronkan.")
+    }
+
     suspend fun fetchBootstrapData(pengawas: String, tanggal: String): Pair<BootstrapDataPayload, String> = withContext(Dispatchers.IO) {
         if (CompanyServerSimulator.isSimulatedOffline) {
             throw java.io.IOException("Mode Offline Lapangan aktif: Menggunakan data SQLite lokal")

@@ -1,6 +1,7 @@
 package com.example.ui.screens
 
 import android.content.Context
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,13 +24,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Engineering
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocationOn
@@ -37,12 +43,16 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PrecisionManufacturing
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import com.example.data.model.UnitConstants
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -93,6 +103,7 @@ import com.example.ui.theme.Emerald100
 import com.example.ui.theme.Emerald50
 import com.example.ui.theme.Emerald600
 import com.example.ui.theme.Emerald700
+import com.example.ui.theme.Emerald800
 import com.example.ui.theme.Emerald900
 import com.example.ui.theme.ErrorRose
 import com.example.ui.theme.ErrorRose50
@@ -111,8 +122,13 @@ import com.example.ui.viewmodel.HeavyTrackViewModel
 
 @Composable
 fun MasterDataScreen(
-    viewModel: HeavyTrackViewModel
+    viewModel: HeavyTrackViewModel,
+    onBack: (() -> Unit)? = null
 ) {
+    if (onBack != null) {
+        BackHandler { onBack() }
+    }
+
     val context = LocalContext.current
     val activeSupervisor by viewModel.activeSupervisor.collectAsState()
     val isSyncingMaster by viewModel.isSyncingMaster.collectAsState()
@@ -135,6 +151,49 @@ fun MasterDataScreen(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        if (onBack != null) {
+            item {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = Color.White,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                    modifier = Modifier.fillMaxWidth().testTag("bar_master_back_nav")
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = onBack,
+                            modifier = Modifier.size(36.dp).testTag("btn_back_master_data")
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Kembali ke Beranda",
+                                tint = Slate700
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "Web Admin • Master Data",
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = Slate900
+                                )
+                            )
+                            Text(
+                                text = "Kelola Unit, Lokasi, Aktivitas, & Operator",
+                                style = MaterialTheme.typography.bodySmall.copy(color = Slate500)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // TOP CARD: Pengawas Sesi & Aksi Distribusi Installer
         item {
             Card(
@@ -351,7 +410,7 @@ fun MasterDataScreen(
 
                     Box(modifier = Modifier.padding(14.dp)) {
                         when (selectedTab) {
-                            0 -> CleanUnitsTab(units)
+                            0 -> CleanUnitsTab(units, viewModel)
                             1 -> CleanLokasiTab(lokasiList)
                             2 -> CleanActivitiesTab(activities)
                             3 -> CleanOperatorsTab(operators)
@@ -468,27 +527,202 @@ fun MasterDataScreen(
 }
 
 @Composable
-fun CleanUnitsTab(units: List<UnitEntity>) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Daftar Unit Operasional di bawah Tugas Kasie:", fontSize = 12.sp, color = Slate500)
-        if (units.isEmpty()) {
-            Box(modifier = Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
-                Text("Belum ada data unit terdaftar.", color = Slate400, fontSize = 13.sp)
+fun CleanUnitsTab(
+    units: List<UnitEntity>,
+    viewModel: HeavyTrackViewModel
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedJenisFilter by remember { mutableStateOf("Semua Jenis") }
+    var isFilterDropdownExpanded by remember { mutableStateOf(false) }
+
+    var showAddEditDialog by remember { mutableStateOf(false) }
+    var editingUnit by remember { mutableStateOf<UnitEntity?>(null) }
+    var unitToDelete by remember { mutableStateOf<UnitEntity?>(null) }
+
+    val filteredUnits = remember(units, searchQuery, selectedJenisFilter) {
+        units.filter { u ->
+            val matchType = if (selectedJenisFilter == "Semua Jenis") true
+            else viewModel.matchesJenisUnit(u.unitType, selectedJenisFilter)
+            val matchQuery = searchQuery.isBlank() ||
+                    u.unitCode.contains(searchQuery, ignoreCase = true) ||
+                    u.brandModel.contains(searchQuery, ignoreCase = true) ||
+                    u.supervisorAssigned.contains(searchQuery, ignoreCase = true)
+            matchType && matchQuery
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // 1. KARTU METRIK TOTAL UNIT (DASHBOARD METRIC CARD - DIPERBARUI OTOMATIS)
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("card_metric_total_unit"),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFF1F5F9)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Slate200)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.PrecisionManufacturing,
+                            contentDescription = null,
+                            tint = Emerald600,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Total Unit (Master Unit)",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate800
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Unit Operasional Aktif (Dump Truck & Bulldozer Dihapus)",
+                        fontSize = 10.sp,
+                        color = Slate500
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Emerald600
+                ) {
+                    Text(
+                        text = "${units.size} Unit",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+            }
+        }
+
+        // 2. BILAH FILTER TABEL MASTER UNIT & TOMBOL TAMBAH UNIT
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Dropdown Filter Jenis Unit (Hanya Opsi Unit Operasional Aktif)
+            Box {
+                OutlinedButton(
+                    onClick = { isFilterDropdownExpanded = true },
+                    shape = RoundedCornerShape(10.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, if (selectedJenisFilter != "Semua Jenis") Emerald600 else Slate300),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = if (selectedJenisFilter != "Semua Jenis") Emerald50 else Color.White
+                    ),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    modifier = Modifier.height(36.dp).testTag("btn_filter_jenis_master")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FilterList,
+                        contentDescription = null,
+                        tint = if (selectedJenisFilter != "Semua Jenis") Emerald700 else Slate500,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = selectedJenisFilter,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (selectedJenisFilter != "Semua Jenis") Emerald800 else Slate700
+                    )
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Icon(
+                        imageVector = Icons.Default.ArrowDropDown,
+                        contentDescription = null,
+                        tint = Slate500,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = isFilterDropdownExpanded,
+                    onDismissRequest = { isFilterDropdownExpanded = false }
+                ) {
+                    UnitConstants.FILTER.forEach { opt ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = opt,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (opt == selectedJenisFilter) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (opt == selectedJenisFilter) Emerald700 else Slate800
+                                )
+                            },
+                            onClick = {
+                                selectedJenisFilter = opt
+                                isFilterDropdownExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Tombol Tambah Unit (Membuka Modal Tambah Unit)
+            Button(
+                onClick = {
+                    editingUnit = null
+                    showAddEditDialog = true
+                },
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                modifier = Modifier.height(36.dp).testTag("btn_tambah_master_unit")
+            ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp), tint = Color.White)
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("+ Tambah Unit", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            }
+        }
+
+        // Pencarian Teks
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text("Cari kode unit, model, atau kasie...", fontSize = 11.sp, color = Slate400) },
+            leadingIcon = {
+                Icon(Icons.Default.Search, contentDescription = null, tint = Slate400, modifier = Modifier.size(16.dp))
+            },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth().height(50.dp),
+            shape = RoundedCornerShape(10.dp)
+        )
+
+        // DAFTAR UNIT MASTER
+        if (filteredUnits.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Tidak ada unit yang cocok dengan filter.", color = Slate400, fontSize = 13.sp)
             }
         } else {
-            units.forEach { unit ->
+            filteredUnits.forEach { unit ->
                 Surface(
                     shape = RoundedCornerShape(12.dp),
                     color = Color(0xFFF8FAFC),
                     border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
-                        modifier = Modifier.padding(12.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(unit.unitCode, fontWeight = FontWeight.Bold, color = Slate900, fontSize = 14.sp)
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -502,19 +736,342 @@ fun CleanUnitsTab(units: List<UnitEntity>) {
                                     )
                                 }
                             }
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "${unit.brandModel} • Kasie: ${unit.supervisorAssigned}",
-                                fontSize = 11.sp,
-                                color = Slate500
-                            )
-                            Text(
-                                text = "HM Terakhir: ${String.format("%.1f", unit.lastHm)} Jam • Standar: ${unit.hmMinStandar}-${unit.hmMaxStandar} HM",
-                                fontSize = 11.sp,
-                                color = Emerald700,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                // Tombol Edit Unit (Membuka Modal Edit Unit)
+                                IconButton(
+                                    onClick = {
+                                        editingUnit = unit
+                                        showAddEditDialog = true
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Edit Unit",
+                                        tint = Slate600,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                // Tombol Hapus Unit
+                                IconButton(
+                                    onClick = {
+                                        unitToDelete = unit
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Hapus Unit",
+                                        tint = ErrorRose,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
                         }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = "${unit.brandModel} • Kasie: ${unit.supervisorAssigned} • Wilayah: ${unit.wilayah}",
+                            fontSize = 11.sp,
+                            color = Slate500
+                        )
+                        Text(
+                            text = "HM Terakhir: ${String.format("%.1f", unit.lastHm)} Jam • Standar: ${unit.hmMinStandar}-${unit.hmMaxStandar} HM",
+                            fontSize = 11.sp,
+                            color = Emerald700,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // Modal Tambah Unit & Edit Unit
+    if (showAddEditDialog) {
+        UnitFormModal(
+            unit = editingUnit,
+            onDismiss = {
+                showAddEditDialog = false
+                editingUnit = null
+            },
+            onSave = { savedUnit ->
+                viewModel.addOrUpdateUnit(savedUnit)
+                showAddEditDialog = false
+                editingUnit = null
+            }
+        )
+    }
+
+    // Konfirmasi Hapus Unit
+    unitToDelete?.let { unit ->
+        AlertDialog(
+            onDismissRequest = { unitToDelete = null },
+            title = {
+                Text("Hapus Unit ${unit.unitCode}?", fontWeight = FontWeight.Bold, color = Slate900)
+            },
+            text = {
+                Text(
+                    "Unit ini beserta transaksi terkait akan dihapus dari database SQLite untuk menjaga integritas data.",
+                    fontSize = 13.sp,
+                    color = Slate600
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteUnit(unit.unitCode)
+                        unitToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRose)
+                ) {
+                    Text("Hapus", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                OutlinedButton(onClick = { unitToDelete = null }) {
+                    Text("Batal")
+                }
+            },
+            shape = RoundedCornerShape(16.dp),
+            containerColor = Color.White
+        )
+    }
+}
+
+/**
+ * Modal Tambah Unit & Edit Unit:
+ * Dropdown pilihan "Jenis Unit" HANYA menampilkan:
+ * - Excavator Long Arm
+ * - Excavator Mini
+ * - Excavator Standar
+ * - Motor Grader
+ * - Compactor
+ * (Dump Truck & Bulldozer dihapus secara permanen).
+ */
+@Composable
+fun UnitFormModal(
+    unit: UnitEntity?,
+    onDismiss: () -> Unit,
+    onSave: (UnitEntity) -> Unit
+) {
+    val isEdit = unit != null
+    var kodeUnit by remember { mutableStateOf(unit?.unitCode ?: "") }
+    var selectedJenis by remember {
+        mutableStateOf(
+            unit?.unitType?.takeIf { UnitConstants.isJenisUnitValid(it) } ?: UnitConstants.AKTIF.first()
+        )
+    }
+    var isJenisDropdownOpen by remember { mutableStateOf(false) }
+    var brandModel by remember { mutableStateOf(unit?.brandModel ?: "") }
+    var supervisor by remember { mutableStateOf(unit?.supervisorAssigned ?: "Budi Santoso") }
+    var wilayah by remember { mutableStateOf(unit?.wilayah ?: "Geodesi PG1") }
+    var lastHmStr by remember { mutableStateOf(unit?.lastHm?.toString() ?: "0.0") }
+    var minHmStr by remember { mutableStateOf(unit?.hmMinStandar?.toString() ?: "6.0") }
+    var maxHmStr by remember { mutableStateOf(unit?.hmMaxStandar?.toString() ?: "10.0") }
+    var status by remember { mutableStateOf(unit?.status ?: "OPERASIONAL") }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .padding(vertical = 16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text(
+                    text = if (isEdit) "Edit Master Unit" else "Tambah Master Unit",
+                    style = MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Slate900
+                    )
+                )
+                Text(
+                    text = "Daftar unit operasional aktif (Dump Truck & Bulldozer telah dihapus).",
+                    fontSize = 11.sp,
+                    color = Slate500
+                )
+
+                if (errorMessage != null) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = ErrorRose50,
+                        border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRose.copy(alpha = 0.5f)),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = errorMessage ?: "",
+                            color = ErrorRose,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
+                }
+
+                // Kode Unit
+                OutlinedTextField(
+                    value = kodeUnit,
+                    onValueChange = { kodeUnit = it.uppercase() },
+                    label = { Text("Kode Unit (e.g. EXC-03)") },
+                    enabled = !isEdit,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Dropdown Pilihan "Jenis Unit": HANYA opsi operasional aktif (Excavator Long Arm, Excavator Mini, Excavator Standar, Motor Grader, Compactor)
+                Column {
+                    Text("Jenis Unit Operasional Aktif:", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Slate700)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(
+                            onClick = { isJenisDropdownOpen = true },
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, Emerald600),
+                            colors = ButtonDefaults.outlinedButtonColors(containerColor = Emerald50)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(selectedJenis, fontWeight = FontWeight.Bold, color = Emerald900, fontSize = 13.sp)
+                                Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Emerald700)
+                            }
+                        }
+
+                        DropdownMenu(
+                            expanded = isJenisDropdownOpen,
+                            onDismissRequest = { isJenisDropdownOpen = false },
+                            modifier = Modifier.fillMaxWidth(0.85f)
+                        ) {
+                            UnitConstants.AKTIF.forEach { jenisOpt ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = jenisOpt,
+                                            fontWeight = if (jenisOpt == selectedJenis) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (jenisOpt == selectedJenis) Emerald700 else Slate800,
+                                            fontSize = 13.sp
+                                        )
+                                    },
+                                    onClick = {
+                                        selectedJenis = jenisOpt
+                                        isJenisDropdownOpen = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Merk / Model
+                OutlinedTextField(
+                    value = brandModel,
+                    onValueChange = { brandModel = it },
+                    label = { Text("Merk / Model Unit") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                // Kasie & Wilayah
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = supervisor,
+                        onValueChange = { supervisor = it },
+                        label = { Text("Kasie Penanggung Jawab") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = wilayah,
+                        onValueChange = { wilayah = it },
+                        label = { Text("Wilayah") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                // HM Terakhir & Standar
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = lastHmStr,
+                        onValueChange = { lastHmStr = it },
+                        label = { Text("HM Awal/Terakhir") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = minHmStr,
+                        onValueChange = { minHmStr = it },
+                        label = { Text("Min HM") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = maxHmStr,
+                        onValueChange = { maxHmStr = it },
+                        label = { Text("Max HM") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // Actions
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Batal")
+                    }
+                    Button(
+                        onClick = {
+                            val cleanKode = kodeUnit.trim()
+                            if (cleanKode.isBlank()) {
+                                errorMessage = "Kode unit tidak boleh kosong"
+                                return@Button
+                            }
+                            if (!UnitConstants.isJenisUnitValid(selectedJenis)) {
+                                errorMessage = "Jenis unit $selectedJenis tidak diperbolehkan"
+                                return@Button
+                            }
+                            val lastHm = lastHmStr.toDoubleOrNull() ?: 0.0
+                            val minHm = minHmStr.toDoubleOrNull() ?: 6.0
+                            val maxHm = maxHmStr.toDoubleOrNull() ?: 10.0
+
+                            onSave(
+                                UnitEntity(
+                                    unitCode = cleanKode,
+                                    unitType = selectedJenis,
+                                    brandModel = brandModel.trim().ifBlank { cleanKode },
+                                    lastHm = lastHm,
+                                    supervisorAssigned = supervisor.trim(),
+                                    status = status,
+                                    hmMinStandar = minHm,
+                                    hmMaxStandar = maxHm,
+                                    wilayah = wilayah.trim()
+                                )
+                            )
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Simpan Unit", fontWeight = FontWeight.Bold)
                     }
                 }
             }

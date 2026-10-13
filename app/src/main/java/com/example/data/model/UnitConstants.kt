@@ -28,7 +28,7 @@ object UnitConstants {
     fun isJenisUnitValid(jenis: String?): Boolean {
         if (jenis.isNullOrBlank()) return false
         val lower = jenis.lowercase().trim()
-        if (lower.contains("dump") || lower.contains("bulldozer") || lower.contains("dozer")) {
+        if (lower.contains("dump") || lower.contains("bulldozer") || lower.contains("dozer") || lower == "dt" || lower == "dz") {
             return false
         }
         return true

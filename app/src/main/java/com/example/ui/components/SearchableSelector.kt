@@ -438,19 +438,19 @@ fun UnitSelectorItemCard(
                     Spacer(modifier = Modifier.width(8.dp))
                     Surface(
                         shape = RoundedCornerShape(6.dp),
-                        color = when (unit.unitType.uppercase()) {
-                            "EXCAVATOR" -> Color(0xFFFEF3C7)
-                            "DUMP TRUCK" -> Color(0xFFDBEAFE)
-                            "BULLDOZER" -> Color(0xFFFCE7F3)
+                        color = when {
+                            unit.unitType.uppercase().contains("EXCAVATOR") -> Color(0xFFFEF3C7)
+                            unit.unitType.uppercase().contains("GRADER") -> Color(0xFFEDE9FE)
+                            unit.unitType.uppercase().contains("COMPACTOR") -> Color(0xFFE0F2FE)
                             else -> Color(0xFFE2E8F0)
                         }
                     ) {
                         Text(
                             text = unit.unitType,
-                            color = when (unit.unitType.uppercase()) {
-                                "EXCAVATOR" -> Color(0xFF92400E)
-                                "DUMP TRUCK" -> Color(0xFF1E40AF)
-                                "BULLDOZER" -> Color(0xFF9D174D)
+                            color = when {
+                                unit.unitType.uppercase().contains("EXCAVATOR") -> Color(0xFF92400E)
+                                unit.unitType.uppercase().contains("GRADER") -> Color(0xFF5B21B6)
+                                unit.unitType.uppercase().contains("COMPACTOR") -> Color(0xFF0369A1)
                                 else -> Slate700
                             },
                             fontSize = 11.sp,
@@ -1125,19 +1125,19 @@ fun UnitPlanSelectorItemCard(
                     Spacer(modifier = Modifier.width(8.dp))
                     Surface(
                         shape = RoundedCornerShape(6.dp),
-                        color = when (unit.unitType.uppercase()) {
-                            "EXCAVATOR" -> Color(0xFFFEF3C7)
-                            "DUMP TRUCK" -> Color(0xFFDBEAFE)
-                            "BULLDOZER" -> Color(0xFFFCE7F3)
+                        color = when {
+                            unit.unitType.uppercase().contains("EXCAVATOR") -> Color(0xFFFEF3C7)
+                            unit.unitType.uppercase().contains("GRADER") -> Color(0xFFEDE9FE)
+                            unit.unitType.uppercase().contains("COMPACTOR") -> Color(0xFFE0F2FE)
                             else -> Color(0xFFE2E8F0)
                         }
                     ) {
                         Text(
                             text = unit.unitType,
-                            color = when (unit.unitType.uppercase()) {
-                                "EXCAVATOR" -> Color(0xFF92400E)
-                                "DUMP TRUCK" -> Color(0xFF1E40AF)
-                                "BULLDOZER" -> Color(0xFF9D174D)
+                            color = when {
+                                unit.unitType.uppercase().contains("EXCAVATOR") -> Color(0xFF92400E)
+                                unit.unitType.uppercase().contains("GRADER") -> Color(0xFF5B21B6)
+                                unit.unitType.uppercase().contains("COMPACTOR") -> Color(0xFF0369A1)
                                 else -> Slate700
                             },
                             fontSize = 11.sp,

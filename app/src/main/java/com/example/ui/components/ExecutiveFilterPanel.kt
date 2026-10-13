@@ -324,7 +324,7 @@ fun ExecutiveFilterPanel(
                 }
             }
 
-            // 2. FILTER JENIS UNIT (Semua Jenis, HE / Excavator, DT / Dump Truck, WT / Water Truck, Bulldozer)
+            // 2. FILTER JENIS UNIT (Semua Jenis, Excavator Long Arm, Excavator Mini, Excavator Standar, Motor Grader, Compactor)
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.PrecisionManufacturing, contentDescription = null, tint = Slate400, modifier = Modifier.size(13.dp))

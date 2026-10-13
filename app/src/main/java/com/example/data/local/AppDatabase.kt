@@ -58,6 +58,18 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun aktivitasUnitDao(): AktivitasUnitDao
     abstract fun userDao(): UserDao
 
+    fun cleanDumpTruckAndBulldozerDirect() {
+        try {
+            val db = openHelper.writableDatabase
+            db.execSQL("CREATE VIEW IF NOT EXISTS master_unit AS SELECT unitCode AS kode_unit, unitType AS jenis_unit, brandModel AS merk_model, lastHm AS last_hm, supervisorAssigned AS supervisor, status, hmMinStandar, hmMaxStandar, wilayah, updatedAt FROM units")
+            db.execSQL("CREATE TRIGGER IF NOT EXISTS trigger_delete_master_unit INSTEAD OF DELETE ON master_unit BEGIN DELETE FROM units WHERE unitCode = OLD.kode_unit; END")
+            db.execSQL("DELETE FROM master_unit WHERE LOWER(jenis_unit) IN ('dump truck', 'bulldozer')")
+            db.execSQL("DELETE FROM units WHERE LOWER(unitType) IN ('dump truck', 'bulldozer') OR LOWER(unitType) LIKE '%dump%' OR LOWER(unitType) LIKE '%bulldozer%'")
+            db.execSQL("DELETE FROM rencana_kerja WHERE kode_unit NOT IN (SELECT kode_unit FROM master_unit)")
+            db.execSQL("DELETE FROM activity_reports WHERE unitCode NOT IN (SELECT unitCode FROM units) OR LOWER(unitType) IN ('dump truck', 'bulldozer')")
+        } catch (_: Exception) {}
+    }
+
     companion object {
         @Volatile
         private var INSTANCE: AppDatabase? = null
@@ -74,9 +86,12 @@ abstract class AppDatabase : RoomDatabase() {
                         override fun onOpen(db: androidx.sqlite.db.SupportSQLiteDatabase) {
                             super.onOpen(db)
                             try {
-                                db.execSQL("DELETE FROM units WHERE LOWER(unitType) IN ('dump truck', 'bulldozer') OR LOWER(unitType) LIKE '%dump%' OR LOWER(unitType) LIKE '%bulldozer%'")
-                                db.execSQL("DELETE FROM rencana_kerja WHERE kode_unit NOT IN (SELECT unitCode FROM units)")
                                 db.execSQL("CREATE VIEW IF NOT EXISTS master_unit AS SELECT unitCode AS kode_unit, unitType AS jenis_unit, brandModel AS merk_model, lastHm AS last_hm, supervisorAssigned AS supervisor, status, hmMinStandar, hmMaxStandar, wilayah, updatedAt FROM units")
+                                db.execSQL("CREATE TRIGGER IF NOT EXISTS trigger_delete_master_unit INSTEAD OF DELETE ON master_unit BEGIN DELETE FROM units WHERE unitCode = OLD.kode_unit; END")
+                                db.execSQL("DELETE FROM master_unit WHERE LOWER(jenis_unit) IN ('dump truck', 'bulldozer')")
+                                db.execSQL("DELETE FROM units WHERE LOWER(unitType) IN ('dump truck', 'bulldozer') OR LOWER(unitType) LIKE '%dump%' OR LOWER(unitType) LIKE '%bulldozer%'")
+                                db.execSQL("DELETE FROM rencana_kerja WHERE kode_unit NOT IN (SELECT kode_unit FROM master_unit)")
+                                db.execSQL("DELETE FROM activity_reports WHERE unitCode NOT IN (SELECT unitCode FROM units) OR LOWER(unitType) IN ('dump truck', 'bulldozer')")
                             } catch (_: Exception) {}
                         }
                     })

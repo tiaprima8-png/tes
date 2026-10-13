@@ -75,4 +75,7 @@ interface ActivityReportDao {
 
     @Query("DELETE FROM activity_reports")
     suspend fun clearAllReports()
+
+    @Query("DELETE FROM activity_reports WHERE unitCode NOT IN (SELECT unitCode FROM units) OR LOWER(unitType) IN ('dump truck', 'bulldozer')")
+    suspend fun deleteOrphanedReports(): Int
 }

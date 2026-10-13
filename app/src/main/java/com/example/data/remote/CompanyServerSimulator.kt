@@ -150,8 +150,13 @@ object CompanyServerSimulator {
             throw java.io.IOException("Koneksi gagal: Perangkat berada di luar jangkauan jaringan (Offline Lapangan)")
         }
 
+        cleanDumpTruckAndBulldozer()
+
         // Supervisor isolation
-        val filteredUnits = serverUnits.filter { it.resolvedSupervisor.equals(supervisorName, ignoreCase = true) }
+        val filteredUnits = serverUnits.filter { 
+            com.example.data.model.UnitConstants.isJenisUnitValid(it.resolvedUnitType) &&
+            (it.resolvedSupervisor.equals(supervisorName, ignoreCase = true) || supervisorName.equals("Semua", ignoreCase = true))
+        }
         val filteredOperators = serverOperators.filter { it.resolvedSupervisor.equals(supervisorName, ignoreCase = true) }
         val activities = serverActivities.toList()
         val lokasi = serverLokasi.toList()
@@ -178,8 +183,13 @@ object CompanyServerSimulator {
             throw java.io.IOException("Koneksi gagal: Perangkat berada di luar jangkauan jaringan (Offline Lapangan)")
         }
 
+        cleanDumpTruckAndBulldozer()
+
         // 1. Filter Master Data for supervisor
-        val filteredUnits = serverUnits.filter { it.resolvedSupervisor.equals(pengawas, ignoreCase = true) }
+        val filteredUnits = serverUnits.filter { 
+            com.example.data.model.UnitConstants.isJenisUnitValid(it.resolvedUnitType) &&
+            it.resolvedSupervisor.equals(pengawas, ignoreCase = true) 
+        }
         val filteredOperators = serverOperators.filter { it.resolvedSupervisor.equals(pengawas, ignoreCase = true) }
         val activities = serverActivities.toList()
         val lokasi = serverLokasi.toList()
@@ -226,7 +236,7 @@ object CompanyServerSimulator {
                         satuan_aktivitas = "m3",
                         kode_lokasi = "002B",
                         shift_kerja = "SIANG",
-                        keterangan = "Pemuatan overburden ke fleet dump truck",
+                        keterangan = "Pemuatan overburden ke area disposal",
                         nomor_spk = "SPK-2026-X102",
                         status_spk = "TERBIT_SPK",
                         status_tahap = "RENCANA",
@@ -552,12 +562,28 @@ object CompanyServerSimulator {
     fun cleanDumpTruckAndBulldozer() {
         serverUnits.removeAll { 
             val type = it.resolvedUnitType.lowercase()
-            type.contains("dump") || type.contains("dozer")
+            type.contains("dump") || type.contains("dozer") || !com.example.data.model.UnitConstants.isJenisUnitValid(it.resolvedUnitType)
         }
         val remainingCodes = serverUnits.map { it.resolvedUnitCode.lowercase() }.toSet()
         serverRencanaKerja.removeAll { ren ->
             ren.resolvedUnitKode.lowercase() !in remainingCodes
         }
+        receivedReportsOnServer.removeAll { rep ->
+            (rep.kode_unit?.lowercase() ?: "") !in remainingCodes
+        }
+    }
+
+    fun getMasterUnit(supervisor: String? = null): ApiResponse<List<UnitPayload>> {
+        cleanDumpTruckAndBulldozer()
+        val list = serverUnits.filter {
+            com.example.data.model.UnitConstants.isJenisUnitValid(it.resolvedUnitType) &&
+            (supervisor.isNullOrBlank() || it.resolvedSupervisor.equals(supervisor, ignoreCase = true) || supervisor.equals("Semua", ignoreCase = true))
+        }
+        return ApiResponse(
+            status = "SUCCESS",
+            message = "Master Unit berhasil diambil (${list.size} unit)",
+            data = list
+        )
     }
 
     fun addOrUpdateActivity(activity: ActivityPayload) {

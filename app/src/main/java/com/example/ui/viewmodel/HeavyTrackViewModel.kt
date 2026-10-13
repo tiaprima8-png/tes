@@ -195,6 +195,8 @@ class HeavyTrackViewModel(
         } else {
             repository.getUnitsForSupervisorOrWilayah(supervisor, session?.wilayah)
         }
+    }.map { list ->
+        list.filter { com.example.data.model.UnitConstants.isJenisUnitValid(it.unitType) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Master Activities
@@ -541,6 +543,7 @@ class HeavyTrackViewModel(
                 }
             } catch (_: Exception) {}
 
+            repository.cleanDumpTruckAndBulldozer()
             repository.seedInitialDataIfEmpty(_activeSupervisor.value)
             repository.reconcileSyncStatus()
             fetchBootstrapData(showOverlay = false)
@@ -1161,11 +1164,9 @@ class HeavyTrackViewModel(
         if (matchedUnit != null && matchedUnit.unitType.isNotBlank()) return matchedUnit.unitType
         val clean = unitCode.trim().uppercase()
         return when {
-            clean.startsWith("EX") || clean.startsWith("HE") -> "EXCAVATOR"
-            clean.startsWith("DT") -> "DUMP TRUCK"
-            clean.startsWith("DZ") || clean.startsWith("DOZ") -> "BULLDOZER"
-            clean.startsWith("WT") -> "WATER TRUCK"
-            clean.startsWith("MG") || clean.startsWith("GR") -> "MOTOR GRADER"
+            clean.startsWith("EX") || clean.startsWith("HE") -> "Excavator Standar"
+            clean.startsWith("MG") || clean.startsWith("GR") -> "Motor Grader"
+            clean.startsWith("CMP") -> "Compactor"
             else -> ""
         }
     }
@@ -1178,10 +1179,8 @@ class HeavyTrackViewModel(
             actType == "ALL" || actType == cleanType ||
             cleanType.contains(actType) || actType.contains(cleanType) ||
             (cleanType.contains("EXCAVATOR") && actType.contains("EXCAVATOR")) ||
-            (cleanType.contains("DUMP") && actType.contains("DUMP")) ||
-            (cleanType.contains("BULLDOZER") && actType.contains("BULLDOZER")) ||
-            (cleanType.contains("WATER") && actType.contains("WATER")) ||
-            (cleanType.contains("GRADER") && actType.contains("GRADER"))
+            (cleanType.contains("GRADER") && actType.contains("GRADER")) ||
+            (cleanType.contains("COMPACTOR") && actType.contains("COMPACTOR"))
         }
     }
 
@@ -2504,15 +2503,17 @@ Halo Rekan Pengawas, berkas installer APK pembaruan aplikasi resmi terlampir ($f
     }
 
     fun matchesJenisUnit(unitType: String, filter: String): Boolean {
+        if (!com.example.data.model.UnitConstants.isJenisUnitValid(unitType)) return false
         if (filter == "Semua Jenis" || filter.isBlank()) return true
         val u = unitType.uppercase()
         val f = filter.uppercase()
         return when {
-            f.contains("HE") || f.contains("EXCAVATOR") -> u.contains("EXCAVATOR") || u.contains("HE")
-            f.contains("DT") || f.contains("DUMP") -> u.contains("DUMP") || u.contains("DT") || (u.contains("TRUCK") && !u.contains("WATER"))
-            f.contains("WT") || f.contains("WATER") -> u.contains("WATER") || u.contains("WT")
-            f.contains("BULLDOZER") || f.contains("DOZER") -> u.contains("BULLDOZER") || u.contains("DOZER")
+            f.contains("LONG ARM") -> u.contains("LONG ARM")
+            f.contains("MINI") -> u.contains("MINI")
+            f.contains("STANDAR") -> u.contains("STANDAR") || (u.contains("EXCAVATOR") && !u.contains("LONG") && !u.contains("MINI"))
+            f.contains("EXCAVATOR") || f.contains("HE") -> u.contains("EXCAVATOR") || u.contains("HE")
             f.contains("GRADER") -> u.contains("GRADER")
+            f.contains("COMPACTOR") -> u.contains("COMPACTOR")
             else -> u.contains(f) || f.contains(u)
         }
     }
@@ -2641,6 +2642,36 @@ Halo Rekan Pengawas, berkas installer APK pembaruan aplikasi resmi terlampir ($f
         viewModelScope.launch {
             repository.deleteReport(id)
             _uiEvents.emit(UiMessage.Info("Laporan dihapus dari riwayat"))
+        }
+    }
+
+    fun cleanDumpTruckAndBulldozer() {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.cleanDumpTruckAndBulldozer()
+        }
+    }
+
+    fun addOrUpdateUnit(unit: com.example.data.local.entity.UnitEntity, onComplete: () -> Unit = {}) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                repository.addOrUpdateUnit(unit)
+                _uiEvents.emit(UiMessage.Success("Unit ${unit.unitCode} berhasil disimpan."))
+                withContext(Dispatchers.Main) { onComplete() }
+            } catch (e: Exception) {
+                _uiEvents.emit(UiMessage.Error("Gagal menyimpan unit: ${e.localizedMessage ?: e.message}"))
+            }
+        }
+    }
+
+    fun deleteUnit(unitCode: String, onComplete: () -> Unit = {}) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                repository.deleteUnit(unitCode)
+                _uiEvents.emit(UiMessage.Info("Unit $unitCode berhasil dihapus dari Master Data."))
+                withContext(Dispatchers.Main) { onComplete() }
+            } catch (e: Exception) {
+                _uiEvents.emit(UiMessage.Error("Gagal menghapus unit: ${e.localizedMessage ?: e.message}"))
+            }
         }
     }
 }
