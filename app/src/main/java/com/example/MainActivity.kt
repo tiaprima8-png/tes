@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PrecisionManufacturing
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.WifiOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
@@ -140,6 +141,7 @@ fun HeavyTrackApp() {
     var showDistributionDialog by remember { mutableStateOf(false) }
     val customApkUrl by viewModel.customApkUrl.collectAsState()
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
+    val isManagerSession by viewModel.isManagerSession.collectAsState()
     val unsyncedCount by viewModel.unsyncedCount.collectAsState()
     val isSyncingMaster by viewModel.isSyncingMaster.collectAsState()
     val isSyncingPending by viewModel.isSyncingPending.collectAsState()
@@ -149,8 +151,13 @@ fun HeavyTrackApp() {
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
-    // Handle back button: return to Form tab if in other tabs
+    // Handle back button: return to default main tab (Tab 0) if in other tabs
     BackHandler(enabled = isLoggedIn && currentTab != 0) {
+        currentTab = 0
+    }
+
+    // Reset tab ke posisi awal saat role berganti atau login baru
+    LaunchedEffect(isManagerSession, isLoggedIn) {
         currentTab = 0
     }
 
@@ -227,9 +234,10 @@ fun HeavyTrackApp() {
                                         )
                                     )
                                     Text(
-                                        text = "Rencana Kerja Civil Engineering",
+                                        text = if (isManagerSession) "Mode Monitoring Eksekutif" else "Rencana Kerja Civil Engineering",
                                         style = MaterialTheme.typography.bodySmall.copy(
-                                            color = Slate500,
+                                            color = if (isManagerSession) Color(0xFF0F766E) else Slate500,
+                                            fontWeight = if (isManagerSession) FontWeight.Bold else FontWeight.Normal,
                                             fontSize = 10.sp
                                         )
                                     )
@@ -382,13 +390,13 @@ fun HeavyTrackApp() {
                                 Box(
                                     modifier = Modifier
                                         .size(32.dp)
-                                        .background(Emerald50, CircleShape),
+                                        .background(if (isManagerSession) Color(0xFFFEF3C7) else Emerald50, CircleShape),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Default.Person,
-                                        contentDescription = "Pengawas Aktif",
-                                        tint = Emerald600,
+                                        imageVector = if (isManagerSession) Icons.Default.Shield else Icons.Default.Person,
+                                        contentDescription = if (isManagerSession) "Manager Eksekutif" else "Kasie Aktif",
+                                        tint = if (isManagerSession) Color(0xFFB45309) else Emerald600,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
@@ -404,19 +412,28 @@ fun HeavyTrackApp() {
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Surface(
                                             shape = RoundedCornerShape(6.dp),
-                                            color = Emerald100
+                                            color = if (isManagerSession) Color(0xFFFEF3C7) else Emerald100
                                         ) {
+                                            val badgeText = if (isManagerSession) {
+                                                "Manager • ${supervisorSession?.wilayah ?: "Semua Wilayah"}"
+                                            } else {
+                                                "Kasie • ${supervisorSession?.wilayah ?: "PG1"}"
+                                            }
                                             Text(
-                                                text = supervisorSession?.roleTitle ?: "Supervisor",
-                                                color = Emerald900,
+                                                text = badgeText,
+                                                color = if (isManagerSession) Color(0xFF92400E) else Emerald900,
                                                 fontWeight = FontWeight.Bold,
                                                 fontSize = 9.sp,
-                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                             )
                                         }
                                     }
                                     Text(
-                                        text = "${supervisorSession?.assignedSector ?: "Sektor Operasional"} • Shift ${supervisorSession?.defaultShift ?: "SIANG"} • NIK: ${supervisorSession?.nik ?: "-"}",
+                                        text = if (isManagerSession) {
+                                            "${supervisorSession?.assignedSector ?: "Seluruh Wilayah Proyek"} • Monitoring Eksekutif • NIK: ${supervisorSession?.nik ?: "-"}"
+                                        } else {
+                                            "Wilayah: ${supervisorSession?.wilayah ?: "PG1"} • Shift ${supervisorSession?.defaultShift ?: "SIANG"} • NIK: ${supervisorSession?.nik ?: "-"}"
+                                        },
                                         fontSize = 10.sp,
                                         color = Slate500
                                     )
@@ -464,105 +481,180 @@ fun HeavyTrackApp() {
                     tonalElevation = 8.dp,
                     modifier = Modifier.testTag("main_navigation_bar")
                 ) {
-                    // Tab 0: Formulir (Rencana & Realisasi)
-                    NavigationBarItem(
-                        selected = currentTab == 0,
-                        onClick = {
-                            currentTab = 0
-                            viewModel.autoFetchMasterDataOnResume()
-                        },
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Default.Assignment,
-                                contentDescription = "Formulir",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        },
-                        label = {
-                            Text(
-                                text = "Formulir",
-                                fontWeight = if (currentTab == 0) FontWeight.Bold else FontWeight.Medium,
-                                fontSize = 11.sp
-                            )
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Emerald900,
-                            selectedTextColor = Emerald900,
-                            indicatorColor = Emerald100,
-                            unselectedIconColor = Slate500,
-                            unselectedTextColor = Slate500
-                        ),
-                        modifier = Modifier.testTag("nav_item_form")
-                    )
+                    if (isManagerSession) {
+                        // MODE MANAGER EKSEKUTIF: HANYA 2 TAB MONITORING (HASIL KERJA & ANALITIK)
+                        // Tab "Formulir" input lapangan disembunyikan sepenuhnya!
 
-                    // Tab 1: Riwayat Aktivitas
-                    NavigationBarItem(
-                        selected = currentTab == 1,
-                        onClick = { currentTab = 1 },
-                        icon = {
-                            BadgedBox(
-                                badge = {
-                                    if (unsyncedCount > 0) {
-                                        Badge(
-                                            containerColor = WarningAmber,
-                                            contentColor = Slate900
-                                        ) {
-                                            Text("$unsyncedCount", fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                        // Tab 0 (Manager): Hasil Kerja / Monitoring Lapangan
+                        NavigationBarItem(
+                            selected = currentTab == 0,
+                            onClick = { currentTab = 0 },
+                            icon = {
+                                BadgedBox(
+                                    badge = {
+                                        if (unsyncedCount > 0) {
+                                            Badge(
+                                                containerColor = WarningAmber,
+                                                contentColor = Slate900
+                                            ) {
+                                                Text("$unsyncedCount", fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                                            }
                                         }
                                     }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.History,
+                                        contentDescription = "Hasil Kerja",
+                                        modifier = Modifier.size(24.dp)
+                                    )
                                 }
-                            ) {
+                            },
+                            label = {
+                                Text(
+                                    text = "Hasil Kerja",
+                                    fontWeight = if (currentTab == 0) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 11.sp
+                                )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = Emerald900,
+                                selectedTextColor = Emerald900,
+                                indicatorColor = Emerald100,
+                                unselectedIconColor = Slate500,
+                                unselectedTextColor = Slate500
+                            ),
+                            modifier = Modifier.testTag("nav_item_history")
+                        )
+
+                        // Tab 1 (Manager): Analitik Eksekutif
+                        NavigationBarItem(
+                            selected = currentTab == 1,
+                            onClick = { currentTab = 1 },
+                            icon = {
                                 Icon(
-                                    imageVector = Icons.Default.History,
-                                    contentDescription = "Riwayat Saya",
+                                    imageVector = Icons.Default.BarChart,
+                                    contentDescription = "Analitik",
                                     modifier = Modifier.size(24.dp)
                                 )
-                            }
-                        },
-                        label = {
-                            Text(
-                                text = "Riwayat",
-                                fontWeight = if (currentTab == 1) FontWeight.Bold else FontWeight.Medium,
-                                fontSize = 11.sp
-                            )
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Emerald900,
-                            selectedTextColor = Emerald900,
-                            indicatorColor = Emerald100,
-                            unselectedIconColor = Slate500,
-                            unselectedTextColor = Slate500
-                        ),
-                        modifier = Modifier.testTag("nav_item_history")
-                    )
+                            },
+                            label = {
+                                Text(
+                                    text = "Analitik",
+                                    fontWeight = if (currentTab == 1) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 11.sp
+                                )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = Emerald900,
+                                selectedTextColor = Emerald900,
+                                indicatorColor = Emerald100,
+                                unselectedIconColor = Slate500,
+                                unselectedTextColor = Slate500
+                            ),
+                            modifier = Modifier.testTag("nav_item_analytics")
+                        )
+                    } else {
+                        // MODE SUPERVISOR / PENGAWAS LAPANGAN: 3 TAB OPERASIONAL LENGKAP
+                        // Tab 0: Formulir (Rencana & Realisasi)
+                        NavigationBarItem(
+                            selected = currentTab == 0,
+                            onClick = {
+                                currentTab = 0
+                                viewModel.autoFetchMasterDataOnResume()
+                            },
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Default.Assignment,
+                                    contentDescription = "Formulir",
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = "Formulir",
+                                    fontWeight = if (currentTab == 0) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 11.sp
+                                )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = Emerald900,
+                                selectedTextColor = Emerald900,
+                                indicatorColor = Emerald100,
+                                unselectedIconColor = Slate500,
+                                unselectedTextColor = Slate500
+                            ),
+                            modifier = Modifier.testTag("nav_item_form")
+                        )
 
-                    // Tab 2: Analitik Fleet (TAB BARU!)
-                    NavigationBarItem(
-                        selected = currentTab == 2,
-                        onClick = { currentTab = 2 },
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Default.BarChart,
-                                contentDescription = "Analitik",
-                                modifier = Modifier.size(24.dp)
-                            )
-                        },
-                        label = {
-                            Text(
-                                text = "Analitik",
-                                fontWeight = if (currentTab == 2) FontWeight.Bold else FontWeight.Medium,
-                                fontSize = 11.sp
-                            )
-                        },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Emerald900,
-                            selectedTextColor = Emerald900,
-                            indicatorColor = Emerald100,
-                            unselectedIconColor = Slate500,
-                            unselectedTextColor = Slate500
-                        ),
-                        modifier = Modifier.testTag("nav_item_analytics")
-                    )
+                        // Tab 1: Riwayat Aktivitas
+                        NavigationBarItem(
+                            selected = currentTab == 1,
+                            onClick = { currentTab = 1 },
+                            icon = {
+                                BadgedBox(
+                                    badge = {
+                                        if (unsyncedCount > 0) {
+                                            Badge(
+                                                containerColor = WarningAmber,
+                                                contentColor = Slate900
+                                            ) {
+                                                Text("$unsyncedCount", fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                                            }
+                                        }
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.History,
+                                        contentDescription = "Riwayat Saya",
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            },
+                            label = {
+                                Text(
+                                    text = "Riwayat",
+                                    fontWeight = if (currentTab == 1) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 11.sp
+                                )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = Emerald900,
+                                selectedTextColor = Emerald900,
+                                indicatorColor = Emerald100,
+                                unselectedIconColor = Slate500,
+                                unselectedTextColor = Slate500
+                            ),
+                            modifier = Modifier.testTag("nav_item_history")
+                        )
+
+                        // Tab 2: Analitik Fleet
+                        NavigationBarItem(
+                            selected = currentTab == 2,
+                            onClick = { currentTab = 2 },
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Default.BarChart,
+                                    contentDescription = "Analitik",
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            },
+                            label = {
+                                Text(
+                                    text = "Analitik",
+                                    fontWeight = if (currentTab == 2) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 11.sp
+                                )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = Emerald900,
+                                selectedTextColor = Emerald900,
+                                indicatorColor = Emerald100,
+                                unselectedIconColor = Slate500,
+                                unselectedTextColor = Slate500
+                            ),
+                            modifier = Modifier.testTag("nav_item_analytics")
+                        )
+                    }
                 }
             }
         ) { innerPadding ->
@@ -572,18 +664,34 @@ fun HeavyTrackApp() {
                     .padding(innerPadding)
                     .imePadding()
             ) {
-                when (currentTab) {
-                    0 -> FormReportScreen(
-                        viewModel = viewModel,
-                        onNavigateToHistory = { currentTab = 1 }
-                    )
-                    1 -> HistoryScreen(
-                        viewModel = viewModel,
-                        onNavigateToForm = { currentTab = 0 }
-                    )
-                    2 -> AnalyticsScreen(
-                        viewModel = viewModel
-                    )
+                if (isManagerSession) {
+                    when (currentTab) {
+                        0 -> HistoryScreen(
+                            viewModel = viewModel,
+                            onNavigateToForm = { /* Tidak ada aksi navigasi formulir untuk Manager */ }
+                        )
+                        1 -> AnalyticsScreen(
+                            viewModel = viewModel
+                        )
+                        else -> HistoryScreen(
+                            viewModel = viewModel,
+                            onNavigateToForm = { }
+                        )
+                    }
+                } else {
+                    when (currentTab) {
+                        0 -> FormReportScreen(
+                            viewModel = viewModel,
+                            onNavigateToHistory = { currentTab = 1 }
+                        )
+                        1 -> HistoryScreen(
+                            viewModel = viewModel,
+                            onNavigateToForm = { currentTab = 0 }
+                        )
+                        2 -> AnalyticsScreen(
+                            viewModel = viewModel
+                        )
+                    }
                 }
             }
         }

@@ -16,6 +16,14 @@ interface RencanaKerjaDao {
     @Query("SELECT * FROM rencana_kerja WHERE supervisor_name = :supervisor OR pengawas = :supervisor ORDER BY created_at DESC")
     fun getRencanaForSupervisor(supervisor: String): Flow<List<RencanaKerjaEntity>>
 
+    @Query("""
+        SELECT * FROM rencana_kerja 
+        WHERE (:wilayah = 'Semua Wilayah' OR :wilayah = '' OR wilayah = :wilayah)
+          AND (:kodeUnit = 'Semua Unit' OR :kodeUnit = '' OR kode_unit = :kodeUnit)
+        ORDER BY created_at DESC
+    """)
+    fun getRencanaFiltered(wilayah: String, kodeUnit: String): Flow<List<RencanaKerjaEntity>>
+
     @Query("SELECT * FROM rencana_kerja WHERE (supervisor_name = :supervisor OR pengawas = :supervisor) AND (status_realisasi = 'BELUM' OR (is_realized = 0 AND status_tahap = 'RENCANA')) ORDER BY created_at DESC")
     fun getActiveRencanaForSupervisor(supervisor: String): Flow<List<RencanaKerjaEntity>>
 

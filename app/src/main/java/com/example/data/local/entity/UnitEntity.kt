@@ -13,5 +13,6 @@ data class UnitEntity(
     val status: String = "OPERASIONAL", // "OPERASIONAL", "STANDBY", "MAINTENANCE"
     val hmMinStandar: Double = 6.0,  // Standar minimal HM (misal 6.0 HM)
     val hmMaxStandar: Double = 10.0, // Standar maksimal HM (misal 10.0 HM)
+    val wilayah: String = "PG1",     // e.g. "PG1", "PG2", "PG3"
     val updatedAt: Long = System.currentTimeMillis()
 )

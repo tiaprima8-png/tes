@@ -16,6 +16,15 @@ interface UnitDao {
     @Query("SELECT * FROM units WHERE supervisorAssigned = :supervisor ORDER BY unitCode ASC")
     fun getUnitsForSupervisor(supervisor: String): Flow<List<UnitEntity>>
 
+    @Query("""
+        SELECT * FROM units 
+        WHERE (:wilayah = 'Semua Wilayah' OR :wilayah = '' OR wilayah = :wilayah)
+          AND (:unitType = 'Semua Jenis' OR :unitType = '' OR unitType = :unitType)
+          AND (:unitCode = 'Semua Unit' OR :unitCode = '' OR unitCode = :unitCode)
+        ORDER BY unitCode ASC
+    """)
+    fun getUnitsByFilter(wilayah: String, unitType: String, unitCode: String): Flow<List<UnitEntity>>
+
     @Query("SELECT * FROM units WHERE unitCode = :unitCode LIMIT 1")
     suspend fun getUnitByCode(unitCode: String): UnitEntity?
 

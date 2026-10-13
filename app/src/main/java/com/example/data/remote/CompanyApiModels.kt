@@ -18,6 +18,7 @@ data class PostActivityReportRequest(
     @Json(name = "satuan") val satuan: String? = null,
     @Json(name = "nama_operator") val nama_operator: String? = null,
     @Json(name = "lokasi_kerja") val lokasi_kerja: String? = null,
+    @Json(name = "wilayah") val wilayah: String? = null,
     @Json(name = "shift") val shift: String? = null,
     @Json(name = "durasi_jam_kerja") val durasi_jam_kerja: Double? = null,
     @Json(name = "hm_awal") val hm_awal: Double? = null,
@@ -448,7 +449,8 @@ data class UnitPayload(
     @Json(name = "min_standar") val min_standar: Double? = null,
     @Json(name = "max_standar") val max_standar: Double? = null,
     @Json(name = "hmMinStandar") val hmMinStandar: Double? = null,
-    @Json(name = "hmMaxStandar") val hmMaxStandar: Double? = null
+    @Json(name = "hmMaxStandar") val hmMaxStandar: Double? = null,
+    @Json(name = "wilayah") val wilayah: String? = null
 ) {
     constructor(
         unitCode: String,
@@ -458,7 +460,8 @@ data class UnitPayload(
         supervisorAssigned: String,
         status: String = "OPERASIONAL",
         hmMinStandar: Double = 6.0,
-        hmMaxStandar: Double = 10.0
+        hmMaxStandar: Double = 10.0,
+        wilayah: String = "PG1"
     ) : this(
         kode_unit = unitCode,
         unit_code = unitCode,
@@ -488,6 +491,7 @@ data class UnitPayload(
     val resolvedStatus: String get() = status ?: "OPERASIONAL"
     val resolvedHmMinStandar: Double get() = hm_min_standar ?: hm_min ?: min_standar ?: hmMinStandar ?: 6.0
     val resolvedHmMaxStandar: Double get() = hm_max_standar ?: hm_max ?: max_standar ?: hmMaxStandar ?: 10.0
+    val resolvedWilayah: String get() = wilayah?.takeIf { it.isNotBlank() } ?: "PG1"
 }
 
 @JsonClass(generateAdapter = true)

@@ -41,7 +41,7 @@ import com.example.data.local.entity.UserEntity
         AktivitasUnitEntity::class,
         UserEntity::class
     ],
-    version = 15,
+    version = 16,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

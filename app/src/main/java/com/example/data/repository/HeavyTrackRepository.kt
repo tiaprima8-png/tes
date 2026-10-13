@@ -10,6 +10,7 @@ import com.example.data.local.entity.LokasiEntity
 import com.example.data.local.entity.OperatorEntity
 import com.example.data.local.entity.RencanaKerjaEntity
 import com.example.data.local.entity.UnitEntity
+import com.example.data.local.entity.UserEntity
 import com.example.data.remote.ApiClientManager
 import com.example.data.remote.CompanyServerSimulator
 import com.example.data.remote.KendalaJsonConverter
@@ -51,6 +52,25 @@ class HeavyTrackRepository(
     private val kendalaDao = database.kendalaDao()
     private val draftDao = database.draftRealisasiDao()
     private val aktivitasUnitDao = database.aktivitasUnitDao()
+    private val userDao = database.userDao()
+
+    // ==========================================
+    // USER SESSION & ROLE MANAGEMENT (ROOM SQLITE)
+    // ==========================================
+    fun getActiveUserSession(): Flow<UserEntity?> = userDao.getActiveUserSession()
+
+    suspend fun getActiveUser(): UserEntity? = withContext(Dispatchers.IO) {
+        userDao.getActiveUser()
+    }
+
+    suspend fun saveUserSession(user: UserEntity) = withContext(Dispatchers.IO) {
+        userDao.clearActiveSessions()
+        userDao.insertOrUpdate(user.copy(isActiveSession = true, lastLoginAt = System.currentTimeMillis()))
+    }
+
+    suspend fun clearUserSession() = withContext(Dispatchers.IO) {
+        userDao.clearActiveSessions()
+    }
 
     private val _syncLogs = MutableStateFlow<List<SyncLogItem>>(emptyList())
     val syncLogs: StateFlow<List<SyncLogItem>> = _syncLogs.asStateFlow()
@@ -153,10 +173,12 @@ class HeavyTrackRepository(
             fetchMasterData(activeSupervisor)
         } catch (_: Exception) {
             val initialUnits = listOf(
-                UnitEntity("HEH1", "EXCAVATOR", "Komatsu PC200-8", 4125.5, activeSupervisor, "OPERASIONAL", 6.0, 10.0),
-                UnitEntity("EXC-02", "EXCAVATOR", "Caterpillar 320D", 6280.0, activeSupervisor, "OPERASIONAL", 6.0, 10.0),
-                UnitEntity("DT-101", "DUMP TRUCK", "Hino FM 260 Ti", 3450.2, activeSupervisor, "OPERASIONAL", 5.5, 9.5),
-                UnitEntity("DZ-01", "BULLDOZER", "Komatsu D85ESS-2", 5130.8, activeSupervisor, "OPERASIONAL", 6.0, 10.0)
+                UnitEntity("HEH1", "EXCAVATOR", "Komatsu PC200-8", 4125.5, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "PG1"),
+                UnitEntity("EXC-02", "EXCAVATOR", "Caterpillar 320D", 6280.0, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "PG1"),
+                UnitEntity("DT-101", "DUMP TRUCK", "Hino FM 260 Ti", 3450.2, "Agus Wijaya", "OPERASIONAL", 5.5, 9.5, "PG2"),
+                UnitEntity("DT-102", "DUMP TRUCK", "Nissan Quon CWB45A", 2890.0, "Agus Wijaya", "OPERASIONAL", 5.5, 9.5, "PG2"),
+                UnitEntity("WT-054", "WATER TRUCK", "Hino FM 260 WT", 1980.4, "Rudi Hermawan", "OPERASIONAL", 4.0, 8.0, "PG3"),
+                UnitEntity("DZ-01", "BULLDOZER", "Komatsu D85ESS-2", 5130.8, "Rudi Hermawan", "OPERASIONAL", 6.0, 10.0, "PG3")
             )
             unitDao.insertUnits(initialUnits)
 
@@ -173,8 +195,8 @@ class HeavyTrackRepository(
 
             val initialOperators = listOf(
                 OperatorEntity("OPR-001", "Ahmad Fauzi", "NIK-94821", activeSupervisor),
-                OperatorEntity("OPR-002", "Bambang Sudrajat", "NIK-88234", activeSupervisor),
-                OperatorEntity("OPR-003", "Dedi Supriyadi", "NIK-77412", activeSupervisor)
+                OperatorEntity("OPR-002", "Bambang Sudrajat", "NIK-88234", "Agus Wijaya"),
+                OperatorEntity("OPR-003", "Dedi Supriyadi", "NIK-77412", "Rudi Hermawan")
             )
             operatorDao.insertOperators(initialOperators)
 
@@ -207,6 +229,178 @@ class HeavyTrackRepository(
             )
             kendalaDao.clearAll()
             kendalaDao.insertKendalaList(initialKendala)
+
+            // Seed initial sample plans & reports for rich executive multi-region analytics
+            val samplePlans = listOf(
+                RencanaKerjaEntity(
+                    id = 101L,
+                    supervisorName = "Budi Santoso",
+                    pengawas = "Budi Santoso",
+                    statusUnit = "OPERASI",
+                    kodeUnit = "HEH1",
+                    operator = "Ahmad Fauzi",
+                    sapCode = "ACT-SAP-101",
+                    namaAktivitas = "Galian Tanah Lunak",
+                    satuanAktivitas = "m3",
+                    kodeLokasi = "001A",
+                    wilayah = "PG1",
+                    shiftKerja = "SIANG",
+                    keterangan = "Penggalian front 001A",
+                    nomorSpk = "SPK-PG1-001",
+                    statusSpk = "SPK_TERBIT",
+                    statusTahap = "REALISASI_SELESAI",
+                    statusRealisasi = "SUDAH",
+                    isRealized = true,
+                    isSynced = true
+                ),
+                RencanaKerjaEntity(
+                    id = 102L,
+                    supervisorName = "Agus Wijaya",
+                    pengawas = "Agus Wijaya",
+                    statusUnit = "OPERASI",
+                    kodeUnit = "DT-101",
+                    operator = "Bambang Sudrajat",
+                    sapCode = "ACT-SAP-201",
+                    namaAktivitas = "Dumping & Spreading",
+                    satuanAktivitas = "m2",
+                    kodeLokasi = "100A",
+                    wilayah = "PG2",
+                    shiftKerja = "SIANG",
+                    keterangan = "Hauling disposal pit B",
+                    nomorSpk = "SPK-PG2-045",
+                    statusSpk = "SPK_TERBIT",
+                    statusTahap = "REALISASI_SELESAI",
+                    statusRealisasi = "SUDAH",
+                    isRealized = true,
+                    isSynced = true
+                ),
+                RencanaKerjaEntity(
+                    id = 103L,
+                    supervisorName = "Rudi Hermawan",
+                    pengawas = "Rudi Hermawan",
+                    statusUnit = "OPERASI",
+                    kodeUnit = "WT-054",
+                    operator = "Dedi Supriyadi",
+                    sapCode = "ACT-SAP-202",
+                    namaAktivitas = "Grading Mainroad Tambang",
+                    satuanAktivitas = "m",
+                    kodeLokasi = "201C",
+                    wilayah = "PG3",
+                    shiftKerja = "SIANG",
+                    keterangan = "Penyiraman hauling route",
+                    nomorSpk = "SPK-PG3-089",
+                    statusSpk = "SPK_TERBIT",
+                    statusTahap = "REALISASI_SELESAI",
+                    statusRealisasi = "SUDAH",
+                    isRealized = true,
+                    isSynced = true
+                )
+            )
+            rencanaDao.insertRencanaList(samplePlans)
+
+            val sampleReports = listOf(
+                ActivityReportEntity(
+                    id = 201L,
+                    clientUuid = "SEED-REP-01",
+                    reportDate = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date()),
+                    supervisorName = "Budi Santoso",
+                    unitCode = "HEH1",
+                    unitType = "EXCAVATOR",
+                    activityName = "Galian Tanah Lunak",
+                    sapCode = "ACT-SAP-101",
+                    unitOfMeasure = "m3",
+                    operatorName = "Ahmad Fauzi",
+                    workLocation = "001A",
+                    wilayah = "PG1",
+                    shift = "SIANG",
+                    workDurationHours = 8.0,
+                    hmAwal = 4125.5,
+                    hmAkhir = 4133.5,
+                    hmDailyRunning = 8.0,
+                    workOutput = 450.0,
+                    notes = "Operasi lancar cuaca cerah",
+                    unitStatus = "OPERASI",
+                    isRefueled = true,
+                    fuelLiters = 180.0,
+                    isSynced = true
+                ),
+                ActivityReportEntity(
+                    id = 202L,
+                    clientUuid = "SEED-REP-02",
+                    reportDate = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date()),
+                    supervisorName = "Agus Wijaya",
+                    unitCode = "DT-101",
+                    unitType = "DUMP TRUCK",
+                    activityName = "Dumping & Spreading",
+                    sapCode = "ACT-SAP-201",
+                    unitOfMeasure = "m2",
+                    operatorName = "Bambang Sudrajat",
+                    workLocation = "100A",
+                    wilayah = "PG2",
+                    shift = "SIANG",
+                    workDurationHours = 7.5,
+                    hmAwal = 3450.2,
+                    hmAkhir = 3457.7,
+                    hmDailyRunning = 7.5,
+                    workOutput = 320.0,
+                    notes = "Hauling disposal",
+                    unitStatus = "OPERASI",
+                    isRefueled = true,
+                    fuelLiters = 140.0,
+                    isSynced = true
+                ),
+                ActivityReportEntity(
+                    id = 203L,
+                    clientUuid = "SEED-REP-03",
+                    reportDate = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date()),
+                    supervisorName = "Rudi Hermawan",
+                    unitCode = "WT-054",
+                    unitType = "WATER TRUCK",
+                    activityName = "Grading Mainroad Tambang",
+                    sapCode = "ACT-SAP-202",
+                    unitOfMeasure = "m",
+                    operatorName = "Dedi Supriyadi",
+                    workLocation = "201C",
+                    wilayah = "PG3",
+                    shift = "SIANG",
+                    workDurationHours = 6.0,
+                    hmAwal = 1980.4,
+                    hmAkhir = 1986.4,
+                    hmDailyRunning = 6.0,
+                    workOutput = 1200.0,
+                    notes = "Penyiraman jalan hauling",
+                    unitStatus = "OPERASI",
+                    isRefueled = true,
+                    fuelLiters = 90.0,
+                    isSynced = true
+                ),
+                ActivityReportEntity(
+                    id = 204L,
+                    clientUuid = "SEED-REP-04",
+                    reportDate = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date()),
+                    supervisorName = "Rudi Hermawan",
+                    unitCode = "DZ-01",
+                    unitType = "BULLDOZER",
+                    activityName = "Perbaikan Unit",
+                    sapCode = "ACT-SAP-BDN-01",
+                    unitOfMeasure = "jam",
+                    operatorName = "Dedi Supriyadi",
+                    workLocation = "201C",
+                    wilayah = "PG3",
+                    shift = "SIANG",
+                    workDurationHours = 4.0,
+                    hmAwal = 5130.8,
+                    hmAkhir = 5132.8,
+                    hmDailyRunning = 2.0,
+                    workOutput = 0.0,
+                    notes = "Kendala hidrolik blade",
+                    unitStatus = "BREAKDOWN",
+                    kendalaNama = "Perbaikan Unit",
+                    isRefueled = false,
+                    isSynced = true
+                )
+            )
+            reportDao.insertReports(sampleReports)
         }
     }
 
@@ -227,6 +421,7 @@ class HeavyTrackRepository(
                         status = it.resolvedStatus,
                         hmMinStandar = it.resolvedHmMinStandar,
                         hmMaxStandar = it.resolvedHmMaxStandar,
+                        wilayah = it.resolvedWilayah,
                         updatedAt = System.currentTimeMillis()
                     )
                 }
@@ -334,6 +529,7 @@ class HeavyTrackRepository(
                         status = it.resolvedStatus,
                         hmMinStandar = it.resolvedHmMinStandar,
                         hmMaxStandar = it.resolvedHmMaxStandar,
+                        wilayah = it.resolvedWilayah,
                         updatedAt = System.currentTimeMillis()
                     )
                 }
@@ -442,6 +638,7 @@ class HeavyTrackRepository(
                     namaAktivitas = renReq.resolvedAktivitas,
                     satuanAktivitas = renReq.resolvedSatuan,
                     kodeLokasi = renReq.resolvedLokasi,
+                    wilayah = renReq.wilayah?.takeIf { it.isNotBlank() } ?: "PG1",
                     shiftKerja = renReq.resolvedShift,
                     keterangan = renReq.keterangan ?: renReq.keterangan_rencana ?: "",
                     nomorSpk = spkNum,
@@ -482,6 +679,7 @@ class HeavyTrackRepository(
                     unitOfMeasure = repReq.satuan ?: repReq.unit_of_measure ?: "m3",
                     operatorName = repReq.nama_operator ?: repReq.operator_name ?: "",
                     workLocation = repReq.lokasi_kerja ?: repReq.work_location ?: "",
+                    wilayah = repReq.wilayah?.takeIf { it.isNotBlank() } ?: "PG1",
                     shift = repReq.shift ?: "SIANG",
                     workDurationHours = repReq.durasi_jam_kerja ?: repReq.work_duration_hours ?: 7.0,
                     hmAwal = repReq.hm_awal ?: 0.0,

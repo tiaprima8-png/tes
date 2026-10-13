@@ -17,6 +17,7 @@ data class ActivityReportEntity(
     val unitOfMeasure: String,           // e.g. "m3"
     val operatorName: String,            // Selected Operator e.g. "Ahmad Fauzi"
     val workLocation: String,            // e.g. "001A / Mainroad"
+    val wilayah: String = "PG1",         // e.g. "PG1", "PG2", "PG3"
     val shift: String,                   // "SIANG" or "MALAM"
     val workDurationHours: Double = 7.0, // Default 7.00 hours
     val hmAwal: Double,                  // Read-only from last HM

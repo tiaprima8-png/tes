@@ -90,6 +90,7 @@ import java.io.File
 fun ReportDetailDialog(
     report: ActivityReportEntity,
     nomorSpk: String? = null,
+    isReadOnly: Boolean = false,
     onDismiss: () -> Unit,
     onDelete: (Long) -> Unit
 ) {
@@ -576,21 +577,23 @@ fun ReportDetailDialog(
                         .padding(horizontal = 18.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    OutlinedButton(
-                        onClick = {
-                            onDelete(report.id)
-                            onDismiss()
-                        },
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRose),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRose.copy(alpha = 0.5f)),
-                        shape = RoundedCornerShape(10.dp),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp)
-                    ) {
-                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Hapus", fontWeight = FontWeight.Bold)
+                    if (!isReadOnly) {
+                        OutlinedButton(
+                            onClick = {
+                                onDelete(report.id)
+                                onDismiss()
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRose),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRose.copy(alpha = 0.5f)),
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp)
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Hapus", fontWeight = FontWeight.Bold)
+                        }
                     }
 
                     Button(
@@ -598,10 +601,10 @@ fun ReportDetailDialog(
                         colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier
-                            .weight(1.5f)
+                            .weight(if (isReadOnly) 1f else 1.5f)
                             .height(44.dp)
                     ) {
-                        Text("Tutup", fontWeight = FontWeight.Bold)
+                        Text(if (isReadOnly) "Tutup Tinjauan" else "Tutup", fontWeight = FontWeight.Bold)
                     }
                 }
             }

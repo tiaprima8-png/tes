@@ -16,6 +16,15 @@ interface ActivityReportDao {
     @Query("SELECT * FROM activity_reports WHERE LOWER(TRIM(supervisorName)) = LOWER(TRIM(:supervisor)) OR :supervisor = '' OR :supervisor = 'ALL' ORDER BY createdAt DESC")
     fun getReportsForSupervisor(supervisor: String): Flow<List<ActivityReportEntity>>
 
+    @Query("""
+        SELECT * FROM activity_reports 
+        WHERE (:wilayah = 'Semua Wilayah' OR :wilayah = '' OR wilayah = :wilayah)
+          AND (:unitType = 'Semua Jenis' OR :unitType = '' OR unitType = :unitType)
+          AND (:unitCode = 'Semua Unit' OR :unitCode = '' OR unitCode = :unitCode)
+        ORDER BY createdAt DESC
+    """)
+    fun getReportsFiltered(wilayah: String, unitType: String, unitCode: String): Flow<List<ActivityReportEntity>>
+
     @Query("SELECT * FROM activity_reports WHERE isSynced = 0 ORDER BY createdAt ASC")
     fun getUnsyncedReports(): Flow<List<ActivityReportEntity>>
 

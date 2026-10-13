@@ -20,6 +20,7 @@ import com.example.data.local.entity.LokasiEntity
 import com.example.data.local.entity.OperatorEntity
 import com.example.data.local.entity.RencanaKerjaEntity
 import com.example.data.local.entity.UnitEntity
+import com.example.data.local.entity.UserEntity
 import com.example.data.model.Supervisor
 import com.example.data.model.SupervisorDirectory
 import com.example.data.remote.ActivityPayload
@@ -46,6 +47,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.io.File
@@ -136,6 +138,15 @@ class HeavyTrackViewModel(
 
     private val _isLoggedIn = MutableStateFlow(false)
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
+
+    // Mode Monitoring Eksekutif vs Supervisor Lapangan
+    val isManagerSession: StateFlow<Boolean> = _currentSupervisorSession
+        .map { it?.isManager == true }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val userRole: StateFlow<String> = _currentSupervisorSession
+        .map { it?.role ?: "SUPERVISOR" }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "SUPERVISOR")
 
     // Base URL configuration for Web Admin (Internalized)
     val apiBaseUrl: String = INTERNAL_WEB_ADMIN_URL
@@ -374,7 +385,8 @@ class HeavyTrackViewModel(
     val formState: StateFlow<FormUiState> = _formState.asStateFlow()
 
     // ==========================================
-    // FLEET ANALYTICS STATE & FILTERS
+    // ==========================================
+    // FLEET ANALYTICS & EXECUTIVE MANAGER FILTERS
     // ==========================================
     private val _analyticsPeriod = MutableStateFlow("Bulan Ini")
     val analyticsPeriod: StateFlow<String> = _analyticsPeriod.asStateFlow()
@@ -382,20 +394,111 @@ class HeavyTrackViewModel(
     private val _analyticsUnitFilter = MutableStateFlow("Semua Unit")
     val analyticsUnitFilter: StateFlow<String> = _analyticsUnitFilter.asStateFlow()
 
-    val analyticsState: StateFlow<FleetAnalyticsState> = combine(
-        reports,
+    // Filter Eksekutif Manager (Wilayah, Jenis Unit, Kode Unit)
+    private val _filterWilayah = MutableStateFlow("Semua Wilayah")
+    val filterWilayah: StateFlow<String> = _filterWilayah.asStateFlow()
+
+    private val _filterJenisUnit = MutableStateFlow("Semua Jenis")
+    val filterJenisUnit: StateFlow<String> = _filterJenisUnit.asStateFlow()
+
+    private val _filterKodeUnit = MutableStateFlow("Semua Unit")
+    val filterKodeUnit: StateFlow<String> = _filterKodeUnit.asStateFlow()
+
+    data class ExecutiveFilter(
+        val period: String,
+        val wilayah: String,
+        val jenisUnit: String,
+        val kodeUnit: String
+    )
+
+    val executiveFilterState: StateFlow<ExecutiveFilter> = combine(
         _analyticsPeriod,
-        _analyticsUnitFilter
-    ) { reportList, period, unitFilter ->
-        calculateAnalytics(reportList, period, unitFilter)
+        _filterWilayah,
+        _filterJenisUnit,
+        _filterKodeUnit
+    ) { period, wilayah, jenis, kode ->
+        ExecutiveFilter(period, wilayah, jenis, kode)
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        ExecutiveFilter("Bulan Ini", "Semua Wilayah", "Semua Jenis", "Semua Unit")
+    )
+
+    val allUnitsGlobal: StateFlow<List<UnitEntity>> = repository.getAllUnits()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val filteredUnits: StateFlow<List<UnitEntity>> = combine(
+        allUnitsGlobal,
+        _filterWilayah,
+        _filterJenisUnit,
+        _filterKodeUnit
+    ) { allUnits, wilayah, jenis, kode ->
+        allUnits.filter { u ->
+            val matchWilayah = wilayah == "Semua Wilayah" || wilayah.isBlank() || u.wilayah.equals(wilayah, ignoreCase = true)
+            val matchJenis = jenis == "Semua Jenis" || jenis.isBlank() || matchesJenisUnit(u.unitType, jenis)
+            val matchKode = kode == "Semua Unit" || kode.isBlank() || u.unitCode.equals(kode, ignoreCase = true)
+            matchWilayah && matchJenis && matchKode
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val analyticsState: StateFlow<FleetAnalyticsState> = combine(
+        _currentSupervisorSession,
+        reports,
+        allReports,
+        executiveFilterState
+    ) { session, supervisorReports, allRepList, filters ->
+        val targetReports = if (session?.isManager == true) allRepList else supervisorReports
+        calculateAnalytics(targetReports, filters.period, filters.kodeUnit, filters.wilayah, filters.jenisUnit)
     }.stateIn(
         viewModelScope,
         SharingStarted.WhileSubscribed(5000),
         FleetAnalyticsState()
     )
 
+    fun setFilterWilayah(wilayah: String) {
+        _filterWilayah.value = wilayah
+    }
+
+    fun setFilterJenisUnit(jenis: String) {
+        _filterJenisUnit.value = jenis
+    }
+
+    fun setFilterKodeUnit(kode: String) {
+        _filterKodeUnit.value = kode
+        _analyticsUnitFilter.value = kode
+    }
+
+    fun resetExecutiveFilters() {
+        _filterWilayah.value = "Semua Wilayah"
+        _filterJenisUnit.value = "Semua Jenis"
+        _filterKodeUnit.value = "Semua Unit"
+        _analyticsUnitFilter.value = "Semua Unit"
+    }
+
     init {
         viewModelScope.launch {
+            // Restore active session dari Room SQLite users_session jika ada
+            try {
+                val savedSession = repository.getActiveUser()
+                if (savedSession != null && savedSession.isActiveSession) {
+                    val spv = Supervisor(
+                        id = savedSession.nik.ifBlank { savedSession.username },
+                        name = savedSession.name.ifBlank { savedSession.username },
+                        nik = savedSession.nik,
+                        passwordPin = "",
+                        defaultShift = savedSession.defaultShift,
+                        assignedSector = savedSession.assignedSector,
+                        phone = savedSession.phone,
+                        roleTitle = savedSession.roleTitle,
+                        role = savedSession.role,
+                        wilayah = savedSession.wilayah
+                    )
+                    _currentSupervisorSession.value = spv
+                    _activeSupervisor.value = spv.name
+                    _isLoggedIn.value = true
+                }
+            } catch (_: Exception) {}
+
             repository.seedInitialDataIfEmpty(_activeSupervisor.value)
             repository.reconcileSyncStatus()
             fetchBootstrapData(showOverlay = false)
@@ -616,7 +719,7 @@ class HeavyTrackViewModel(
     }
 
     // ==========================================
-    // LOGIN & SESI
+    // LOGIN & SESI (DENGAN PERSISTENSI ROOM SQLITE)
     // ==========================================
     fun login(supervisor: Supervisor) {
         _currentSupervisorSession.value = supervisor
@@ -627,8 +730,32 @@ class HeavyTrackViewModel(
         )
         // Saat user awal login, jangan langsung masuk form realisasi
         clearSelectedRencanaForRealisasi()
+
+        // Simpan sesi dan role pengguna ke Room SQLite (users_session)
+        val userEntity = UserEntity(
+            username = supervisor.nik.ifBlank { supervisor.name },
+            name = supervisor.name,
+            nik = supervisor.nik,
+            role = supervisor.role, // "KASIE" vs "MANAGER"
+            roleTitle = supervisor.roleTitle,
+            wilayah = supervisor.wilayah,
+            defaultShift = supervisor.defaultShift,
+            assignedSector = supervisor.assignedSector,
+            phone = supervisor.phone,
+            isActiveSession = true,
+            lastLoginAt = System.currentTimeMillis()
+        )
+
         viewModelScope.launch {
-            _uiEvents.emit(UiMessage.Success("Selamat bertugas, Pengawas ${supervisor.name} (${supervisor.nik})"))
+            try {
+                repository.saveUserSession(userEntity)
+            } catch (_: Exception) {}
+
+            if (supervisor.isManager) {
+                _uiEvents.emit(UiMessage.Success("Selamat datang, Manager ${supervisor.name} • Mode Monitoring Eksekutif Aktif"))
+            } else {
+                _uiEvents.emit(UiMessage.Success("Selamat bertugas, Kasie ${supervisor.name} • ${supervisor.wilayah}"))
+            }
             fetchBootstrapData(showOverlay = true)
             syncPendingReports()
         }
@@ -643,18 +770,25 @@ class HeavyTrackViewModel(
             return true
         }
 
-        // Field standalone fallback for newly deployed supervisors
+        // Field standalone fallback for newly deployed supervisors or executive managers
         if (trimmedUser.isNotBlank() && (trimmedPin == "1234" || trimmedPin.length >= 4)) {
-            val fallbackSpv = Supervisor(
-                id = "SPV-${System.currentTimeMillis().toString().takeLast(3)}",
+            val isManagerRole = trimmedUser.contains("manager", ignoreCase = true) ||
+                    trimmedUser.startsWith("mgr", ignoreCase = true) ||
+                    trimmedUser.startsWith("gm", ignoreCase = true)
+
+            val fallback = Supervisor(
+                id = if (isManagerRole) "MGR-${System.currentTimeMillis().toString().takeLast(3)}" else "SPV-${System.currentTimeMillis().toString().takeLast(3)}",
                 name = trimmedUser,
                 nik = trimmedUser.uppercase(),
                 passwordPin = trimmedPin,
-                defaultShift = "SIANG",
-                assignedSector = "Sektor Operasional Lapangan",
-                phone = "+62 812-0000-0000"
+                defaultShift = if (isManagerRole) "ALL" else "SIANG",
+                assignedSector = if (isManagerRole) "Seluruh Proyek & Armada (Eksekutif)" else "Sektor Operasional Lapangan (PG1)",
+                phone = "+62 812-0000-0000",
+                roleTitle = if (isManagerRole) "Manager Operasional" else "Kasie Lapangan",
+                role = if (isManagerRole) "MANAGER" else "KASIE",
+                wilayah = if (isManagerRole) "Semua Wilayah" else "PG1"
             )
-            login(fallbackSpv)
+            login(fallback)
             return true
         }
         return false
@@ -664,7 +798,10 @@ class HeavyTrackViewModel(
         _isLoggedIn.value = false
         _currentSupervisorSession.value = null
         viewModelScope.launch {
-            _uiEvents.emit(UiMessage.Info("Anda telah keluar dari sesi pengawas"))
+            try {
+                repository.clearUserSession()
+            } catch (_: Exception) {}
+            _uiEvents.emit(UiMessage.Info("Anda telah keluar dari sesi aplikasi"))
         }
     }
 
@@ -2226,10 +2363,26 @@ Halo Rekan Pengawas, berkas installer APK pembaruan aplikasi resmi terlampir ($f
         _analyticsUnitFilter.value = unit
     }
 
+    fun matchesJenisUnit(unitType: String, filter: String): Boolean {
+        if (filter == "Semua Jenis" || filter.isBlank()) return true
+        val u = unitType.uppercase()
+        val f = filter.uppercase()
+        return when {
+            f.contains("HE") || f.contains("EXCAVATOR") -> u.contains("EXCAVATOR") || u.contains("HE")
+            f.contains("DT") || f.contains("DUMP") -> u.contains("DUMP") || u.contains("DT") || (u.contains("TRUCK") && !u.contains("WATER"))
+            f.contains("WT") || f.contains("WATER") -> u.contains("WATER") || u.contains("WT")
+            f.contains("BULLDOZER") || f.contains("DOZER") -> u.contains("BULLDOZER") || u.contains("DOZER")
+            f.contains("GRADER") -> u.contains("GRADER")
+            else -> u.contains(f) || f.contains(u)
+        }
+    }
+
     private fun calculateAnalytics(
         allReports: List<ActivityReportEntity>,
         period: String,
-        unitFilter: String
+        unitFilter: String,
+        wilayahFilter: String = "Semua Wilayah",
+        jenisFilter: String = "Semua Jenis"
     ): FleetAnalyticsState {
         // Filter by Period
         val now = System.currentTimeMillis()
@@ -2245,11 +2398,25 @@ Halo Rekan Pengawas, berkas installer APK pembaruan aplikasi resmi terlampir ($f
             }
         }
 
-        // Filter by Unit
-        val filtered = if (unitFilter == "Semua Unit") {
+        // Filter by Wilayah
+        val wilayahFiltered = if (wilayahFilter == "Semua Wilayah" || wilayahFilter.isBlank()) {
             periodFiltered
         } else {
-            periodFiltered.filter { it.unitCode.equals(unitFilter, ignoreCase = true) }
+            periodFiltered.filter { it.wilayah.equals(wilayahFilter, ignoreCase = true) }
+        }
+
+        // Filter by Jenis Unit
+        val jenisFiltered = if (jenisFilter == "Semua Jenis" || jenisFilter.isBlank()) {
+            wilayahFiltered
+        } else {
+            wilayahFiltered.filter { matchesJenisUnit(it.unitType, jenisFilter) }
+        }
+
+        // Filter by Unit
+        val filtered = if (unitFilter == "Semua Unit" || unitFilter.isBlank()) {
+            jenisFiltered
+        } else {
+            jenisFiltered.filter { it.unitCode.equals(unitFilter, ignoreCase = true) }
         }
 
         val totalSolar = filtered.sumOf { if (it.isRefueled) it.fuelLiters else 0.0 }
@@ -2314,6 +2481,8 @@ Halo Rekan Pengawas, berkas installer APK pembaruan aplikasi resmi terlampir ($f
         return FleetAnalyticsState(
             selectedPeriod = period,
             selectedUnitFilter = unitFilter,
+            selectedWilayahFilter = wilayahFilter,
+            selectedJenisUnitFilter = jenisFilter,
             totalSolarLiters = totalSolar,
             totalHmRunning = totalHm,
             avgFuelConsumptionRatio = fuelRatio,

@@ -1609,42 +1609,38 @@ fun FormReportScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(14.dp)) {
-                                // Header: Title & Subtitle + Standar HM Badge
+                                // Header: Title & Subtitle (Standar HM ditampilkan pada bagian Total HM Berjalan)
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(36.dp)
-                                                .background(Emerald50, RoundedCornerShape(10.dp)),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Icon(
-                                                imageVector = Icons.Default.Speed,
-                                                contentDescription = null,
-                                                tint = Emerald600,
-                                                modifier = Modifier.size(20.dp)
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.width(10.dp))
-                                        Column {
-                                            Text(
-                                                text = "4. Hour Meter (HM) Mesin",
-                                                fontWeight = FontWeight.Bold,
-                                                fontSize = 14.sp,
-                                                color = Slate900
-                                            )
-                                            Text(
-                                                text = "Validasi operasi & standar unit",
-                                                fontSize = 11.sp,
-                                                color = Slate500
-                                            )
-                                        }
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .background(Emerald50, RoundedCornerShape(10.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Speed,
+                                            contentDescription = null,
+                                            tint = Emerald600,
+                                            modifier = Modifier.size(20.dp)
+                                        )
                                     }
-
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column {
+                                        Text(
+                                            text = "4. Hour Meter (HM) Mesin",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 14.sp,
+                                            color = Slate900
+                                        )
+                                        Text(
+                                            text = "Validasi operasi & status kesinambungan unit",
+                                            fontSize = 11.sp,
+                                            color = Slate500
+                                        )
+                                    }
                                 }
 
                                 Spacer(modifier = Modifier.height(10.dp))

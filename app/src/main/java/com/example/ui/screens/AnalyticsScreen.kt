@@ -82,6 +82,7 @@ fun AnalyticsScreen(
     viewModel: HeavyTrackViewModel
 ) {
     val activeSupervisor by viewModel.activeSupervisor.collectAsState()
+    val isManagerSession by viewModel.isManagerSession.collectAsState()
     val analyticsState by viewModel.analyticsState.collectAsState()
     val units by viewModel.units.collectAsState()
     val period by viewModel.analyticsPeriod.collectAsState()
@@ -115,27 +116,48 @@ fun AnalyticsScreen(
                             Box(
                                 modifier = Modifier
                                     .size(38.dp)
-                                    .background(Emerald50, RoundedCornerShape(10.dp)),
+                                    .background(if (isManagerSession) Color(0xFFFEF3C7) else Emerald50, RoundedCornerShape(10.dp)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.BarChart,
                                     contentDescription = null,
-                                    tint = Emerald600,
+                                    tint = if (isManagerSession) Color(0xFFB45309) else Emerald600,
                                     modifier = Modifier.size(22.dp)
                                 )
                             }
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
-                                Text(
-                                    text = "Analitik Operasional",
-                                    style = MaterialTheme.typography.titleMedium.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        color = Slate900
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = if (isManagerSession) "Dashboard Analitik Eksekutif" else "Analitik Operasional",
+                                        style = MaterialTheme.typography.titleMedium.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            color = Slate900
+                                        )
                                     )
-                                )
+                                    if (isManagerSession) {
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = Color(0xFFFEF3C7)
+                                        ) {
+                                            Text(
+                                                text = "EKSEKUTIF",
+                                                color = Color(0xFF92400E),
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.5.dp)
+                                            )
+                                        }
+                                    }
+                                }
                                 Text(
-                                    text = "Pengawas: $activeSupervisor",
+                                    text = if (isManagerSession) {
+                                        "Mode Monitoring Eksekutif • Rekapitulasi Menyeluruh Seluruh Pengawas & Armada"
+                                    } else {
+                                        "Pengawas: $activeSupervisor"
+                                    },
                                     style = MaterialTheme.typography.bodySmall.copy(color = Slate500)
                                 )
                             }

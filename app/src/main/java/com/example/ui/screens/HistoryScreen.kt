@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PrecisionManufacturing
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
@@ -42,6 +43,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -60,6 +62,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -130,6 +133,7 @@ fun HistoryScreen(
     viewModel: HeavyTrackViewModel,
     onNavigateToForm: () -> Unit
 ) {
+    val isManagerSession by viewModel.isManagerSession.collectAsState()
     val myReports by viewModel.reports.collectAsState()
     val allReports by viewModel.allReports.collectAsState()
     val allRencanaGlobal by viewModel.allRencanaGlobal.collectAsState()
@@ -138,8 +142,11 @@ fun HistoryScreen(
     val isSyncingPending by viewModel.isSyncingPending.collectAsState()
     val activeSupervisor by viewModel.activeSupervisor.collectAsState()
 
+    // Sub-tab: "HASIL" vs "RENCANA" untuk monitoring menyeluruh oleh Manager
+    var historySubTab by remember { mutableStateOf("HASIL") }
+
     // Cakupan data: true = Semua Data Terinput Lapangan, false = Hanya Pengawas Aktif
-    var showAllDataScope by remember { mutableStateOf(true) }
+    var showAllDataScope by remember(isManagerSession) { mutableStateOf(isManagerSession || true) }
 
     // Filter status sinkron: ALL, PENDING, SYNCED
     var selectedFilter by remember { mutableStateOf("ALL") }
@@ -150,7 +157,25 @@ fun HistoryScreen(
     var selectedRecordForDetail by remember { mutableStateOf<CompletedOperationalRecord?>(null) }
     var photoPreviewReport by remember { mutableStateOf<ActivityReportEntity?>(null) }
 
-    val baseReports = if (showAllDataScope) allReports else myReports
+    val baseReports = if (showAllDataScope || isManagerSession) allReports else myReports
+
+    // Filter Rencana Kerja Lapangan berdasarkan pencarian cepat
+    val filteredRencana = remember(allRencanaGlobal, searchQuery) {
+        if (searchQuery.isBlank()) {
+            allRencanaGlobal
+        } else {
+            val q = searchQuery.trim().lowercase()
+            allRencanaGlobal.filter { ren ->
+                ren.kodeUnit.lowercase().contains(q) ||
+                        ren.operator.lowercase().contains(q) ||
+                        ren.namaAktivitas.lowercase().contains(q) ||
+                        ren.kodeLokasi.lowercase().contains(q) ||
+                        ren.nomorSpk.lowercase().contains(q) ||
+                        ren.supervisorName.lowercase().contains(q) ||
+                        ren.tanggalFormat.lowercase().contains(q)
+            }
+        }
+    }
 
     // Rekapitulasi & pemaduan data komprehensif Rencana Awal + Realisasi Aktual
     val completedRecords = remember(baseReports, allRencanaGlobal, hasilAktivitasList) {
@@ -309,7 +334,7 @@ fun HistoryScreen(
                             Spacer(modifier = Modifier.width(10.dp))
                             Column {
                                 Text(
-                                    text = "Arsip Riwayat Operasional",
+                                    text = if (isManagerSession) "Monitoring Hasil Kerja Lapangan" else "Arsip Riwayat Operasional",
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = Slate900,
@@ -317,7 +342,7 @@ fun HistoryScreen(
                                     )
                                 )
                                 Text(
-                                    text = "Rekapitulasi lengkap rencana vs realisasi selesai",
+                                    text = if (isManagerSession) "Mode Eksekutif: Memantau seluruh rencana & realisasi pengawas" else "Rekapitulasi lengkap rencana vs realisasi selesai",
                                     style = MaterialTheme.typography.bodySmall.copy(color = Slate500, fontSize = 11.sp)
                                 )
                             }
@@ -325,13 +350,13 @@ fun HistoryScreen(
 
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = Emerald50
+                            color = if (isManagerSession) Color(0xFFFEF3C7) else Emerald50
                         ) {
                             Text(
-                                text = "${completedRecords.size} Selesai",
-                                color = Emerald900,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
+                                text = if (isManagerSession) "EKSEKUTIF" else "${completedRecords.size} Selesai",
+                                color = if (isManagerSession) Color(0xFF92400E) else Emerald900,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.ExtraBold,
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                             )
                         }
@@ -380,19 +405,18 @@ fun HistoryScreen(
 
                     // Tombol Sinkronisasi Cepat ke Server
                     Spacer(modifier = Modifier.height(12.dp))
-                    val isSyncEnabled = unsyncedCount > 0 && !isSyncingPending
                     Button(
                         onClick = {
                             if (unsyncedCount > 0) {
                                 viewModel.syncPendingReports()
+                            } else {
+                                viewModel.refreshAnalyticsData()
                             }
                         },
-                        enabled = isSyncEnabled,
+                        enabled = true,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Emerald600,
-                            contentColor = Color.White,
-                            disabledContainerColor = Color(0xFFF1F5F9),
-                            disabledContentColor = Slate500
+                            containerColor = if (unsyncedCount > 0) Emerald600 else Color(0xFF0F766E),
+                            contentColor = Color.White
                         ),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier
@@ -409,9 +433,59 @@ fun HistoryScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("Sinkronkan $unsyncedCount Laporan Tertunda", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         } else {
-                            Icon(Icons.Default.CloudDone, contentDescription = null, tint = Color(0xFF059669), modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.CloudDone, contentDescription = null, tint = Color(0xFF6EE7B7), modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Semua Laporan Tersinkron Lengkap", fontWeight = FontWeight.SemiBold, color = Slate700, fontSize = 13.sp)
+                            Text(if (isManagerSession) "Tarik Pembaruan Lapangan (Live)" else "Semua Laporan Tersinkron Lengkap", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    HorizontalDivider(color = Slate200, thickness = 0.5.dp)
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Sub-tab: Hasil Kerja (Realisasi) vs Rencana Kerja Lapangan
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (historySubTab == "HASIL") Emerald600 else Color(0xFFF1F5F9),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (historySubTab == "HASIL") Emerald600 else Slate200),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { historySubTab = "HASIL" }
+                                .testTag("tab_hasil_kerja")
+                        ) {
+                            Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 8.dp)) {
+                                Text(
+                                    text = "Hasil Realisasi (${completedRecords.size})",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    color = if (historySubTab == "HASIL") Color.White else Slate700
+                                )
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(10.dp),
+                            color = if (historySubTab == "RENCANA") Emerald600 else Color(0xFFF1F5F9),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (historySubTab == "RENCANA") Emerald600 else Slate200),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { historySubTab = "RENCANA" }
+                                .testTag("tab_rencana_kerja")
+                        ) {
+                            Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(vertical = 8.dp)) {
+                                Text(
+                                    text = "Rencana Kerja (${allRencanaGlobal.size})",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp,
+                                    color = if (historySubTab == "RENCANA") Color.White else Slate700
+                                )
+                            }
                         }
                     }
                 }
@@ -526,28 +600,56 @@ fun HistoryScreen(
         }
 
         // ==========================================
-        // 3. DAFTAR ARSIP OPERASIONAL SELESAI
+        // 3. DAFTAR ARSIP OPERASIONAL (HASIL vs RENCANA)
         // ==========================================
-        if (filteredRecords.isEmpty()) {
-            item {
-                EmptyHistoryPlaceholder(
-                    title = if (searchQuery.isNotBlank()) "Data Tidak Ditemukan" else "Belum Ada Pekerjaan Selesai",
-                    message = if (searchQuery.isNotBlank()) {
-                        "Tidak ada laporan selesai yang cocok dengan pencarian '$searchQuery'."
-                    } else {
-                        "Pekerjaan yang telah dilaporkan melalui tab Formulir akan otomatis masuk ke arsip komprehensif ini."
-                    },
-                    buttonText = "Buka Tab Formulir",
-                    onButtonClick = onNavigateToForm
-                )
+        if (historySubTab == "HASIL") {
+            if (filteredRecords.isEmpty()) {
+                item {
+                    EmptyHistoryPlaceholder(
+                        title = if (searchQuery.isNotBlank()) "Data Tidak Ditemukan" else "Belum Ada Laporan Realisasi",
+                        message = if (searchQuery.isNotBlank()) {
+                            "Tidak ada laporan selesai yang cocok dengan pencarian '$searchQuery'."
+                        } else if (isManagerSession) {
+                            "Belum ada laporan realisasi kerja selesai yang disubmit oleh para pengawas lapangan."
+                        } else {
+                            "Pekerjaan yang telah dilaporkan melalui tab Formulir akan otomatis masuk ke arsip komprehensif ini."
+                        },
+                        buttonText = if (isManagerSession) "Segarkan Data" else "Buka Tab Formulir",
+                        onButtonClick = if (isManagerSession) {
+                            { viewModel.refreshAnalyticsData() }
+                        } else {
+                            onNavigateToForm
+                        }
+                    )
+                }
+            } else {
+                items(filteredRecords, key = { it.report.id }) { record ->
+                    CompletedOperationCard(
+                        record = record,
+                        onClick = { selectedRecordForDetail = record },
+                        onPhotoClick = { photoPreviewReport = record.report }
+                    )
+                }
             }
         } else {
-            items(filteredRecords, key = { it.report.id }) { record ->
-                CompletedOperationCard(
-                    record = record,
-                    onClick = { selectedRecordForDetail = record },
-                    onPhotoClick = { photoPreviewReport = record.report }
-                )
+            // Tab Rencana Kerja Lapangan (Monitoring Eksekutif Read-Only)
+            if (filteredRencana.isEmpty()) {
+                item {
+                    EmptyHistoryPlaceholder(
+                        title = if (searchQuery.isNotBlank()) "Data Tidak Ditemukan" else "Belum Ada Rencana Kerja",
+                        message = if (searchQuery.isNotBlank()) {
+                            "Tidak ada rencana kerja yang cocok dengan pencarian '$searchQuery'."
+                        } else {
+                            "Seluruh penugasan rencana kerja lapangan yang dimasukkan oleh para pengawas akan dipantau di sini."
+                        },
+                        buttonText = "Segarkan Data Server",
+                        onButtonClick = { viewModel.refreshAnalyticsData() }
+                    )
+                }
+            } else {
+                items(filteredRencana, key = { it.id }) { rencana ->
+                    ExecutiveRencanaCard(rencana = rencana)
+                }
             }
         }
     }
@@ -559,6 +661,7 @@ fun HistoryScreen(
         ReportDetailDialog(
             report = rec.report,
             nomorSpk = rec.nomorSpk,
+            isReadOnly = isManagerSession,
             onDismiss = { selectedRecordForDetail = null },
             onDelete = { id -> viewModel.deleteReport(id) }
         )
@@ -1009,6 +1112,180 @@ fun EmptyHistoryPlaceholder(
                 shape = RoundedCornerShape(10.dp)
             ) {
                 Text(buttonText)
+            }
+        }
+    }
+}
+
+/**
+ * Kartu Rencana Kerja Lapangan untuk Monitoring Eksekutif (Read-Only)
+ */
+@Composable
+fun ExecutiveRencanaCard(
+    rencana: RencanaKerjaEntity
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("rencana_card_${rencana.id}"),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+            // Header baris: Kode Unit + Status Realisasi + Status Operasi
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .background(Emerald50, RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PrecisionManufacturing,
+                            contentDescription = null,
+                            tint = Emerald600,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column {
+                        Text(
+                            text = rencana.kodeUnit,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 15.sp,
+                            color = Slate900
+                        )
+                        Text(
+                            text = "Pengawas: ${rencana.supervisorName.ifBlank { "Semua" }} • Shift ${rencana.shiftKerja}",
+                            fontSize = 10.sp,
+                            color = Slate500
+                        )
+                    }
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    // Status Realisasi
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = if (rencana.isRealized) Emerald100 else Color(0xFFFEF3C7)
+                    ) {
+                        Text(
+                            text = if (rencana.isRealized) "Terealisasi" else "Rencana Aktif",
+                            color = if (rencana.isRealized) Emerald900 else Color(0xFF92400E),
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+
+                    // Status Unit
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = when (rencana.statusUnit) {
+                            "OPERASI" -> Color(0xFFDCFCE7)
+                            "STANDBY" -> Color(0xFFFEF9C3)
+                            else -> Color(0xFFFEE2E2)
+                        }
+                    ) {
+                        Text(
+                            text = rencana.statusUnit,
+                            color = when (rencana.statusUnit) {
+                                "OPERASI" -> Color(0xFF166534)
+                                "STANDBY" -> Color(0xFF854D0E)
+                                else -> Color(0xFF991B1B)
+                            },
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 10.sp,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+            HorizontalDivider(color = Slate200, thickness = 0.5.dp)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Body: Aktivitas, Lokasi, Operator
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Engineering, contentDescription = null, tint = Emerald600, modifier = Modifier.size(14.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = rencana.namaAktivitas.ifBlank { "Aktivitas Standar" },
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Slate900
+                )
+                if (rencana.sapCode.isNotBlank()) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = "[${rencana.sapCode}]", fontSize = 10.sp, color = Emerald700, fontWeight = FontWeight.SemiBold)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.LocationOn, contentDescription = null, tint = Slate400, modifier = Modifier.size(13.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = "Lokasi: ${rencana.kodeLokasi}", fontSize = 11.sp, color = Slate700)
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Person, contentDescription = null, tint = Slate400, modifier = Modifier.size(13.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(text = "Operator: ${rencana.operator}", fontSize = 11.sp, color = Slate700, fontWeight = FontWeight.SemiBold)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // SPK Baris
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = if (rencana.isSpkTerbit) Color(0xFFF0FDF4) else Color(0xFFFFFBEB),
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (rencana.isSpkTerbit) Emerald200 else Color(0xFFFDE68A)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Assignment,
+                            contentDescription = null,
+                            tint = if (rencana.isSpkTerbit) Emerald700 else Color(0xFFD97706),
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (rencana.isSpkTerbit) "SPK: ${rencana.nomorSpk}" else "SPK: Menunggu Diterbitkan Web Admin",
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            color = if (rencana.isSpkTerbit) Emerald900 else Color(0xFF92400E)
+                        )
+                    }
+
+                    Text(
+                        text = "Read-Only",
+                        fontSize = 9.sp,
+                        color = Slate400,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
             }
         }
     }

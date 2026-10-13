@@ -18,10 +18,13 @@ data class UserEntity(
 
     @ColumnInfo(name = "role")
     @SerializedName("role")
-    val role: String = "SUPERVISOR", // "SUPERVISOR" vs "MANAGER"
+    val role: String = "KASIE", // "KASIE" (alias "SUPERVISOR") vs "MANAGER"
 
     @ColumnInfo(name = "role_title")
-    val roleTitle: String = "Supervisor",
+    val roleTitle: String = "Kasie",
+
+    @ColumnInfo(name = "wilayah")
+    val wilayah: String = "PG1", // "PG1", "PG2", "PG3", or "Semua Wilayah" for Manager
 
     @ColumnInfo(name = "default_shift")
     val defaultShift: String = "SIANG",
@@ -37,4 +40,8 @@ data class UserEntity(
 
     @ColumnInfo(name = "last_login_at")
     val lastLoginAt: Long = System.currentTimeMillis()
-)
+) {
+    val isManager: Boolean get() = role.equals("MANAGER", ignoreCase = true)
+    val isSupervisor: Boolean get() = !isManager
+    val isKasie: Boolean get() = !isManager
+}

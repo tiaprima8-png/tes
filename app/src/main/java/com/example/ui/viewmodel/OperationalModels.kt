@@ -382,6 +382,8 @@ data class ActivityAnalyticsRow(
 data class FleetAnalyticsState(
     val selectedPeriod: String = "Bulan Ini", // "Bulan Ini", "30 Hari", "Semua"
     val selectedUnitFilter: String = "Semua Unit",
+    val selectedWilayahFilter: String = "Semua Wilayah",
+    val selectedJenisUnitFilter: String = "Semua Jenis",
     val totalSolarLiters: Double = 0.0,
     val totalHmRunning: Double = 0.0,
     val avgFuelConsumptionRatio: Double = 0.0, // Liter / HM
