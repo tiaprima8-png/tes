@@ -573,4 +573,63 @@ object CompanyServerSimulator {
     fun deleteOperator(operatorId: String) {
         serverOperators.removeAll { it.resolvedOperatorId.equals(operatorId, ignoreCase = true) }
     }
+
+    suspend fun authenticate(username: String, pin: String): LoginResult {
+        delay(400) // latency simulation
+        val trimmedUser = username.trim()
+        val trimmedPin = pin.trim()
+
+        if (trimmedUser.contains("nonaktif", ignoreCase = true) || trimmedUser.contains("inactive", ignoreCase = true)) {
+            return LoginResult.Error("Akun tidak aktif atau kredensial salah")
+        }
+
+        val matched = com.example.data.model.SupervisorDirectory.authenticate(trimmedUser, trimmedPin)
+        if (matched != null) {
+            if (!matched.isAktif) {
+                return LoginResult.Error("Akun tidak aktif atau kredensial salah")
+            }
+            return LoginResult.Success(
+                token = "SIM-JWT-${System.currentTimeMillis()}",
+                user = UserProfileDto(
+                    id = matched.userId,
+                    nama_lengkap = matched.namaLengkap,
+                    username = matched.username,
+                    role = matched.role,
+                    wilayah = matched.wilayah,
+                    status = matched.status
+                ),
+                message = "Login berhasil sebagai ${matched.role}"
+            )
+        }
+
+        // Standalone user fallback jika sandi diisi (e.g. 1234 atau >= 4 karakter)
+        if (trimmedPin == "1234" || trimmedPin.length >= 4) {
+            val isSuperAdmin = trimmedUser.contains("super", ignoreCase = true) || trimmedUser.contains("admin", ignoreCase = true)
+            val isMgr = isSuperAdmin || trimmedUser.contains("manager", ignoreCase = true) || trimmedUser.startsWith("mgr", ignoreCase = true) || trimmedUser.startsWith("gm", ignoreCase = true)
+            val assignedRole = when {
+                isSuperAdmin -> "SUPER ADMIN"
+                isMgr -> "MANAGER"
+                else -> "KASIE"
+            }
+            val assignedWilayah = when {
+                isMgr || isSuperAdmin -> "Semua Wilayah"
+                else -> "Geodesi 1"
+            }
+
+            return LoginResult.Success(
+                token = "SIM-JWT-${System.currentTimeMillis()}",
+                user = UserProfileDto(
+                    id = System.currentTimeMillis().toString().takeLast(4),
+                    nama_lengkap = trimmedUser,
+                    username = trimmedUser,
+                    role = assignedRole,
+                    wilayah = assignedWilayah,
+                    status = "Aktif"
+                ),
+                message = "Login berhasil sebagai $assignedRole"
+            )
+        }
+
+        return LoginResult.Error("Akun tidak aktif atau kredensial salah")
+    }
 }

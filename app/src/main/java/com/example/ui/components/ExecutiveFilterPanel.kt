@@ -129,7 +129,7 @@ fun ExecutiveFilterPanel(
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = if (isManagerSession) "Filter Monitoring Eksekutif" else "Filter Wilayah & Alat",
+                        text = "Filter Wilayah & Unit",
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp,
                         color = Slate900
@@ -224,7 +224,7 @@ fun ExecutiveFilterPanel(
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
-                                    text = if (selectedWilayah == "Semua Wilayah") "Semua Wilayah (Monitoring Menyeluruh)" else "Wilayah: $selectedWilayah",
+                                    text = if (selectedWilayah == "Semua Wilayah") "Semua Wilayah" else "Wilayah: $selectedWilayah",
                                     color = if (selectedWilayah != "Semua Wilayah") Emerald900 else Slate800,
                                     fontSize = 12.sp,
                                     fontWeight = if (selectedWilayah != "Semua Wilayah") FontWeight.Bold else FontWeight.Medium
@@ -330,7 +330,7 @@ fun ExecutiveFilterPanel(
                     Icon(Icons.Default.PrecisionManufacturing, contentDescription = null, tint = Slate400, modifier = Modifier.size(13.dp))
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Kategori / Jenis Alat:",
+                        text = "Jenis Unit:",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Slate700
@@ -388,7 +388,7 @@ fun ExecutiveFilterPanel(
                         Icon(Icons.Default.FilterAlt, contentDescription = null, tint = Slate400, modifier = Modifier.size(13.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
-                            text = "Nomor Lambung (Kode Unit):",
+                            text = "Kode Unit:",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = Slate700
@@ -422,7 +422,7 @@ fun ExecutiveFilterPanel(
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
-                                    text = if (selectedKodeUnit == "Semua Unit") "Semua Nomor Lambung Unit" else "Unit: $selectedKodeUnit",
+                                    text = if (selectedKodeUnit == "Semua Unit") "Semua Unit" else "Unit: $selectedKodeUnit",
                                     color = if (selectedKodeUnit != "Semua Unit") Emerald900 else Slate800,
                                     fontSize = 12.sp,
                                     fontWeight = if (selectedKodeUnit != "Semua Unit") FontWeight.Bold else FontWeight.Medium

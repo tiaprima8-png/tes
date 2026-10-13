@@ -69,8 +69,18 @@ interface CompanyApiService {
         @Body request: PostHasilAktivitasRequest
     ): Response<ApiResponse<Any>>
 
-    @POST("api/auth/login")
+    @POST("api/login")
     suspend fun login(
+        @Body request: LoginRequest
+    ): Response<ResponseBody>
+
+    @POST("api/mobile/login")
+    suspend fun loginMobile(
+        @Body request: LoginRequest
+    ): Response<ResponseBody>
+
+    @POST("api/auth/login")
+    suspend fun authLogin(
         @Body request: AuthLoginRequest
     ): Response<ApiResponse<Any>>
 
@@ -443,5 +453,114 @@ class ApiClientManager(val context: Context) {
 
         val simResp = CompanyServerSimulator.postHasilAktivitas(request)
         simResp.message ?: "Realisasi tersimpan"
+    }
+
+    suspend fun executeLogin(username: String, password: String): LoginResult = withContext(Dispatchers.IO) {
+        val trimmedUsername = username.trim()
+        val trimmedPassword = password.trim()
+
+        if (trimmedUsername.isBlank()) {
+            return@withContext LoginResult.Error("Silakan masukkan Username / NIK")
+        }
+        if (trimmedPassword.isBlank()) {
+            return@withContext LoginResult.Error("Silakan masukkan Password / PIN")
+        }
+
+        // Jika mode simulasi offline aktif, langsung gunakan simulator lokal
+        if (CompanyServerSimulator.isSimulatedOffline) {
+            return@withContext CompanyServerSimulator.authenticate(trimmedUsername, trimmedPassword)
+        }
+
+        val loginReq = LoginRequest(trimmedUsername, trimmedPassword)
+
+        var rawResponseStr: String? = null
+        var responseCode: Int = 0
+
+        try {
+            // Coba POST /api/mobile/login terlebih dahulu
+            val mobileResp = apiService.loginMobile(loginReq)
+            responseCode = mobileResp.code()
+            if (mobileResp.isSuccessful && mobileResp.body() != null) {
+                rawResponseStr = mobileResp.body()!!.string()
+            } else if (responseCode == 404 || responseCode == 405) {
+                // Fallback ke POST /api/login jika /api/mobile/login tidak ditemukan
+                val mainResp = apiService.login(loginReq)
+                responseCode = mainResp.code()
+                if (mainResp.isSuccessful && mainResp.body() != null) {
+                    rawResponseStr = mainResp.body()!!.string()
+                } else if (mainResp.errorBody() != null) {
+                    rawResponseStr = mainResp.errorBody()!!.string()
+                }
+            } else if (mobileResp.errorBody() != null) {
+                rawResponseStr = mobileResp.errorBody()!!.string()
+            }
+        } catch (e: Exception) {
+            // Jika koneksi server gagal dan fallback diperbolehkan, gunakan simulator lokal
+            if (useSimulationFallback) {
+                return@withContext CompanyServerSimulator.authenticate(trimmedUsername, trimmedPassword)
+            }
+            return@withContext LoginResult.Error("Gagal terhubung ke server: ${e.localizedMessage ?: "Periksa koneksi Anda"}")
+        }
+
+        if (!rawResponseStr.isNullOrBlank()) {
+            try {
+                val json = JSONObject(rawResponseStr)
+                val success = json.optBoolean("success", true)
+                val token = json.optString("token", "JWT-${System.currentTimeMillis()}")
+                val message = json.optString("message", "")
+
+                val userObj = json.optJSONObject("user") ?: json.optJSONObject("data")
+
+                if (!success || userObj == null) {
+                    val errorMsg = if (message.isNotBlank()) message else "Akun tidak aktif atau kredensial salah"
+                    return@withContext LoginResult.Error(errorMsg)
+                }
+
+                val idVal = userObj.opt("id") ?: "1"
+                val namaLengkap = userObj.optString("nama_lengkap", userObj.optString("nama", userObj.optString("name", trimmedUsername)))
+                val userName = userObj.optString("username", trimmedUsername)
+                val role = userObj.optString("role", "KASIE")
+                val wilayah = userObj.optString("wilayah", "Geodesi 1")
+                val status = userObj.optString("status", "Aktif")
+
+                // Validasi Akun Nonaktif sesuai persyaratan prompt
+                if (status.equals("Nonaktif", ignoreCase = true) || 
+                    status.equals("Inactive", ignoreCase = true) || 
+                    status.equals("Blocked", ignoreCase = true) ||
+                    status.equals("Tidak Aktif", ignoreCase = true)) {
+                    return@withContext LoginResult.Error("Akun tidak aktif atau kredensial salah")
+                }
+
+                val userProfile = UserProfileDto(
+                    id = idVal,
+                    nama_lengkap = namaLengkap,
+                    username = userName,
+                    role = role,
+                    wilayah = wilayah,
+                    status = status
+                )
+
+                return@withContext LoginResult.Success(
+                    token = token,
+                    user = userProfile,
+                    message = if (message.isNotBlank()) message else "Login berhasil"
+                )
+            } catch (e: Exception) {
+                if (useSimulationFallback) {
+                    return@withContext CompanyServerSimulator.authenticate(trimmedUsername, trimmedPassword)
+                }
+                return@withContext LoginResult.Error("Format respons tidak valid: ${e.localizedMessage}")
+            }
+        }
+
+        if (responseCode in 400..499) {
+            return@withContext LoginResult.Error("Akun tidak aktif atau kredensial salah")
+        }
+
+        if (useSimulationFallback) {
+            return@withContext CompanyServerSimulator.authenticate(trimmedUsername, trimmedPassword)
+        }
+
+        LoginResult.Error("Akun tidak aktif atau kredensial salah")
     }
 }

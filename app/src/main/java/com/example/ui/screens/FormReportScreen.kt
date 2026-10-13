@@ -635,7 +635,7 @@ fun FormReportScreen(
                         SelectorFieldTrigger(
                             label = "5. Lokasi Kerja Lapangan",
                             selectedValue = rencanaState.selectedLokasi?.let { "${it.kodeLokasi} (${it.wilayah})" },
-                            placeholder = "Pilih Lokasi Kerja (001A / PG1)...",
+                            placeholder = "Pilih Lokasi Kerja (001A / Geodesi PG1)...",
                             leadingIcon = Icons.Default.LocationOn,
                             badgeText = rencanaState.selectedLokasi?.wilayah,
                             testTag = "selector_rencana_lokasi",

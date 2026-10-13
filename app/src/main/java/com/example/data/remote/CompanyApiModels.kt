@@ -789,6 +789,47 @@ data class AuthLoginRequest(
     @Json(name = "password") val password: String
 )
 
+@JsonClass(generateAdapter = true)
+data class LoginRequest(
+    @Json(name = "username") val username: String,
+    @Json(name = "password") val password: String
+)
+
+@JsonClass(generateAdapter = true)
+data class UserProfileDto(
+    @Json(name = "id") val id: Any? = null,
+    @Json(name = "nama_lengkap") val nama_lengkap: String? = null,
+    @Json(name = "username") val username: String? = null,
+    @Json(name = "role") val role: String? = "KASIE", // KASIE | MANAGER | SUPER ADMIN
+    @Json(name = "wilayah") val wilayah: String? = "Geodesi 1",
+    @Json(name = "status") val status: String? = "Aktif"
+) {
+    val numericOrStringId: String
+        get() = id?.toString() ?: "1"
+    val resolvedNamaLengkap: String
+        get() = nama_lengkap?.ifBlank { null } ?: username ?: "Pengguna"
+    val isAktif: Boolean
+        get() = status.isNullOrBlank() || status.equals("Aktif", ignoreCase = true) || status.equals("Active", ignoreCase = true)
+}
+
+@JsonClass(generateAdapter = true)
+data class LoginResponseDto(
+    @Json(name = "success") val success: Boolean? = true,
+    @Json(name = "token") val token: String? = null,
+    @Json(name = "user") val user: UserProfileDto? = null,
+    @Json(name = "message") val message: String? = null
+)
+
+sealed class LoginResult {
+    data class Success(
+        val token: String,
+        val user: UserProfileDto,
+        val message: String = "Login berhasil"
+    ) : LoginResult()
+
+    data class Error(val message: String) : LoginResult()
+}
+
 object KendalaJsonConverter {
     private val moshi by lazy {
         Moshi.Builder().build()

@@ -140,14 +140,18 @@ class HeavyTrackViewModel(
     private val _isLoggedIn = MutableStateFlow(false)
     val isLoggedIn: StateFlow<Boolean> = _isLoggedIn.asStateFlow()
 
-    // Mode Monitoring Eksekutif vs Supervisor Lapangan
+    // Mode Monitoring Eksekutif vs Supervisor Lapangan (Manager & Super Admin)
     val isManagerSession: StateFlow<Boolean> = _currentSupervisorSession
-        .map { it?.isManager == true }
+        .map { it?.isExecutive == true }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    val isSuperAdminSession: StateFlow<Boolean> = _currentSupervisorSession
+        .map { it?.isSuperAdmin == true }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val userRole: StateFlow<String> = _currentSupervisorSession
-        .map { it?.role ?: "SUPERVISOR" }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "SUPERVISOR")
+        .map { it?.role ?: "KASIE" }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "KASIE")
 
     // Base URL configuration for Web Admin (Internalized)
     val apiBaseUrl: String = INTERNAL_WEB_ADMIN_URL
@@ -511,21 +515,25 @@ class HeavyTrackViewModel(
 
     init {
         viewModelScope.launch {
-            // Restore active session dari Room SQLite users_session jika ada
+            // Restore active session dari Room SQLite & DataStore Preferences jika ada
             try {
                 val savedSession = repository.getActiveUser()
-                if (savedSession != null && savedSession.isActiveSession) {
+                if (savedSession != null && savedSession.isActiveSession && savedSession.isAktif) {
                     val spv = Supervisor(
-                        id = savedSession.nik.ifBlank { savedSession.username },
-                        name = savedSession.name.ifBlank { savedSession.username },
-                        nik = savedSession.nik,
+                        id = savedSession.id,
+                        name = savedSession.resolvedNamaLengkap,
+                        namaLengkap = savedSession.resolvedNamaLengkap,
+                        username = savedSession.username,
+                        nik = savedSession.nik.ifBlank { savedSession.username },
                         passwordPin = "",
                         defaultShift = savedSession.defaultShift,
                         assignedSector = savedSession.assignedSector,
                         phone = savedSession.phone,
                         roleTitle = savedSession.roleTitle,
                         role = savedSession.role,
-                        wilayah = savedSession.wilayah ?: "Geodesi PG1"
+                        wilayah = savedSession.wilayah ?: if (savedSession.isExecutive) "Semua Wilayah" else "Geodesi 1",
+                        token = savedSession.token,
+                        status = savedSession.status
                     )
                     _currentSupervisorSession.value = spv
                     _activeSupervisor.value = spv.name
@@ -753,7 +761,7 @@ class HeavyTrackViewModel(
     }
 
     // ==========================================
-    // LOGIN & SESI (DENGAN PERSISTENSI ROOM SQLITE)
+    // LOGIN & SESI (DENGAN PERSISTENSI ROOM SQLITE & DATASTORE PREFERENCES)
     // ==========================================
     fun login(supervisor: Supervisor) {
         _currentSupervisorSession.value = supervisor
@@ -765,14 +773,18 @@ class HeavyTrackViewModel(
         // Saat user awal login, jangan langsung masuk form realisasi
         clearSelectedRencanaForRealisasi()
 
-        // Simpan sesi dan role pengguna ke Room SQLite (users_session)
+        // Simpan sesi dan role pengguna ke Room SQLite & DataStore Preferences
         val userEntity = UserEntity(
-            username = supervisor.nik.ifBlank { supervisor.name },
+            username = supervisor.username.ifBlank { supervisor.nik.ifBlank { supervisor.name } },
+            id = supervisor.userId,
+            token = supervisor.token,
             name = supervisor.name,
+            namaLengkap = supervisor.resolvedNamaLengkap,
             nik = supervisor.nik,
-            role = supervisor.role, // "KASIE" vs "MANAGER"
+            role = supervisor.role, // "KASIE" | "MANAGER" | "SUPER ADMIN"
             roleTitle = supervisor.roleTitle,
             wilayah = supervisor.wilayah,
+            status = supervisor.status,
             defaultShift = supervisor.defaultShift,
             assignedSector = supervisor.assignedSector,
             phone = supervisor.phone,
@@ -785,13 +797,64 @@ class HeavyTrackViewModel(
                 repository.saveUserSession(userEntity)
             } catch (_: Exception) {}
 
-            if (supervisor.isManager) {
-                _uiEvents.emit(UiMessage.Success("Selamat datang, Manager ${supervisor.name} • Mode Monitoring Eksekutif Aktif"))
-            } else {
-                _uiEvents.emit(UiMessage.Success("Selamat bertugas, Kasie ${supervisor.name} • ${supervisor.wilayah}"))
+            when {
+                supervisor.isSuperAdmin -> {
+                    _uiEvents.emit(UiMessage.Success("Selamat datang, Super Admin ${supervisor.resolvedNamaLengkap}"))
+                }
+                supervisor.isManager -> {
+                    _uiEvents.emit(UiMessage.Success("Selamat datang, Manager ${supervisor.resolvedNamaLengkap}"))
+                }
+                else -> {
+                    _uiEvents.emit(UiMessage.Success("Selamat bertugas, Kasie ${supervisor.resolvedNamaLengkap} • ${supervisor.wilayah}"))
+                }
             }
             fetchBootstrapData(showOverlay = true)
             syncPendingReports()
+        }
+    }
+
+    suspend fun loginWithApi(username: String, pin: String): com.example.data.remote.LoginResult {
+        val result = repository.apiClientManager.executeLogin(username, pin)
+        when (result) {
+            is com.example.data.remote.LoginResult.Success -> {
+                val userDto = result.user
+                val isMgr = userDto.role?.equals("MANAGER", ignoreCase = true) == true
+                val isSuperAdmin = userDto.role?.equals("SUPER ADMIN", ignoreCase = true) == true ||
+                        userDto.role?.equals("SUPERADMIN", ignoreCase = true) == true
+                val assignedRole = when {
+                    isSuperAdmin -> "SUPER ADMIN"
+                    isMgr -> "MANAGER"
+                    else -> "KASIE"
+                }
+                val roleTitle = when {
+                    isSuperAdmin -> "Super Admin"
+                    isMgr -> "Manager Operasional"
+                    else -> "Kasie Lapangan"
+                }
+
+                val supervisor = Supervisor(
+                    id = userDto.numericOrStringId,
+                    name = userDto.resolvedNamaLengkap,
+                    namaLengkap = userDto.resolvedNamaLengkap,
+                    username = userDto.username ?: username,
+                    nik = userDto.username ?: username,
+                    passwordPin = pin,
+                    defaultShift = if (isMgr || isSuperAdmin) "ALL" else "SIANG",
+                    assignedSector = if (isMgr || isSuperAdmin) "Seluruh Proyek Lapangan" else "Sektor Operasional Lapangan (${userDto.wilayah ?: "Geodesi 1"})",
+                    phone = "+62 812-0000-0000",
+                    roleTitle = roleTitle,
+                    role = assignedRole,
+                    wilayah = userDto.wilayah ?: if (isMgr || isSuperAdmin) "Semua Wilayah" else "Geodesi 1",
+                    token = result.token,
+                    status = userDto.status ?: "Aktif"
+                )
+
+                login(supervisor)
+                return result
+            }
+            is com.example.data.remote.LoginResult.Error -> {
+                return result
+            }
         }
     }
 
@@ -806,21 +869,25 @@ class HeavyTrackViewModel(
 
         // Field standalone fallback for newly deployed supervisors or executive managers
         if (trimmedUser.isNotBlank() && (trimmedPin == "1234" || trimmedPin.length >= 4)) {
-            val isManagerRole = trimmedUser.contains("manager", ignoreCase = true) ||
+            val isSuperAdmin = trimmedUser.contains("super", ignoreCase = true) || trimmedUser.contains("admin", ignoreCase = true)
+            val isManagerRole = isSuperAdmin || trimmedUser.contains("manager", ignoreCase = true) ||
                     trimmedUser.startsWith("mgr", ignoreCase = true) ||
                     trimmedUser.startsWith("gm", ignoreCase = true)
 
             val fallback = Supervisor(
                 id = if (isManagerRole) "MGR-${System.currentTimeMillis().toString().takeLast(3)}" else "SPV-${System.currentTimeMillis().toString().takeLast(3)}",
                 name = trimmedUser,
+                namaLengkap = trimmedUser,
+                username = trimmedUser,
                 nik = trimmedUser.uppercase(),
                 passwordPin = trimmedPin,
                 defaultShift = if (isManagerRole) "ALL" else "SIANG",
-                assignedSector = if (isManagerRole) "Seluruh Proyek & Armada (Eksekutif)" else "Sektor Operasional Lapangan (Geodesi PG1)",
+                assignedSector = if (isManagerRole) "Seluruh Proyek & Armada" else "Sektor Operasional Lapangan (Geodesi 1)",
                 phone = "+62 812-0000-0000",
-                roleTitle = if (isManagerRole) "Manager Operasional" else "Kasie Lapangan",
-                role = if (isManagerRole) "MANAGER" else "KASIE",
-                wilayah = if (isManagerRole) "Semua Wilayah" else "Geodesi PG1"
+                roleTitle = if (isSuperAdmin) "Super Admin" else if (isManagerRole) "Manager Operasional" else "Kasie Lapangan",
+                role = if (isSuperAdmin) "SUPER ADMIN" else if (isManagerRole) "MANAGER" else "KASIE",
+                wilayah = if (isManagerRole) "Semua Wilayah" else "Geodesi 1",
+                status = "Aktif"
             )
             login(fallback)
             return true
@@ -831,6 +898,9 @@ class HeavyTrackViewModel(
     fun logout() {
         _isLoggedIn.value = false
         _currentSupervisorSession.value = null
+        _rencanaFormState.value = RencanaFormUiState()
+        clearSelectedRencanaForRealisasi()
+        resetExecutiveFilters()
         viewModelScope.launch {
             try {
                 repository.clearUserSession()

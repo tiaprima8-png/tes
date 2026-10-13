@@ -45,6 +45,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,6 +61,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.Supervisor
 import com.example.data.model.SupervisorDirectory
+import com.example.data.remote.LoginResult
 import com.example.ui.theme.Emerald100
 import com.example.ui.theme.Emerald50
 import com.example.ui.theme.Emerald600
@@ -72,17 +74,20 @@ import com.example.ui.theme.Slate400
 import com.example.ui.theme.Slate500
 import com.example.ui.theme.Slate700
 import com.example.ui.theme.Slate900
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (Supervisor) -> Unit
+    onLoginSuccess: (Supervisor) -> Unit,
+    onLoginWithApi: (suspend (String, String) -> LoginResult)? = null
 ) {
-    var usernameInput by remember { mutableStateOf("Budi Santoso") }
+    var usernameInput by remember { mutableStateOf("Agung") }
     var passwordInput by remember { mutableStateOf("1234") }
     var isPasswordVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
+    val coroutineScope = rememberCoroutineScope()
     val keyboardController = LocalSoftwareKeyboardController.current
     val scrollState = rememberScrollState()
 
@@ -102,34 +107,59 @@ fun LoginScreen(
 
         isLoading = true
 
-        // Validasi kredensial via database lokal / direktori
+        if (onLoginWithApi != null) {
+            coroutineScope.launch {
+                val result = onLoginWithApi(userTrimmed, passTrimmed)
+                isLoading = false
+                when (result) {
+                    is LoginResult.Success -> {
+                        // Navigasi & state ditangani secara otomatis oleh ViewModel
+                    }
+                    is LoginResult.Error -> {
+                        errorMessage = result.message
+                    }
+                }
+            }
+            return
+        }
+
+        // Validasi kredensial via direktori lokal jika lambda API tidak tersedia
         val supervisor = SupervisorDirectory.authenticate(userTrimmed, passTrimmed)
         if (supervisor != null) {
             isLoading = false
-            onLoginSuccess(supervisor)
+            if (!supervisor.isAktif) {
+                errorMessage = "Akun tidak aktif atau kredensial salah"
+            } else {
+                onLoginSuccess(supervisor)
+            }
         } else {
             // Standalone field session fallback jika sandi diisi
             if (passTrimmed == "1234" || passTrimmed.length >= 4) {
-                val isMgr = userTrimmed.contains("manager", ignoreCase = true) ||
+                val isSuperAdmin = userTrimmed.contains("super", ignoreCase = true) || userTrimmed.contains("admin", ignoreCase = true)
+                val isMgr = isSuperAdmin || userTrimmed.contains("manager", ignoreCase = true) ||
                         userTrimmed.startsWith("mgr", ignoreCase = true) ||
                         userTrimmed.startsWith("gm", ignoreCase = true)
 
                 val standaloneUser = Supervisor(
                     id = if (isMgr) "MGR-${System.currentTimeMillis().toString().takeLast(4)}" else "SPV-${System.currentTimeMillis().toString().takeLast(4)}",
                     name = userTrimmed,
+                    namaLengkap = userTrimmed,
+                    username = userTrimmed,
                     nik = userTrimmed.uppercase(),
                     passwordPin = passTrimmed,
                     defaultShift = if (isMgr) "ALL" else "SIANG",
-                    assignedSector = if (isMgr) "Seluruh Proyek Lapangan (Eksekutif)" else "Sektor Operasional Lapangan",
+                    assignedSector = if (isMgr) "Seluruh Proyek Lapangan" else "Sektor Operasional Lapangan",
                     phone = "+62 812-0000-0000",
-                    roleTitle = if (isMgr) "Manager Operasional" else "Supervisor Lapangan",
-                    role = if (isMgr) "MANAGER" else "SUPERVISOR"
+                    roleTitle = if (isSuperAdmin) "Super Admin" else if (isMgr) "Manager Operasional" else "Kasie Lapangan",
+                    role = if (isSuperAdmin) "SUPER ADMIN" else if (isMgr) "MANAGER" else "KASIE",
+                    wilayah = if (isMgr) "Semua Wilayah" else "Geodesi 1",
+                    status = "Aktif"
                 )
                 isLoading = false
                 onLoginSuccess(standaloneUser)
             } else {
                 isLoading = false
-                errorMessage = "Autentikasi gagal: Username atau Password tidak sesuai. Silakan periksa kembali."
+                errorMessage = "Akun tidak aktif atau kredensial salah"
             }
         }
     }
@@ -178,43 +208,16 @@ fun LoginScreen(
             )
 
             Text(
-                text = "Rencana Kerja Civil Engineering",
+                text = "Sistem Manajemen Rencana & Realisasi Alat Berat",
                 style = MaterialTheme.typography.bodyMedium.copy(
                     color = Slate500,
-                    fontWeight = FontWeight.Bold
-                ),
-                modifier = Modifier.padding(top = 4.dp)
+                    fontWeight = FontWeight.Medium
+                )
             )
 
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = Emerald50,
-                border = androidx.compose.foundation.BorderStroke(1.dp, Emerald100),
-                modifier = Modifier.padding(top = 12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Shield,
-                        contentDescription = null,
-                        tint = Emerald600,
-                        modifier = Modifier.size(15.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = "Portal Autentikasi Kasie & Manager Lapangan",
-                        color = Emerald900,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
+            Spacer(modifier = Modifier.height(28.dp))
 
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Main Standalone Login Card
+            // Form Card
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -229,9 +232,13 @@ fun LoginScreen(
                         .fillMaxWidth()
                         .padding(22.dp)
                 ) {
-                    val isTargetManager = usernameInput.contains("manager", ignoreCase = true) ||
+                    val isSuperAdmin = usernameInput.contains("super", ignoreCase = true) ||
+                            usernameInput.contains("admin", ignoreCase = true) ||
+                            usernameInput.equals("Zainudin", ignoreCase = true)
+                    val isTargetManager = isSuperAdmin || usernameInput.contains("manager", ignoreCase = true) ||
                             usernameInput.startsWith("mgr", ignoreCase = true) ||
-                            usernameInput.equals("Farid Hadi Sofian", ignoreCase = true)
+                            usernameInput.equals("Farid Hadi Sofian", ignoreCase = true) ||
+                            usernameInput.equals("Lutfi", ignoreCase = true)
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -239,7 +246,11 @@ fun LoginScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = if (isTargetManager) "Masuk Sebagai Manager" else "Masuk Sebagai Kasie",
+                            text = when {
+                                isSuperAdmin -> "Masuk Sebagai Super Admin"
+                                isTargetManager -> "Masuk Sebagai Manager"
+                                else -> "Masuk Sebagai Kasie"
+                            },
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = Slate900
@@ -247,11 +258,23 @@ fun LoginScreen(
                         )
                         Surface(
                             shape = RoundedCornerShape(6.dp),
-                            color = if (isTargetManager) Color(0xFFFEF3C7) else Emerald50
+                            color = when {
+                                isSuperAdmin -> Color(0xFFEEF2FF)
+                                isTargetManager -> Color(0xFFFEF3C7)
+                                else -> Emerald50
+                            }
                         ) {
                             Text(
-                                text = if (isTargetManager) "MANAGER" else "KASIE",
-                                color = if (isTargetManager) Color(0xFF92400E) else Emerald900,
+                                text = when {
+                                    isSuperAdmin -> "SUPER ADMIN"
+                                    isTargetManager -> "MANAGER"
+                                    else -> "KASIE"
+                                },
+                                color = when {
+                                    isSuperAdmin -> Color(0xFF3730A3)
+                                    isTargetManager -> Color(0xFF92400E)
+                                    else -> Emerald900
+                                },
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 10.sp,
                                 modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
@@ -260,10 +283,10 @@ fun LoginScreen(
                     }
 
                     Text(
-                        text = if (isTargetManager) {
-                            "Mode Monitoring Eksekutif: Memantau rencana kerja, hasil kerja, dan tab analitik tanpa form input operasional."
-                        } else {
-                            "Mode Kasie Lapangan: Akses penuh pembuatan rencana, realisasi lapangan, dan sinkronisasi SPK per wilayah."
+                        text = when {
+                            isSuperAdmin -> "Mode Super Admin: Hak akses penuh memantau seluruh wilayah dan unit sekaligus."
+                            isTargetManager -> "Mode Manager: Memantau riwayat SPK dan analitik seluruh armada tanpa form input."
+                            else -> "Mode Kasie Lapangan: Formulir rencana & realisasi terkunci pada wilayah kerja kasie."
                         },
                         style = MaterialTheme.typography.bodySmall.copy(color = Slate500),
                         modifier = Modifier.padding(top = 4.dp, bottom = 14.dp)
@@ -271,15 +294,91 @@ fun LoginScreen(
 
                     // Quick Account Demo Selector Chips
                     Text(
-                        text = "Pilih Akun / Uji Akses Berdasarkan Role & Wilayah:",
+                        text = "Pilih Akun Sinkron Website Admin:",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Slate700,
                         modifier = Modifier.padding(bottom = 6.dp)
                     )
+
+                    // Baris 1: Akun Utama (Agung, Lutfi, Zainudin)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (usernameInput == "Agung") Emerald100 else Color(0xFFF1F5F9),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (usernameInput == "Agung") Emerald600 else Slate200),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    usernameInput = "Agung"
+                                    passwordInput = "1234"
+                                    errorMessage = null
+                                }
+                                .testTag("chip_login_agung")
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("Agung", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = if (usernameInput == "Agung") Emerald900 else Slate700, maxLines = 1)
+                                Text("Kasie • Geodesi 1", fontSize = 8.5.sp, color = if (usernameInput == "Agung") Emerald700 else Slate500, maxLines = 1)
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (usernameInput == "Lutfi") Color(0xFFFEF3C7) else Color(0xFFF1F5F9),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (usernameInput == "Lutfi") Color(0xFFF59E0B) else Slate200),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    usernameInput = "Lutfi"
+                                    passwordInput = "1234"
+                                    errorMessage = null
+                                }
+                                .testTag("chip_login_lutfi")
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("Lutfi", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = if (usernameInput == "Lutfi") Color(0xFF92400E) else Slate700, maxLines = 1)
+                                Text("Manager", fontSize = 8.5.sp, color = if (usernameInput == "Lutfi") Color(0xFFB45309) else Slate500, maxLines = 1)
+                            }
+                        }
+
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (usernameInput == "Zainudin") Color(0xFFEEF2FF) else Color(0xFFF1F5F9),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (usernameInput == "Zainudin") Color(0xFF6366F1) else Slate200),
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable {
+                                    usernameInput = "Zainudin"
+                                    passwordInput = "1234"
+                                    errorMessage = null
+                                }
+                                .testTag("chip_login_zainudin")
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("Zainudin", fontSize = 10.5.sp, fontWeight = FontWeight.Bold, color = if (usernameInput == "Zainudin") Color(0xFF3730A3) else Slate700, maxLines = 1)
+                                Text("Super Admin", fontSize = 8.5.sp, color = if (usernameInput == "Zainudin") Color(0xFF4F46E5) else Slate500, maxLines = 1)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    // Baris 2: Akun Kasie Wilayah Operasional (Budi, Agus, Rudi)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Surface(
                             shape = RoundedCornerShape(8.dp),
@@ -292,14 +391,14 @@ fun LoginScreen(
                                     passwordInput = "1234"
                                     errorMessage = null
                                 }
-                                .testTag("chip_login_kasie_pg1")
+                                .testTag("chip_login_kasie_geodesi_pg1")
                         ) {
                             Column(
-                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
+                                modifier = Modifier.padding(vertical = 5.dp, horizontal = 4.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text("Budi", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (usernameInput == "Budi Santoso") Emerald900 else Slate700, maxLines = 1)
-                                Text("Kasie PG1", fontSize = 8.5.sp, color = if (usernameInput == "Budi Santoso") Emerald700 else Slate500, maxLines = 1)
+                                Text("Geodesi PG1", fontSize = 8.sp, color = if (usernameInput == "Budi Santoso") Emerald700 else Slate500, maxLines = 1)
                             }
                         }
 
@@ -314,43 +413,21 @@ fun LoginScreen(
                                     passwordInput = "1234"
                                     errorMessage = null
                                 }
-                                .testTag("chip_login_kasie_pg2")
+                                .testTag("chip_login_kasie_geodesi_pg2")
                         ) {
                             Column(
-                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
+                                modifier = Modifier.padding(vertical = 5.dp, horizontal = 4.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 Text("Agus", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (usernameInput == "Agus Wijaya") Emerald900 else Slate700, maxLines = 1)
-                                Text("Kasie PG2", fontSize = 8.5.sp, color = if (usernameInput == "Agus Wijaya") Emerald700 else Slate500, maxLines = 1)
+                                Text("Geodesi PG2", fontSize = 8.sp, color = if (usernameInput == "Agus Wijaya") Emerald700 else Slate500, maxLines = 1)
                             }
                         }
 
                         Surface(
                             shape = RoundedCornerShape(8.dp),
-                            color = if (usernameInput == "Rudi Hermawan") Emerald50 else Color(0xFFF1F5F9),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, if (usernameInput == "Rudi Hermawan") Emerald600 else Slate200),
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable {
-                                    usernameInput = "Rudi Hermawan"
-                                    passwordInput = "1234"
-                                    errorMessage = null
-                                }
-                                .testTag("chip_login_kasie_pg3")
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text("Rudi", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (usernameInput == "Rudi Hermawan") Emerald900 else Slate700, maxLines = 1)
-                                Text("Kasie PG3", fontSize = 8.5.sp, color = if (usernameInput == "Rudi Hermawan") Emerald700 else Slate500, maxLines = 1)
-                            }
-                        }
-
-                        Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (isTargetManager) Color(0xFFFFFBEB) else Color(0xFFF1F5F9),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isTargetManager) Color(0xFFF59E0B) else Slate200),
+                            color = if (usernameInput == "Farid Hadi Sofian") Color(0xFFFFFBEB) else Color(0xFFF1F5F9),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (usernameInput == "Farid Hadi Sofian") Color(0xFFF59E0B) else Slate200),
                             modifier = Modifier
                                 .weight(1f)
                                 .clickable {
@@ -358,21 +435,21 @@ fun LoginScreen(
                                     passwordInput = "1234"
                                     errorMessage = null
                                 }
-                                .testTag("chip_login_manager")
+                                .testTag("chip_login_manager_farid")
                         ) {
                             Column(
-                                modifier = Modifier.padding(vertical = 6.dp, horizontal = 4.dp),
+                                modifier = Modifier.padding(vertical = 5.dp, horizontal = 4.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("Farid", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (isTargetManager) Color(0xFF92400E) else Slate700, maxLines = 1)
-                                Text("Manager", fontSize = 8.5.sp, color = if (isTargetManager) Color(0xFFB45309) else Slate500, maxLines = 1)
+                                Text("Farid", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (usernameInput == "Farid Hadi Sofian") Color(0xFF92400E) else Slate700, maxLines = 1)
+                                Text("Manager", fontSize = 8.sp, color = if (usernameInput == "Farid Hadi Sofian") Color(0xFFB45309) else Slate500, maxLines = 1)
                             }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Error Notification
+                    // Error Notification (Pesat Peringatan Jelas: Akun tidak aktif atau kredensial salah)
                     AnimatedVisibility(visible = errorMessage != null) {
                         Surface(
                             modifier = Modifier
@@ -380,7 +457,7 @@ fun LoginScreen(
                                 .padding(bottom = 16.dp),
                             shape = RoundedCornerShape(10.dp),
                             color = ErrorRose50,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRose.copy(alpha = 0.4f))
+                            border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRose.copy(alpha = 0.5f))
                         ) {
                             Row(
                                 modifier = Modifier
@@ -399,7 +476,7 @@ fun LoginScreen(
                                     text = errorMessage ?: "",
                                     color = ErrorRose,
                                     fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold
+                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         }
@@ -407,7 +484,7 @@ fun LoginScreen(
 
                     // Field 1: Username / NIK Akun
                     Text(
-                        text = "Username / NIK Kasie atau Manager",
+                        text = "Username / NIK",
                         style = MaterialTheme.typography.labelMedium.copy(
                             fontWeight = FontWeight.SemiBold,
                             color = Slate700
@@ -420,7 +497,7 @@ fun LoginScreen(
                             usernameInput = it
                             errorMessage = null
                         },
-                        placeholder = { Text("Contoh: Budi Santoso / SPV-901", color = Slate400) },
+                        placeholder = { Text("Masukkan username (misal: Agung / Lutfi)", color = Slate400) },
                         leadingIcon = {
                             Icon(Icons.Default.Person, contentDescription = "User Icon", tint = Emerald600)
                         },
@@ -440,7 +517,7 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // Field 2: Password (dengan leading icon lock dan trailing toggle visibilitas sandi)
+                    // Field 2: Password
                     Text(
                         text = "Password",
                         style = MaterialTheme.typography.labelMedium.copy(
@@ -455,7 +532,7 @@ fun LoginScreen(
                             passwordInput = it
                             errorMessage = null
                         },
-                        placeholder = { Text("Masukkan kata sandi Anda", color = Slate400) },
+                        placeholder = { Text("Masukkan password Anda", color = Slate400) },
                         leadingIcon = {
                             Icon(Icons.Default.Lock, contentDescription = "Lock Icon", tint = Emerald600)
                         },
@@ -489,7 +566,7 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Tombol utama: "Masuk ke Sistem Pengawas" berwarna Emerald Forest (#059669)
+                    // Tombol Submit Login
                     Button(
                         onClick = {
                             keyboardController?.hide()
@@ -501,17 +578,27 @@ fun LoginScreen(
                             .height(52.dp)
                             .testTag("btn_submit_login"),
                         shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = if (isTargetManager) Color(0xFF0F766E) else Emerald600)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = when {
+                                isSuperAdmin -> Color(0xFF4F46E5)
+                                isTargetManager -> Color(0xFF0F766E)
+                                else -> Emerald600
+                            }
+                        )
                     ) {
                         if (isLoading) {
                             CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Memverifikasi...")
+                            Text("Memverifikasi Kredensial...")
                         } else {
                             Icon(Icons.Default.Login, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (isTargetManager) "Masuk Sebagai Manager" else "Masuk ke Sistem Kasie",
+                                text = when {
+                                    isSuperAdmin -> "Masuk Sebagai Super Admin"
+                                    isTargetManager -> "Masuk Sebagai Manager"
+                                    else -> "Masuk Sebagai Kasie"
+                                },
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.Bold,
                                     color = Color.White
@@ -522,10 +609,10 @@ fun LoginScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
             Text(
-                text = "RKCE • Rencana Kerja Civil Engineering • Offline-First",
+                text = "RKCE • Terintegrasi Otomatis dengan Web Admin API",
                 style = MaterialTheme.typography.bodySmall.copy(color = Slate400, fontSize = 11.sp)
             )
         }

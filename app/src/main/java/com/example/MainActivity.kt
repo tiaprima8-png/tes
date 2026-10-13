@@ -43,6 +43,8 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -138,6 +140,7 @@ fun HeavyTrackApp() {
 
     var currentTab by remember { mutableIntStateOf(0) }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showProfilePopup by remember { mutableStateOf(false) }
     var showDistributionDialog by remember { mutableStateOf(false) }
     val customApkUrl by viewModel.customApkUrl.collectAsState()
     val isLoggedIn by viewModel.isLoggedIn.collectAsState()
@@ -177,6 +180,9 @@ fun HeavyTrackApp() {
             LoginScreen(
                 onLoginSuccess = { supervisor ->
                     viewModel.login(supervisor)
+                },
+                onLoginWithApi = { username, password ->
+                    viewModel.loginWithApi(username, password)
                 }
             )
             SnackbarHost(
@@ -234,10 +240,10 @@ fun HeavyTrackApp() {
                                         )
                                     )
                                     Text(
-                                        text = if (isManagerSession) "Mode Monitoring Eksekutif" else "Rencana Kerja Civil Engineering",
+                                        text = "Rencana Kerja Civil Engineering",
                                         style = MaterialTheme.typography.bodySmall.copy(
-                                            color = if (isManagerSession) Color(0xFF0F766E) else Slate500,
-                                            fontWeight = if (isManagerSession) FontWeight.Bold else FontWeight.Normal,
+                                            color = Slate500,
+                                            fontWeight = FontWeight.Normal,
                                             fontSize = 10.sp
                                         )
                                     )
@@ -383,60 +389,67 @@ fun HeavyTrackApp() {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
+                            val rawSpvName = supervisorSession?.namaLengkap?.ifBlank { null }
+                                ?: supervisorSession?.name
+                                ?: activeSupervisorName
+                            val initials = getInitials(rawSpvName)
+                            val isSuperAdmin = supervisorSession?.isSuperAdmin == true
+                            val isMgr = supervisorSession?.isManager == true
+
+                            val avatarBg = when {
+                                isSuperAdmin -> Color(0xFF6366F1) // Indigo
+                                isMgr -> Color(0xFFF59E0B) // Amber
+                                else -> Emerald600 // Emerald
+                            }
+
+                            val accountLabel = when {
+                                isSuperAdmin -> "$rawSpvName • Super Admin (Semua Wilayah)"
+                                isMgr -> "$rawSpvName • Manager (Monitoring)"
+                                else -> "$rawSpvName • Kasie (${supervisorSession?.wilayah ?: "Geodesi 1"})"
+                            }
+
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { showProfilePopup = true }
+                                    .testTag("avatar_profile_trigger")
                             ) {
-                                Box(
+                                // Avatar Inisial Dinamis: Lingkaran inisial huruf nama (misal "AG", "LT", "ZA", "BS")
+                                Surface(
                                     modifier = Modifier
-                                        .size(32.dp)
-                                        .background(if (isManagerSession) Color(0xFFFEF3C7) else Emerald50, CircleShape),
-                                    contentAlignment = Alignment.Center
+                                        .size(34.dp)
+                                        .testTag("avatar_initials_circle"),
+                                    shape = CircleShape,
+                                    color = avatarBg,
+                                    shadowElevation = 2.dp
                                 ) {
-                                    Icon(
-                                        imageVector = if (isManagerSession) Icons.Default.Shield else Icons.Default.Person,
-                                        contentDescription = if (isManagerSession) "Manager Eksekutif" else "Kasie Aktif",
-                                        tint = if (isManagerSession) Color(0xFFB45309) else Emerald600,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = initials,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 12.5.sp
+                                        )
+                                    }
                                 }
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Text(
-                                            text = supervisorSession?.name ?: activeSupervisorName,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            fontSize = 13.sp,
-                                            color = Slate900
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Surface(
-                                            shape = RoundedCornerShape(6.dp),
-                                            color = if (isManagerSession) Color(0xFFFEF3C7) else Emerald100,
-                                            border = androidx.compose.foundation.BorderStroke(1.dp, if (isManagerSession) Color(0xFFF59E0B) else Emerald600.copy(alpha = 0.5f))
-                                        ) {
-                                            val badgeText = if (isManagerSession) {
-                                                "[Manager • ${supervisorSession?.wilayah ?: "Semua Wilayah"}]"
-                                            } else {
-                                                "[Kasie • ${supervisorSession?.wilayah ?: "PG1"}]"
-                                            }
-                                            Text(
-                                                text = badgeText,
-                                                color = if (isManagerSession) Color(0xFF92400E) else Emerald900,
-                                                fontWeight = FontWeight.ExtraBold,
-                                                fontSize = 10.sp,
-                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                            )
-                                        }
-                                    }
                                     Text(
-                                        text = if (isManagerSession) {
-                                            "${supervisorSession?.assignedSector ?: "Seluruh Wilayah Proyek"} • Monitoring Eksekutif • NIK: ${supervisorSession?.nik ?: "-"}"
-                                        } else {
-                                            "Wilayah: ${supervisorSession?.wilayah ?: "PG1"} • Shift ${supervisorSession?.defaultShift ?: "SIANG"} • NIK: ${supervisorSession?.nik ?: "-"}"
-                                        },
+                                        text = accountLabel,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 12.5.sp,
+                                        color = Slate900,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        text = if (isManagerSession) "Mode Eksekutif • Sentuh untuk detail akun" else "Wilayah: ${supervisorSession?.wilayah ?: "Geodesi 1"} • Shift ${supervisorSession?.defaultShift ?: "SIANG"}",
                                         fontSize = 10.sp,
-                                        color = Slate500
+                                        color = Slate500,
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                                     )
                                 }
                             }
@@ -726,10 +739,122 @@ fun HeavyTrackApp() {
             )
         }
 
+        if (showProfilePopup) {
+            val supervisorSession by viewModel.currentSupervisorSession.collectAsState()
+            val activeSupervisorName by viewModel.activeSupervisor.collectAsState()
+            val spvName = supervisorSession?.namaLengkap?.ifBlank { null } ?: supervisorSession?.name ?: activeSupervisorName
+            val initials = getInitials(spvName)
+            val isSuperAdmin = supervisorSession?.isSuperAdmin == true
+            val isMgr = supervisorSession?.isManager == true
+            val avatarBg = when {
+                isSuperAdmin -> Color(0xFF6366F1)
+                isMgr -> Color(0xFFF59E0B)
+                else -> Emerald600
+            }
+
+            AlertDialog(
+                onDismissRequest = { showProfilePopup = false },
+                icon = {
+                    Surface(
+                        shape = CircleShape,
+                        color = avatarBg,
+                        shadowElevation = 4.dp,
+                        modifier = Modifier.size(54.dp)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = initials,
+                                color = Color.White,
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 20.sp
+                            )
+                        }
+                    }
+                },
+                title = {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            text = spvName,
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 17.sp,
+                            color = Slate900
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = when {
+                                isSuperAdmin -> Color(0xFFEEF2FF)
+                                isMgr -> Color(0xFFFEF3C7)
+                                else -> Emerald100
+                            }
+                        ) {
+                            Text(
+                                text = supervisorSession?.role ?: if (isManagerSession) "MANAGER" else "KASIE",
+                                color = when {
+                                    isSuperAdmin -> Color(0xFF3730A3)
+                                    isMgr -> Color(0xFF92400E)
+                                    else -> Emerald900
+                                },
+                                fontWeight = FontWeight.ExtraBold,
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                },
+                text = {
+                    Card(
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            ProfileDetailRow("Nama Lengkap", spvName)
+                            ProfileDetailRow("Username", supervisorSession?.username ?: spvName)
+                            ProfileDetailRow("User ID", supervisorSession?.userId ?: "1")
+                            ProfileDetailRow("Jabatan / Role", supervisorSession?.roleTitle ?: if (isManagerSession) "Manager Operasional" else "Kasie Lapangan")
+                            ProfileDetailRow("Wilayah Kerja", supervisorSession?.wilayah ?: if (isManagerSession) "Semua Wilayah" else "Geodesi 1")
+                            ProfileDetailRow("Status Akun", "Aktif", isStatusSuccess = true)
+                        }
+                    }
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            showProfilePopup = false
+                            showLogoutDialog = true
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ErrorRose,
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.testTag("btn_popup_logout")
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Keluar / Logout", fontWeight = FontWeight.Bold)
+                    }
+                },
+                dismissButton = {
+                    OutlinedButton(
+                        onClick = { showProfilePopup = false },
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Tutup", color = Slate700)
+                    }
+                }
+            )
+        }
+
         if (showLogoutDialog) {
             val supervisorSession by viewModel.currentSupervisorSession.collectAsState()
             val activeSupervisorName by viewModel.activeSupervisor.collectAsState()
-            val spvName = supervisorSession?.name ?: activeSupervisorName
+            val spvName = supervisorSession?.namaLengkap?.ifBlank { null } ?: supervisorSession?.name ?: activeSupervisorName
 
             AlertDialog(
                 onDismissRequest = { showLogoutDialog = false },
@@ -882,6 +1007,52 @@ fun HeavyTrackApp() {
                     }
                 }
             }
+        }
+    }
+}
+
+private fun getInitials(name: String): String {
+    val clean = name.trim().split("\\s+".toRegex()).filter { it.isNotBlank() }
+    return when {
+        clean.isEmpty() -> "U"
+        clean.size == 1 -> clean[0].take(2).uppercase()
+        else -> (clean[0].take(1) + clean[1].take(1)).uppercase()
+    }
+}
+
+@Composable
+private fun ProfileDetailRow(
+    label: String,
+    value: String,
+    isStatusSuccess: Boolean = false
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text = label, fontSize = 11.5.sp, color = Slate500, fontWeight = FontWeight.Medium)
+        if (isStatusSuccess) {
+            Surface(
+                shape = RoundedCornerShape(4.dp),
+                color = Emerald100
+            ) {
+                Text(
+                    text = "● $value",
+                    color = Emerald900,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                )
+            }
+        } else {
+            Text(
+                text = value,
+                fontSize = 11.5.sp,
+                color = Slate900,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1
+            )
         }
     }
 }

@@ -21,6 +21,12 @@ interface UserDao {
     @Query("UPDATE users_session SET is_active_session = 0")
     suspend fun clearActiveSessions()
 
+    @Query("SELECT * FROM users_session WHERE username = :username LIMIT 1")
+    suspend fun getUserByUsername(username: String): UserEntity?
+
+    @Query("UPDATE users_session SET wilayah = :wilayah WHERE username = :username")
+    suspend fun updateWilayah(username: String, wilayah: String)
+
     @Query("DELETE FROM users_session")
     suspend fun deleteAll()
 }

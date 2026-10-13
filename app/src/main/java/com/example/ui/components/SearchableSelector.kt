@@ -710,7 +710,7 @@ fun OperatorSelectorItemCard(
  * Card Item for Lokasi Kerja Selector
  * Displays:
  * - Kode Lokasi dicetak tebal (misal: "001A")
- * - Badge Wilayah (misal: "PG1")
+ * - Badge Wilayah (misal: "Geodesi PG1")
  * - Info Luas: "Bruto: 10 Ha | Netto: 8 Ha"
  */
 @Composable
@@ -871,7 +871,7 @@ fun LokasiSearchableSelectorSheet(
                         )
                     )
                     Text(
-                        text = "Cari berdasarkan kode lokasi (001A) atau wilayah (PG1)",
+                        text = "Cari berdasarkan kode lokasi (001A) atau wilayah (Geodesi PG1)",
                         style = MaterialTheme.typography.bodySmall.copy(color = Slate500)
                     )
                 }

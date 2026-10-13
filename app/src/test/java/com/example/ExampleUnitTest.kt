@@ -97,11 +97,11 @@ class ExampleUnitTest {
 
     @Test
     fun test_search_multi_criteria_lokasi() {
-        val lok = com.example.data.local.entity.LokasiEntity("001A", "PG1", 10.5, 8.2, "Area Front")
+        val lok = com.example.data.local.entity.LokasiEntity("001A", "Geodesi PG1", 10.5, 8.2, "Area Front")
         // Search by kode
         assertTrue(lok.kodeLokasi.contains("001", ignoreCase = true))
         // Search by wilayah
-        assertTrue(lok.wilayah.contains("PG1", ignoreCase = true))
+        assertTrue(lok.wilayah.contains("Geodesi PG1", ignoreCase = true))
     }
 
     @Test
@@ -779,11 +779,11 @@ class ExampleUnitTest {
             nik = "SPV-901",
             role = "KASIE",
             roleTitle = "Kasie",
-            wilayah = "PG1"
+            wilayah = "Geodesi PG1"
         )
         assertTrue(kasieUser.isKasie)
         assertFalse(kasieUser.isManager)
-        assertEquals("PG1", kasieUser.wilayah)
+        assertEquals("Geodesi PG1", kasieUser.wilayah)
 
         val managerUser = com.example.data.local.entity.UserEntity(
             username = "farid",
@@ -802,18 +802,18 @@ class ExampleUnitTest {
     fun test_supervisor_directory_wilayah_and_manager_role() {
         val spvPg1 = SupervisorDirectory.authenticate("Budi Santoso", "1234")
         assertNotNull(spvPg1)
-        assertEquals("PG1", spvPg1?.wilayah)
+        assertEquals("Geodesi PG1", spvPg1?.wilayah)
         assertEquals("KASIE", spvPg1?.role)
         assertTrue(spvPg1!!.isKasie)
 
         val spvPg2 = SupervisorDirectory.authenticate("Agus Wijaya", "1234")
         assertNotNull(spvPg2)
-        assertEquals("PG2", spvPg2?.wilayah)
+        assertEquals("Geodesi PG2", spvPg2?.wilayah)
         assertEquals("KASIE", spvPg2?.role)
 
         val spvPg3 = SupervisorDirectory.authenticate("Rudi Hermawan", "1234")
         assertNotNull(spvPg3)
-        assertEquals("PG3", spvPg3?.wilayah)
+        assertEquals("RC PG1", spvPg3?.wilayah)
 
         val mgr = SupervisorDirectory.authenticate("Farid Hadi Sofian", "1234")
         assertNotNull(mgr)
