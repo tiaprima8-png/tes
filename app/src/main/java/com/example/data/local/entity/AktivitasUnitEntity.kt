@@ -47,6 +47,9 @@ data class AktivitasUnitEntity(
     @ColumnInfo(name = "lokasi_kerja")
     val lokasiKerja: String = "",
 
+    @ColumnInfo(name = "wilayah")
+    val wilayah: String? = null,
+
     @ColumnInfo(name = "shift")
     val shift: String = "SIANG",
 

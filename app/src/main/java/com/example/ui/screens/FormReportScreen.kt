@@ -170,6 +170,30 @@ fun FormReportScreen(
     val fleetProgress by viewModel.fleetShiftProgress.collectAsState()
     val isSocketConnected by viewModel.isSocketConnected.collectAsState()
 
+    // Cascading Filter Aktivitas sesuai Jenis Unit
+    val selectedRencanaUnitType = remember(rencanaState.selectedUnit) {
+        rencanaState.selectedUnit?.unitType ?: ""
+    }
+    val filteredActivitiesForRencana = remember(activities, selectedRencanaUnitType) {
+        if (selectedRencanaUnitType.isBlank()) {
+            emptyList()
+        } else {
+            viewModel.filterActivitiesByUnitType(activities, selectedRencanaUnitType)
+        }
+    }
+
+    val realisasiPlanUnitCode = realisasiState.selectedRencana?.kodeUnit
+    val realisasiUnitType = remember(realisasiPlanUnitCode, units) {
+        viewModel.getUnitTypeForUnitCode(realisasiPlanUnitCode)
+    }
+    val filteredActivitiesForRealisasi = remember(activities, realisasiUnitType) {
+        if (realisasiUnitType.isBlank()) {
+            activities
+        } else {
+            viewModel.filterActivitiesByUnitType(activities, realisasiUnitType)
+        }
+    }
+
     // 5. AUTO-FETCH DATA MASTER SAAT HALAMAN DIBUKA (ONRESUME / ONENTER)
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -3554,7 +3578,7 @@ fun FormReportScreen(
             isRencanaActivitySheetOpen = false
             activeSubPlanActivityTarget = null
         },
-        activities = activities,
+        activities = filteredActivitiesForRencana,
         selectedActivity = if (activeSubPlanActivityTarget != null) {
             rencanaState.subPlans.find { it.id == activeSubPlanActivityTarget }?.selectedActivity
         } else {
@@ -3601,7 +3625,7 @@ fun FormReportScreen(
     ActivitySearchableSelectorSheet(
         isOpen = isRealisasiActivitySheetOpen,
         onDismissRequest = { isRealisasiActivitySheetOpen = false },
-        activities = activities,
+        activities = filteredActivitiesForRealisasi,
         selectedActivity = realisasiState.selectedActivity,
         onActivitySelected = {
             viewModel.setRealisasiActivity(it)

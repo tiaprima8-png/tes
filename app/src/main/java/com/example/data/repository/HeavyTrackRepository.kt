@@ -87,23 +87,35 @@ class HeavyTrackRepository(
     fun getUnitsForSupervisor(supervisor: String): Flow<List<UnitEntity>> =
         unitDao.getUnitsForSupervisor(supervisor)
 
+    fun getUnitsForSupervisorOrWilayah(supervisor: String, wilayah: String?): Flow<List<UnitEntity>> =
+        unitDao.getUnitsForSupervisorOrWilayah(supervisor, wilayah)
+
     fun getAllUnits(): Flow<List<UnitEntity>> =
         unitDao.getAllUnits()
 
-    fun getUnitsByFilter(wilayah: String, unitType: String, unitCode: String): Flow<List<UnitEntity>> =
+    fun getUnitsByFilter(wilayah: String?, unitType: String?, unitCode: String?): Flow<List<UnitEntity>> =
         unitDao.getUnitsByFilter(wilayah, unitType, unitCode)
 
-    fun getReportsFiltered(wilayah: String, unitType: String, unitCode: String): Flow<List<ActivityReportEntity>> =
+    fun getReportsFiltered(wilayah: String?, unitType: String?, unitCode: String?): Flow<List<ActivityReportEntity>> =
         reportDao.getReportsFiltered(wilayah, unitType, unitCode)
 
-    fun getRencanaFiltered(wilayah: String, kodeUnit: String): Flow<List<RencanaKerjaEntity>> =
+    fun getRencanaFiltered(wilayah: String?, kodeUnit: String?): Flow<List<RencanaKerjaEntity>> =
         rencanaDao.getRencanaFiltered(wilayah, kodeUnit)
 
     fun getAllActivities(): Flow<List<ActivityMasterEntity>> =
         activityDao.getAllActivities()
 
+    fun getActivitiesByJenisUnit(jenisUnit: String?): Flow<List<ActivityMasterEntity>> =
+        activityDao.getActivitiesByJenisUnit(jenisUnit)
+
     fun getOperatorsForSupervisor(supervisor: String): Flow<List<OperatorEntity>> =
         operatorDao.getOperatorsForSupervisor(supervisor)
+
+    fun getOperatorsForSupervisorOrWilayah(supervisor: String, wilayah: String?): Flow<List<OperatorEntity>> =
+        operatorDao.getOperatorsForSupervisorOrWilayah(supervisor, wilayah)
+
+    fun getOperatorsFiltered(wilayah: String?): Flow<List<OperatorEntity>> =
+        operatorDao.getOperatorsFiltered(wilayah)
 
     fun getAllLokasi(): Flow<List<LokasiEntity>> =
         lokasiDao.getAllLokasi()
@@ -184,6 +196,7 @@ class HeavyTrackRepository(
             val initialUnits = listOf(
                 UnitEntity("HEH1", "EXCAVATOR", "Komatsu PC200-8", 4125.5, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "PG1"),
                 UnitEntity("EXC-02", "EXCAVATOR", "Caterpillar 320D", 6280.0, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "PG1"),
+                UnitEntity("MG-01", "MOTOR GRADER", "Caterpillar 140K", 2150.0, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "PG1"),
                 UnitEntity("DT-101", "DUMP TRUCK", "Hino FM 260 Ti", 3450.2, "Agus Wijaya", "OPERASIONAL", 5.5, 9.5, "PG2"),
                 UnitEntity("DT-102", "DUMP TRUCK", "Nissan Quon CWB45A", 2890.0, "Agus Wijaya", "OPERASIONAL", 5.5, 9.5, "PG2"),
                 UnitEntity("WT-054", "WATER TRUCK", "Hino FM 260 WT", 1980.4, "Rudi Hermawan", "OPERASIONAL", 4.0, 8.0, "PG3"),
@@ -192,20 +205,23 @@ class HeavyTrackRepository(
             unitDao.insertUnits(initialUnits)
 
             val initialActivities = listOf(
-                ActivityMasterEntity("ACT-SAP-101", "Galian Tanah Lunak", "m3", "Galian area cut", "PRODUKSI", "OPERASI"),
-                ActivityMasterEntity("ACT-SAP-102", "Loading Overburden", "m3", "Pemuatan tanah penutup", "PRODUKSI", "OPERASI"),
-                ActivityMasterEntity("ACT-SAP-201", "Dumping & Spreading", "m2", "Penghamparan disposal", "SUPPORT", "OPERASI"),
-                ActivityMasterEntity("ACT-SAP-202", "Grading Mainroad Tambang", "m", "Perawatan jalan", "INFRASTRUKTUR", "OPERASI"),
-                ActivityMasterEntity("ACT-SAP-STB-01", "Standby Hujan / Cuaca Buruk", "jam", "Hambatan cuaca buruk / licin", "STANDBY", "STANDBY"),
-                ActivityMasterEntity("ACT-SAP-STB-02", "Standby Tunggu Trailler", "jam", "Menunggu lowbed mobilisasi", "STANDBY", "STANDBY"),
-                ActivityMasterEntity("ACT-SAP-BDN-01", "Breakdown Kerusakan Unit", "jam", "Perbaikan kerusakan mekanikal", "BREAKDOWN", "BREAKDOWN")
+                ActivityMasterEntity("ACT-SAP-101", "Galian Tanah Lunak", "m3", "Galian area cut", "PRODUKSI", "OPERASI", "EXCAVATOR"),
+                ActivityMasterEntity("ACT-SAP-102", "Loading Overburden", "m3", "Pemuatan tanah penutup", "PRODUKSI", "OPERASI", "EXCAVATOR"),
+                ActivityMasterEntity("ACT-SAP-201", "Dumping & Spreading", "m2", "Penghamparan disposal", "SUPPORT", "OPERASI", "DUMP TRUCK"),
+                ActivityMasterEntity("ACT-SAP-202", "Grading Mainroad Tambang", "m", "Perawatan jalan", "INFRASTRUKTUR", "OPERASI", "MOTOR GRADER"),
+                ActivityMasterEntity("ACT-SAP-301", "Ripping & Dozing Material", "jam", "Ripping batuan", "PRODUKSI", "OPERASI", "BULLDOZER"),
+                ActivityMasterEntity("ACT-SAP-401", "Penyiraman Jalan Tambang", "m", "Watering jalan", "SUPPORT", "OPERASI", "WATER TRUCK"),
+                ActivityMasterEntity("ACT-SAP-STB-01", "Standby Hujan / Cuaca Buruk", "jam", "Hambatan cuaca buruk / licin", "STANDBY", "STANDBY", "ALL"),
+                ActivityMasterEntity("ACT-SAP-STB-02", "Standby Tunggu Trailler", "jam", "Menunggu lowbed mobilisasi", "STANDBY", "STANDBY", "ALL"),
+                ActivityMasterEntity("ACT-SAP-BDN-01", "Breakdown Kerusakan Unit", "jam", "Perbaikan kerusakan mekanikal", "BREAKDOWN", "BREAKDOWN", "ALL")
             )
             activityDao.insertActivities(initialActivities)
 
             val initialOperators = listOf(
-                OperatorEntity("OPR-001", "Ahmad Fauzi", "NIK-94821", activeSupervisor),
-                OperatorEntity("OPR-002", "Bambang Sudrajat", "NIK-88234", "Agus Wijaya"),
-                OperatorEntity("OPR-003", "Dedi Supriyadi", "NIK-77412", "Rudi Hermawan")
+                OperatorEntity("OPR-001", "Ahmad Fauzi", "NIK-94821", activeSupervisor, "Class A - Excavator & Dozer", "AKTIF", "PG1"),
+                OperatorEntity("OPR-002", "Bambang Sudrajat", "NIK-88234", "Agus Wijaya", "Class A - Dump Truck", "AKTIF", "PG2"),
+                OperatorEntity("OPR-003", "Dedi Supriyadi", "NIK-77412", "Rudi Hermawan", "Class A - Dozer & Water", "AKTIF", "PG3"),
+                OperatorEntity("OPR-004", "Suryanto", "NIK-99120", activeSupervisor, "Class A - Excavator", "AKTIF", "PG1")
             )
             operatorDao.insertOperators(initialOperators)
 
@@ -448,6 +464,7 @@ class HeavyTrackRepository(
                         description = it.resolvedDescription,
                         category = it.resolvedCategory,
                         kategoriStatus = it.resolvedKategoriStatus,
+                        jenisUnit = it.resolvedJenisUnit,
                         updatedAt = System.currentTimeMillis()
                     )
                 }
@@ -466,6 +483,7 @@ class HeavyTrackRepository(
                         supervisorAssigned = if (it.resolvedSupervisor.isNotBlank()) it.resolvedSupervisor else supervisorName,
                         skillLevel = it.resolvedSkillLevel,
                         status = it.resolvedStatus,
+                        wilayah = it.resolvedWilayah,
                         updatedAt = System.currentTimeMillis()
                     )
                 }
@@ -555,6 +573,7 @@ class HeavyTrackRepository(
                         description = it.resolvedDescription,
                         category = it.resolvedCategory,
                         kategoriStatus = it.resolvedKategoriStatus,
+                        jenisUnit = it.resolvedJenisUnit,
                         updatedAt = System.currentTimeMillis()
                     )
                 }
@@ -572,6 +591,7 @@ class HeavyTrackRepository(
                         supervisorAssigned = if (it.resolvedSupervisor.isNotBlank()) it.resolvedSupervisor else supervisorName,
                         skillLevel = it.resolvedSkillLevel,
                         status = it.resolvedStatus,
+                        wilayah = it.resolvedWilayah,
                         updatedAt = System.currentTimeMillis()
                     )
                 }
@@ -748,6 +768,7 @@ class HeavyTrackRepository(
                 nama_aktivitas = savedRencana.namaAktivitas,
                 satuan_aktivitas = savedRencana.satuanAktivitas,
                 kode_lokasi = savedRencana.kodeLokasi,
+                wilayah = savedRencana.wilayah,
                 shift_kerja = savedRencana.shiftKerja,
                 keterangan = savedRencana.keterangan,
                 nomor_spk = savedRencana.nomorSpk,
@@ -966,6 +987,11 @@ class HeavyTrackRepository(
                 isSynced = false
             )
             val mirrorReportId = reportDao.insertReport(reportMirror)
+            val activeUser = userDao.getActiveUser()
+            val targetWilayah = reportMirror.wilayah.takeIf { it.isNotBlank() }
+                ?: activeUser?.wilayah
+                ?: "PG1"
+
             aktivitasUnitDao.insert(
                 AktivitasUnitEntity(
                     tanggal = reportMirror.reportDate,
@@ -980,6 +1006,7 @@ class HeavyTrackRepository(
                     satuan = savedHasil.satuan,
                     namaOperator = savedHasil.operator,
                     lokasiKerja = savedHasil.kodeLokasi,
+                    wilayah = targetWilayah,
                     shift = savedHasil.shift,
                     hasilKerja = savedHasil.hasilKerja,
                     keterangan = savedHasil.keterangan,
@@ -1022,7 +1049,8 @@ class HeavyTrackRepository(
                 foto_bukti = savedHasil.photoBase64,
                 is_hm_awal_corrected = savedHasil.isHmAwalCorrected,
                 alasan_koreksi_hm = savedHasil.alasanKoreksiHm,
-                client_transaction_id = savedHasil.clientTransactionId
+                client_transaction_id = savedHasil.clientTransactionId,
+                wilayah = targetWilayah
             )
 
             val apiActivityReq = PostActivityReportRequest.create(
@@ -1063,7 +1091,8 @@ class HeavyTrackRepository(
                 alasanKoreksiHm = savedHasil.alasanKoreksiHm,
                 clientTransactionId = savedHasil.clientTransactionId,
                 idRencanaKerja = savedHasil.rencanaId,
-                nomorSpk = spkClean
+                nomorSpk = spkClean,
+                wilayah = targetWilayah
             )
 
             try {
@@ -1092,6 +1121,11 @@ class HeavyTrackRepository(
         try {
             val insertedId = reportDao.insertReport(report.copy(isSynced = false))
             val savedReport = report.copy(id = insertedId)
+            val activeUser = userDao.getActiveUser()
+            val targetWilayah = savedReport.wilayah.takeIf { it.isNotBlank() }
+                ?: activeUser?.wilayah
+                ?: "PG1"
+
             aktivitasUnitDao.insert(
                 AktivitasUnitEntity(
                     tanggal = savedReport.reportDate,
@@ -1106,6 +1140,7 @@ class HeavyTrackRepository(
                     satuan = savedReport.unitOfMeasure,
                     namaOperator = savedReport.operatorName,
                     lokasiKerja = savedReport.workLocation,
+                    wilayah = targetWilayah,
                     shift = savedReport.shift,
                     hasilKerja = savedReport.workOutput,
                     keterangan = savedReport.notes,
@@ -1146,7 +1181,8 @@ class HeavyTrackRepository(
                 photoDimensions = savedReport.photoDimensions,
                 photoPath = savedReport.photoPath,
                 isHmAwalCorrected = savedReport.isHmAwalCorrected,
-                alasanKoreksiHm = savedReport.alasanKoreksiHm
+                alasanKoreksiHm = savedReport.alasanKoreksiHm,
+                wilayah = targetWilayah
             )
 
             try {
@@ -1211,7 +1247,8 @@ class HeavyTrackRepository(
                         photoDimensions = report.photoDimensions,
                         photoPath = report.photoPath,
                         isHmAwalCorrected = report.isHmAwalCorrected,
-                        alasanKoreksiHm = report.alasanKoreksiHm
+                        alasanKoreksiHm = report.alasanKoreksiHm,
+                        wilayah = report.wilayah
                     )
                     apiClientManager.postActivityReport(apiReq)
                     val now = System.currentTimeMillis()
@@ -1284,7 +1321,8 @@ class HeavyTrackRepository(
                         kode_unit = hasil.kodeUnit,
                         foto_bukti = hasil.photoBase64,
                         is_hm_awal_corrected = hasil.isHmAwalCorrected,
-                        alasan_koreksi_hm = hasil.alasanKoreksiHm
+                        alasan_koreksi_hm = hasil.alasanKoreksiHm,
+                        wilayah = hasil.wilayah
                     )
                     apiClientManager.postHasilAktivitas(req)
                     val now = System.currentTimeMillis()

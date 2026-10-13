@@ -25,9 +25,10 @@ interface AktivitasUnitDao {
           SUM(durasi_hm) AS totalHm,
           SUM(pengisian_solar) AS totalSolar
         FROM aktivitas_unit
-        WHERE tanggal BETWEEN :startDate AND :endDate
+        WHERE (:wilayah IS NULL OR :wilayah = 'SEMUA' OR :wilayah = 'Semua Wilayah' OR :wilayah = '' OR wilayah = :wilayah)
+          AND tanggal BETWEEN :startDate AND :endDate
     """)
-    fun getSummaryBetweenDates(startDate: String, endDate: String): Flow<AnalyticsAggregationSummary?>
+    fun getSummaryBetweenDates(startDate: String, endDate: String, wilayah: String? = null): Flow<AnalyticsAggregationSummary?>
 
     @Query("""
         SELECT 
@@ -37,11 +38,16 @@ interface AktivitasUnitDao {
           SUM(durasi_hm) AS totalHm,
           SUM(pengisian_solar) AS totalSolar
         FROM aktivitas_unit
+        WHERE (:wilayah IS NULL OR :wilayah = 'SEMUA' OR :wilayah = 'Semua Wilayah' OR :wilayah = '' OR wilayah = :wilayah)
     """)
-    fun getAllSummary(): Flow<AnalyticsAggregationSummary?>
+    fun getAllSummary(wilayah: String? = null): Flow<AnalyticsAggregationSummary?>
 
-    @Query("SELECT * FROM aktivitas_unit ORDER BY created_at DESC")
-    fun getAllAktivitas(): Flow<List<AktivitasUnitEntity>>
+    @Query("""
+        SELECT * FROM aktivitas_unit 
+        WHERE (:wilayah IS NULL OR :wilayah = 'SEMUA' OR :wilayah = 'Semua Wilayah' OR :wilayah = '' OR wilayah = :wilayah)
+        ORDER BY created_at DESC
+    """)
+    fun getAllAktivitas(wilayah: String? = null): Flow<List<AktivitasUnitEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(item: AktivitasUnitEntity): Long

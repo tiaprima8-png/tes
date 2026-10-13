@@ -24,7 +24,7 @@ data class UserEntity(
     val roleTitle: String = "Kasie",
 
     @ColumnInfo(name = "wilayah")
-    val wilayah: String = "PG1", // "PG1", "PG2", "PG3", or "Semua Wilayah" for Manager
+    val wilayah: String? = "PG1", // "PG1", "PG2", "PG3", or "Semua Wilayah" for Manager
 
     @ColumnInfo(name = "default_shift")
     val defaultShift: String = "SIANG",

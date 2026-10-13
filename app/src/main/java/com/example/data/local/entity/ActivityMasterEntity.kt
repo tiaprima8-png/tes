@@ -32,6 +32,10 @@ data class ActivityMasterEntity(
     @SerializedName("kategori_status")
     val kategoriStatus: String = "OPERASI", // "OPERASI", "STANDBY", "BREAKDOWN"
 
+    @ColumnInfo(name = "jenis_unit", defaultValue = "ALL")
+    @SerializedName("jenis_unit")
+    val jenisUnit: String = "ALL", // "EXCAVATOR", "DUMP TRUCK", "BULLDOZER", "WATER TRUCK", "MOTOR GRADER", "ALL"
+
     @ColumnInfo(name = "updatedAt")
     val updatedAt: Long = System.currentTimeMillis()
 )

@@ -18,19 +18,19 @@ interface ActivityReportDao {
 
     @Query("""
         SELECT * FROM activity_reports 
-        WHERE (:wilayah = 'Semua Wilayah' OR :wilayah = '' OR wilayah = :wilayah)
+        WHERE (:wilayah IS NULL OR :wilayah = 'SEMUA' OR :wilayah = 'Semua Wilayah' OR :wilayah = '' OR wilayah = :wilayah)
           AND (
-            :unitType = 'Semua Jenis' OR :unitType = '' OR 
+            :unitType IS NULL OR :unitType = 'Semua Jenis' OR :unitType = '' OR 
             (:unitType LIKE '%EXCAVATOR%' AND (unitType LIKE '%EXCAVATOR%' OR unitType LIKE '%HE%')) OR
             (:unitType LIKE '%DUMP%' AND (unitType LIKE '%DUMP%' OR unitType LIKE '%DT%')) OR
             (:unitType LIKE '%WATER%' AND (unitType LIKE '%WATER%' OR unitType LIKE '%WT%')) OR
             (:unitType LIKE '%BULLDOZER%' AND (unitType LIKE '%BULLDOZER%' OR unitType LIKE '%DOZER%')) OR
             unitType LIKE '%' || :unitType || '%'
           )
-          AND (:unitCode = 'Semua Unit' OR :unitCode = '' OR unitCode = :unitCode)
+          AND (:unitCode IS NULL OR :unitCode = 'Semua Unit' OR :unitCode = '' OR unitCode = :unitCode)
         ORDER BY createdAt DESC
     """)
-    fun getReportsFiltered(wilayah: String, unitType: String, unitCode: String): Flow<List<ActivityReportEntity>>
+    fun getReportsFiltered(wilayah: String?, unitType: String?, unitCode: String?): Flow<List<ActivityReportEntity>>
 
     @Query("SELECT * FROM activity_reports WHERE isSynced = 0 ORDER BY createdAt ASC")
     fun getUnsyncedReports(): Flow<List<ActivityReportEntity>>

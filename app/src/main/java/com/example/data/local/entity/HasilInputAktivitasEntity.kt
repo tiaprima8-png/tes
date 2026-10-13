@@ -121,5 +121,8 @@ data class HasilInputAktivitasEntity(
     val clientTransactionId: String = "",
 
     @ColumnInfo(name = "status_kirim", defaultValue = "'PENDING'")
-    val statusKirim: String = "PENDING"
+    val statusKirim: String = "PENDING",
+
+    @ColumnInfo(name = "wilayah", defaultValue = "PG1")
+    val wilayah: String? = "PG1"
 )

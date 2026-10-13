@@ -108,7 +108,8 @@ data class PostActivityReportRequest(
             alasanKoreksiHm: String? = null,
             clientTransactionId: String? = null,
             idRencanaKerja: Long? = null,
-            nomorSpk: String? = null
+            nomorSpk: String? = null,
+            wilayah: String? = null
         ): PostActivityReportRequest {
             val resolvedKendalaItems = (kendalaLapangan ?: kendalaList ?: daftarKendala)?.map { it.toCanonical() }
             return PostActivityReportRequest(
@@ -122,6 +123,7 @@ data class PostActivityReportRequest(
                 satuan = unitOfMeasure,
                 nama_operator = operatorName,
                 lokasi_kerja = workLocation,
+                wilayah = wilayah,
                 shift = shift,
                 durasi_jam_kerja = workDurationHours,
                 hm_awal = hmAwal,
@@ -549,6 +551,7 @@ data class ActivityPayload(
     val resolvedUnitOfMeasure: String get() = satuan ?: unit_of_measure ?: unitOfMeasure ?: "m3"
     val resolvedDescription: String get() = description ?: keterangan ?: ""
     val resolvedCategory: String get() = kategori ?: category ?: "PRODUKSI"
+    val resolvedJenisUnit: String get() = (jenis_unit ?: "ALL").trim().ifBlank { "ALL" }
     val resolvedKategoriStatus: String get() = (kategori_status ?: kategoriStatus)?.trim()?.uppercase()?.takeIf { it.isNotBlank() } ?: when {
         resolvedActivityName.contains("Standby", ignoreCase = true) || resolvedSapCode.contains("STB", ignoreCase = true) -> "STANDBY"
         resolvedActivityName.contains("Breakdown", ignoreCase = true) || resolvedActivityName.contains("Perbaikan", ignoreCase = true) || resolvedSapCode.contains("BDN", ignoreCase = true) -> "BREAKDOWN"
@@ -563,6 +566,7 @@ data class MasterAktivitasDto(
     @SerializedName("satuan") @Json(name = "satuan") val satuan: String = "m3",
     @SerializedName("kategori") @Json(name = "kategori") val kategori: String = "PRODUKSI",
     @SerializedName("kategori_status") @Json(name = "kategori_status") val kategoriStatus: String = "OPERASI",
+    @SerializedName("jenis_unit") @Json(name = "jenis_unit") val jenisUnit: String = "ALL",
     @SerializedName("description") @Json(name = "description") val description: String = ""
 )
 
@@ -587,6 +591,7 @@ data class OperatorPayload(
     @Json(name = "operator_id") val operator_id: String? = null,
     @Json(name = "operatorId") val operatorId: String? = null,
 
+    @Json(name = "wilayah") val wilayah: String? = null,
     @Json(name = "status") val status: String? = "AKTIF"
 ) {
     constructor(
@@ -595,7 +600,8 @@ data class OperatorPayload(
         badgeNumber: String,
         supervisorAssigned: String,
         skillLevel: String = "Class A",
-        status: String = "AKTIF"
+        status: String = "AKTIF",
+        wilayah: String = "PG1"
     ) : this(
         nama_operator = name,
         name = name,
@@ -611,6 +617,7 @@ data class OperatorPayload(
         skillLevel = skillLevel,
         operator_id = operatorId,
         operatorId = operatorId,
+        wilayah = wilayah,
         status = status
     )
 
@@ -620,6 +627,7 @@ data class OperatorPayload(
     val resolvedSupervisor: String get() = nama_pengawas ?: supervisor_assigned ?: supervisorAssigned ?: ""
     val resolvedSkillLevel: String get() = jabatan ?: skill_level ?: skillLevel ?: "Class A"
     val resolvedStatus: String get() = status ?: "AKTIF"
+    val resolvedWilayah: String get() = wilayah?.takeIf { it.isNotBlank() } ?: "PG1"
 }
 
 @JsonClass(generateAdapter = true)
@@ -746,7 +754,8 @@ data class PostHasilAktivitasRequest(
     // Audit log koreksi HM Awal manual
     @Json(name = "is_hm_awal_corrected") val is_hm_awal_corrected: Boolean? = false,
     @Json(name = "alasan_koreksi_hm") val alasan_koreksi_hm: String? = null,
-    @Json(name = "client_transaction_id") val client_transaction_id: String? = null
+    @Json(name = "client_transaction_id") val client_transaction_id: String? = null,
+    @Json(name = "wilayah") val wilayah: String? = null
 )
 
 @JsonClass(generateAdapter = true)

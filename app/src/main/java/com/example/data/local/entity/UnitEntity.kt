@@ -16,3 +16,5 @@ data class UnitEntity(
     val wilayah: String = "PG1",     // e.g. "PG1", "PG2", "PG3"
     val updatedAt: Long = System.currentTimeMillis()
 )
+
+typealias MasterUnitEntity = UnitEntity

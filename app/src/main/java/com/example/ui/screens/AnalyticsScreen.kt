@@ -207,7 +207,8 @@ fun AnalyticsScreen(
 
                                 DropdownMenu(
                                     expanded = isUnitDropdownExpanded,
-                                    onDismissRequest = { isUnitDropdownExpanded = false }
+                                    onDismissRequest = { isUnitDropdownExpanded = false },
+                                    modifier = Modifier.heightIn(max = 240.dp)
                                 ) {
                                     DropdownMenuItem(
                                         text = { Text("Semua Unit (${units.size})") },

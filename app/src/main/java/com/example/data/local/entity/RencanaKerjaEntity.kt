@@ -37,7 +37,7 @@ data class RencanaKerjaEntity(
     val kodeLokasi: String,
 
     @ColumnInfo(name = "wilayah", defaultValue = "PG1")
-    val wilayah: String = "PG1",
+    val wilayah: String? = "PG1",
 
     @ColumnInfo(name = "shift_kerja")
     val shiftKerja: String = "SIANG", // "SIANG", "MALAM"

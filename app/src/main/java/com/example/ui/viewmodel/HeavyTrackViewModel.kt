@@ -196,10 +196,19 @@ class HeavyTrackViewModel(
     val activities: StateFlow<List<ActivityMasterEntity>> = repository.getAllActivities()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    // Master Operators (filtered by supervisor)
-    val operators: StateFlow<List<OperatorEntity>> = _activeSupervisor
-        .flatMapLatest { supervisor -> repository.getOperatorsForSupervisor(supervisor) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    // Master Operators (filtered by supervisor & wilayah)
+    val operators: StateFlow<List<OperatorEntity>> = combine(
+        _currentSupervisorSession,
+        _activeSupervisor
+    ) { session, supervisor ->
+        session to supervisor
+    }.flatMapLatest { (session, supervisor) ->
+        if (session?.isManager == true) {
+            repository.getOperatorsFiltered(null)
+        } else {
+            repository.getOperatorsForSupervisorOrWilayah(supervisor, session?.wilayah)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Master Lokasi Kerja
     val lokasiList: StateFlow<List<LokasiEntity>> = repository.getAllLokasi()
@@ -515,7 +524,7 @@ class HeavyTrackViewModel(
                         phone = savedSession.phone,
                         roleTitle = savedSession.roleTitle,
                         role = savedSession.role,
-                        wilayah = savedSession.wilayah
+                        wilayah = savedSession.wilayah ?: "PG1"
                     )
                     _currentSupervisorSession.value = spv
                     _activeSupervisor.value = spv.name
@@ -1055,17 +1064,53 @@ class HeavyTrackViewModel(
 
     fun selectRencanaUnit(unit: UnitEntity) {
         // Backward compatibility
+        val current = _rencanaFormState.value
+        val isDifferentUnit = current.selectedUnit?.unitCode != unit.unitCode
         val matchedStatus = availableUnitsForRencana.value.find { it.unit.unitCode.equals(unit.unitCode, ignoreCase = true) }
         if (matchedStatus != null) {
             selectRencanaUnitStatus(matchedStatus)
         } else {
             val todayStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
-            _rencanaFormState.value = _rencanaFormState.value.copy(
+            _rencanaFormState.value = current.copy(
                 selectedUnit = unit,
                 targetDate = todayStr,
                 isBacklog = false,
-                isSusulan = false
+                isSusulan = false,
+                selectedActivity = if (isDifferentUnit) null else current.selectedActivity,
+                selectedOperator = if (isDifferentUnit) null else current.selectedOperator,
+                selectedLokasi = if (isDifferentUnit) null else current.selectedLokasi,
+                subPlans = if (isDifferentUnit) emptyList() else current.subPlans
             )
+        }
+    }
+
+    fun getUnitTypeForUnitCode(unitCode: String?): String {
+        if (unitCode.isNullOrBlank()) return ""
+        val matchedUnit = units.value.find { it.unitCode.equals(unitCode, ignoreCase = true) }
+        if (matchedUnit != null && matchedUnit.unitType.isNotBlank()) return matchedUnit.unitType
+        val clean = unitCode.trim().uppercase()
+        return when {
+            clean.startsWith("EX") || clean.startsWith("HE") -> "EXCAVATOR"
+            clean.startsWith("DT") -> "DUMP TRUCK"
+            clean.startsWith("DZ") || clean.startsWith("DOZ") -> "BULLDOZER"
+            clean.startsWith("WT") -> "WATER TRUCK"
+            clean.startsWith("MG") || clean.startsWith("GR") -> "MOTOR GRADER"
+            else -> ""
+        }
+    }
+
+    fun filterActivitiesByUnitType(allActivities: List<ActivityMasterEntity>, unitType: String?): List<ActivityMasterEntity> {
+        if (unitType.isNullOrBlank()) return emptyList()
+        val cleanType = unitType.trim().uppercase()
+        return allActivities.filter { act ->
+            val actType = act.jenisUnit.trim().uppercase()
+            actType == "ALL" || actType == cleanType ||
+            cleanType.contains(actType) || actType.contains(cleanType) ||
+            (cleanType.contains("EXCAVATOR") && actType.contains("EXCAVATOR")) ||
+            (cleanType.contains("DUMP") && actType.contains("DUMP")) ||
+            (cleanType.contains("BULLDOZER") && actType.contains("BULLDOZER")) ||
+            (cleanType.contains("WATER") && actType.contains("WATER")) ||
+            (cleanType.contains("GRADER") && actType.contains("GRADER"))
         }
     }
 

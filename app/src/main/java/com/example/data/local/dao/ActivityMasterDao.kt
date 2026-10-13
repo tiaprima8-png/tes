@@ -13,6 +13,15 @@ interface ActivityMasterDao {
     @Query("SELECT * FROM master_activities ORDER BY activityName ASC")
     fun getAllActivities(): Flow<List<ActivityMasterEntity>>
 
+    @Query("""
+        SELECT * FROM master_activities 
+        WHERE :jenisUnit IS NULL OR :jenisUnit = '' OR :jenisUnit = 'ALL' OR jenis_unit = 'ALL' 
+           OR UPPER(jenis_unit) = UPPER(:jenisUnit) 
+           OR UPPER(jenis_unit) LIKE '%' || UPPER(:jenisUnit) || '%'
+        ORDER BY activityName ASC
+    """)
+    fun getActivitiesByJenisUnit(jenisUnit: String?): Flow<List<ActivityMasterEntity>>
+
     @Query("SELECT * FROM master_activities WHERE sapCode = :sapCode LIMIT 1")
     suspend fun getActivityBySapCode(sapCode: String): ActivityMasterEntity?
 

@@ -87,34 +87,33 @@ fun SelectorFieldTrigger(
     isError: Boolean = false,
     errorMessage: String? = null,
     testTag: String,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 6.dp)
+            modifier = Modifier.padding(bottom = 4.dp)
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelLarge.copy(
+                style = MaterialTheme.typography.labelMedium.copy(
                     fontWeight = FontWeight.SemiBold,
-                    color = Slate700
+                    color = if (enabled) Slate700 else Slate400
                 )
             )
             if (badgeText != null) {
                 Spacer(modifier = Modifier.width(6.dp))
                 Surface(
                     shape = RoundedCornerShape(4.dp),
-                    color = Emerald100
+                    color = if (enabled) Emerald100 else Color(0xFFE2E8F0)
                 ) {
                     Text(
                         text = badgeText,
-                        color = Emerald900,
-                        fontSize = 11.sp,
+                        color = if (enabled) Emerald900 else Slate500,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                     )
@@ -125,17 +124,22 @@ fun SelectorFieldTrigger(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(54.dp)
+                .heightIn(min = 52.dp, max = 56.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .border(
                     width = if (isError) 1.5.dp else 1.dp,
-                    color = if (isError) MaterialTheme.colorScheme.error else if (!selectedValue.isNullOrEmpty()) Emerald600 else Slate200,
+                    color = when {
+                        !enabled -> Slate200
+                        isError -> MaterialTheme.colorScheme.error
+                        !selectedValue.isNullOrEmpty() -> Emerald600
+                        else -> Slate200
+                    },
                     shape = RoundedCornerShape(12.dp)
                 )
-                .clickable { onClick() }
+                .clickable(enabled = enabled) { onClick() }
                 .testTag(testTag),
-            color = Color.White,
-            shadowElevation = 1.dp
+            color = if (enabled) Color.White else Color(0xFFF8FAFC),
+            shadowElevation = if (enabled) 0.5.dp else 0.dp
         ) {
             Row(
                 modifier = Modifier
@@ -152,18 +156,22 @@ fun SelectorFieldTrigger(
                         Icon(
                             imageVector = leadingIcon,
                             contentDescription = null,
-                            tint = if (!selectedValue.isNullOrEmpty()) Emerald600 else Slate400,
+                            tint = when {
+                                !enabled -> Slate400
+                                !selectedValue.isNullOrEmpty() -> Emerald600
+                                else -> Slate400
+                            },
                             modifier = Modifier
-                                .size(22.dp)
+                                .size(20.dp)
                                 .padding(end = 6.dp)
                         )
                     }
                     if (!selectedValue.isNullOrEmpty()) {
                         Text(
                             text = selectedValue,
-                            style = MaterialTheme.typography.bodyLarge.copy(
+                            style = MaterialTheme.typography.bodyMedium.copy(
                                 fontWeight = FontWeight.Medium,
-                                color = Slate900
+                                color = if (enabled) Slate900 else Slate500
                             ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -173,7 +181,9 @@ fun SelectorFieldTrigger(
                             text = placeholder,
                             style = MaterialTheme.typography.bodyMedium.copy(
                                 color = Slate400
-                            )
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -181,8 +191,8 @@ fun SelectorFieldTrigger(
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowDown,
                     contentDescription = "Buka Pilihan",
-                    tint = Slate500,
-                    modifier = Modifier.size(24.dp)
+                    tint = if (enabled) Slate500 else Slate400,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
@@ -192,7 +202,7 @@ fun SelectorFieldTrigger(
                 text = errorMessage,
                 color = MaterialTheme.colorScheme.error,
                 style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 4.dp, start = 4.dp)
+                modifier = Modifier.padding(top = 2.dp, start = 4.dp)
             )
         }
     }

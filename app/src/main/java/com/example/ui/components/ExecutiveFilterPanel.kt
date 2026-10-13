@@ -338,7 +338,7 @@ fun ExecutiveFilterPanel(
                     DropdownMenu(
                         expanded = isKodeUnitDropdownExpanded,
                         onDismissRequest = { isKodeUnitDropdownExpanded = false },
-                        modifier = Modifier.fillMaxWidth(0.85f)
+                        modifier = Modifier.fillMaxWidth(0.85f).heightIn(max = 240.dp)
                     ) {
                         DropdownMenuItem(
                             text = {
