@@ -188,7 +188,7 @@ class HeavyTrackViewModel(
         if (session?.isManager == true) {
             repository.getAllUnits()
         } else {
-            repository.getUnitsForSupervisor(supervisor)
+            repository.getUnitsForSupervisorOrWilayah(supervisor, session?.wilayah)
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -1203,15 +1203,15 @@ class HeavyTrackViewModel(
             return
         }
         if (op == null) {
-            viewModelScope.launch { _uiEvents.emit(UiMessage.Error("Pilih Operator Pelaksana pada Rencana Utama")) }
+            viewModelScope.launch { _uiEvents.emit(UiMessage.Error("Pilih Operator Pelaksana")) }
             return
         }
         if (act == null) {
-            viewModelScope.launch { _uiEvents.emit(UiMessage.Error("Pilih Aktivitas / Jenis Pekerjaan pada Rencana Utama")) }
+            viewModelScope.launch { _uiEvents.emit(UiMessage.Error("Pilih Aktivitas / Jenis Pekerjaan")) }
             return
         }
         if (lok == null) {
-            viewModelScope.launch { _uiEvents.emit(UiMessage.Error("Pilih Lokasi Kerja Lapangan pada Rencana Utama")) }
+            viewModelScope.launch { _uiEvents.emit(UiMessage.Error("Pilih Lokasi Kerja Lapangan")) }
             return
         }
 
@@ -1358,8 +1358,8 @@ class HeavyTrackViewModel(
 
         _realisasiFormState.value = _realisasiFormState.value.copy(
             selectedRencana = rencana,
-            selectedActivity = matchedActivity ?: _realisasiFormState.value.selectedActivity,
-            selectedLokasi = matchedLokasi ?: _realisasiFormState.value.selectedLokasi,
+            selectedActivity = matchedActivity,
+            selectedLokasi = matchedLokasi,
             nomorSpk = resolvedSpk,
             statusSpk = if (resolvedSpk.isNotBlank()) "SPK_TERBIT" else rencana.statusSpk,
             hmAwalOriginal = hmAwalVal,

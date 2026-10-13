@@ -52,16 +52,16 @@ object CompanyServerSimulator {
     val serverUnits = CopyOnWriteArrayList<UnitPayload>().apply {
         addAll(
             listOf(
-                UnitPayload("HEH1", "EXCAVATOR", "Komatsu PC200-8", 4125.5, "Budi Santoso", "OPERASIONAL", 6.0, 10.0),
-                UnitPayload("EXC-02", "EXCAVATOR", "Caterpillar 320D", 6280.0, "Budi Santoso", "OPERASIONAL", 6.0, 10.0),
-                UnitPayload("DT-101", "DUMP TRUCK", "Hino FM 260 Ti", 3450.2, "Budi Santoso", "OPERASIONAL", 5.5, 9.5),
-                UnitPayload("DT-102", "DUMP TRUCK", "Scania P360", 2890.4, "Budi Santoso", "OPERASIONAL", 5.5, 9.5),
-                UnitPayload("DZ-01", "BULLDOZER", "Komatsu D85ESS-2", 5130.8, "Budi Santoso", "OPERASIONAL", 6.0, 10.0),
-                UnitPayload("GRD-01", "MOTOR GRADER", "Caterpillar 140K", 1870.0, "Budi Santoso", "OPERASIONAL", 5.0, 9.0),
+                UnitPayload("HEH1", "EXCAVATOR", "Komatsu PC200-8", 4125.5, "Budi Santoso", "OPERASIONAL", 6.0, 10.0, "PG1"),
+                UnitPayload("EXC-02", "EXCAVATOR", "Caterpillar 320D", 6280.0, "Budi Santoso", "OPERASIONAL", 6.0, 10.0, "PG1"),
+                UnitPayload("DT-101", "DUMP TRUCK", "Hino FM 260 Ti", 3450.2, "Budi Santoso", "OPERASIONAL", 5.5, 9.5, "PG1"),
+                UnitPayload("DT-102", "DUMP TRUCK", "Scania P360", 2890.4, "Budi Santoso", "OPERASIONAL", 5.5, 9.5, "PG1"),
+                UnitPayload("DZ-01", "BULLDOZER", "Komatsu D85ESS-2", 5130.8, "Budi Santoso", "OPERASIONAL", 6.0, 10.0, "PG1"),
+                UnitPayload("GRD-01", "MOTOR GRADER", "Caterpillar 140K", 1870.0, "Budi Santoso", "OPERASIONAL", 5.0, 9.0, "PG1"),
                 // Units assigned to other supervisors
-                UnitPayload("EXC-09", "EXCAVATOR", "Hitachi ZX210-5G", 3990.2, "Agus Wijaya", "OPERASIONAL", 6.0, 10.0),
-                UnitPayload("DT-205", "DUMP TRUCK", "Volvo FMX 440", 4150.0, "Agus Wijaya", "OPERASIONAL", 5.5, 9.5),
-                UnitPayload("DZ-04", "BULLDOZER", "CAT D6R", 2980.5, "Rudi Hartono", "OPERASIONAL", 6.0, 10.0)
+                UnitPayload("EXC-09", "EXCAVATOR", "Hitachi ZX210-5G", 3990.2, "Agus Wijaya", "OPERASIONAL", 6.0, 10.0, "PG2"),
+                UnitPayload("DT-205", "DUMP TRUCK", "Volvo FMX 440", 4150.0, "Agus Wijaya", "OPERASIONAL", 5.5, 9.5, "PG2"),
+                UnitPayload("DZ-04", "BULLDOZER", "CAT D6R", 2980.5, "Rudi Hermawan", "OPERASIONAL", 6.0, 10.0, "PG3")
             )
         )
     }
@@ -93,15 +93,15 @@ object CompanyServerSimulator {
     val serverActivities = CopyOnWriteArrayList<ActivityPayload>().apply {
         addAll(
             listOf(
-                ActivityPayload("ACT-SAP-101", "Galian Tanah Lunak", "m3", "Penggalian area cut site A", "PRODUKSI", "OPERASI"),
-                ActivityPayload("ACT-SAP-102", "Loading Overburden", "m3", "Pemuatan tanah penutup ke dump truck", "PRODUKSI", "OPERASI"),
-                ActivityPayload("ACT-SAP-103", "Ripping Batuan Keras", "m3", "Pemecahan lapisan batuan menggunakan ripper dozer", "PRODUKSI", "OPERASI"),
-                ActivityPayload("ACT-SAP-201", "Dumping & Spreading", "m2", "Penghamparan material di area disposal", "SUPPORT", "OPERASI"),
-                ActivityPayload("ACT-SAP-202", "Grading Mainroad Tambang", "m", "Perawatan kerataan dan grading jalan hauling", "INFRASTRUKTUR", "OPERASI"),
-                ActivityPayload("ACT-SAP-STB-01", "Standby Hujan / Cuaca Buruk", "jam", "Kondisi hujan lebat atau jalur licin", "STANDBY", "STANDBY"),
-                ActivityPayload("ACT-SAP-STB-02", "Standby Tunggu Trailler / Front", "jam", "Menunggu lowbed mobilisasi atau kesiapan front", "STANDBY", "STANDBY"),
-                ActivityPayload("ACT-SAP-BDN-01", "Breakdown Kerusakan Mesin / Engine", "jam", "Trouble mesin / transmisi unit", "BREAKDOWN", "BREAKDOWN"),
-                ActivityPayload("ACT-SAP-BDN-02", "Breakdown Perbaikan Undercarriage", "jam", "Perbaikan track / undercarriage unit", "BREAKDOWN", "BREAKDOWN")
+                ActivityPayload("ACT-SAP-101", "Galian Tanah Lunak", "m3", "Penggalian area cut site A", "PRODUKSI", "OPERASI", "EXCAVATOR"),
+                ActivityPayload("ACT-SAP-102", "Loading Overburden", "m3", "Pemuatan tanah penutup ke dump truck", "PRODUKSI", "OPERASI", "EXCAVATOR"),
+                ActivityPayload("ACT-SAP-103", "Ripping Batuan Keras", "m3", "Pemecahan lapisan batuan menggunakan ripper dozer", "PRODUKSI", "OPERASI", "BULLDOZER"),
+                ActivityPayload("ACT-SAP-201", "Dumping & Spreading", "m2", "Penghamparan material di area disposal", "SUPPORT", "OPERASI", "DUMP TRUCK"),
+                ActivityPayload("ACT-SAP-202", "Grading Mainroad Tambang", "m", "Perawatan kerataan dan grading jalan hauling", "INFRASTRUKTUR", "OPERASI", "MOTOR GRADER"),
+                ActivityPayload("ACT-SAP-STB-01", "Standby Hujan / Cuaca Buruk", "jam", "Kondisi hujan lebat atau jalur licin", "STANDBY", "STANDBY", "ALL"),
+                ActivityPayload("ACT-SAP-STB-02", "Standby Tunggu Trailler / Front", "jam", "Menunggu lowbed mobilisasi atau kesiapan front", "STANDBY", "STANDBY", "ALL"),
+                ActivityPayload("ACT-SAP-BDN-01", "Breakdown Kerusakan Mesin / Engine", "jam", "Trouble mesin / transmisi unit", "BREAKDOWN", "BREAKDOWN", "ALL"),
+                ActivityPayload("ACT-SAP-BDN-02", "Breakdown Perbaikan Undercarriage", "jam", "Perbaikan track / undercarriage unit", "BREAKDOWN", "BREAKDOWN", "ALL")
             )
         )
     }
@@ -110,16 +110,16 @@ object CompanyServerSimulator {
     val serverOperators = CopyOnWriteArrayList<OperatorPayload>().apply {
         addAll(
             listOf(
-                OperatorPayload("OPR-001", "Ahmad Fauzi", "NIK-94821", "Budi Santoso", "Senior Operator - Class A"),
-                OperatorPayload("OPR-002", "Bambang Sudrajat", "NIK-88234", "Budi Santoso", "Senior Operator - Class A"),
-                OperatorPayload("OPR-003", "Dedi Supriyadi", "NIK-77412", "Budi Santoso", "Operator Alat Berat - Class B"),
-                OperatorPayload("OPR-004", "Eko Prasetyo", "NIK-65129", "Budi Santoso", "Operator Dump Truck - Class B"),
-                OperatorPayload("OPR-005", "Hendra Gunawan", "NIK-91203", "Budi Santoso", "Master Grader Operator"),
+                OperatorPayload("OPR-001", "Ahmad Fauzi", "NIK-94821", "Budi Santoso", "Senior Operator - Class A", "AKTIF", "PG1"),
+                OperatorPayload("OPR-002", "Bambang Sudrajat", "NIK-88234", "Budi Santoso", "Senior Operator - Class A", "AKTIF", "PG1"),
+                OperatorPayload("OPR-003", "Dedi Supriyadi", "NIK-77412", "Budi Santoso", "Operator Alat Berat - Class B", "AKTIF", "PG1"),
+                OperatorPayload("OPR-004", "Eko Prasetyo", "NIK-65129", "Budi Santoso", "Operator Dump Truck - Class B", "AKTIF", "PG1"),
+                OperatorPayload("OPR-005", "Hendra Gunawan", "NIK-91203", "Budi Santoso", "Master Grader Operator", "AKTIF", "PG1"),
                 // Operators for Agus Wijaya
-                OperatorPayload("OPR-006", "Indra Kusuma", "NIK-83190", "Agus Wijaya", "Senior Excavator Operator"),
-                OperatorPayload("OPR-007", "Joko Susilo", "NIK-74102", "Agus Wijaya", "Dump Truck Driver"),
-                // Operators for Rudi Hartono
-                OperatorPayload("OPR-008", "Kurniawan Putra", "NIK-69214", "Rudi Hartono", "Dozer Operator")
+                OperatorPayload("OPR-006", "Indra Kusuma", "NIK-83190", "Agus Wijaya", "Senior Excavator Operator", "AKTIF", "PG2"),
+                OperatorPayload("OPR-007", "Joko Susilo", "NIK-74102", "Agus Wijaya", "Dump Truck Driver", "AKTIF", "PG2"),
+                // Operators for Rudi Hermawan
+                OperatorPayload("OPR-008", "Kurniawan Putra", "NIK-69214", "Rudi Hermawan", "Dozer Operator", "AKTIF", "PG3")
             )
         )
     }

@@ -90,6 +90,12 @@ class HeavyTrackRepository(
     fun getUnitsForSupervisorOrWilayah(supervisor: String, wilayah: String?): Flow<List<UnitEntity>> =
         unitDao.getUnitsForSupervisorOrWilayah(supervisor, wilayah)
 
+    fun getUnitsByWilayah(wilayah: String?): Flow<List<UnitEntity>> =
+        unitDao.getUnitsByWilayah(wilayah)
+
+    fun getOperatorsByWilayah(wilayah: String?): Flow<List<OperatorEntity>> =
+        operatorDao.getOperatorsFiltered(wilayah)
+
     fun getAllUnits(): Flow<List<UnitEntity>> =
         unitDao.getAllUnits()
 

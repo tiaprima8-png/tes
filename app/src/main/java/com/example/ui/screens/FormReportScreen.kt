@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -568,7 +569,7 @@ fun FormReportScreen(
 
                         // 2. Unit Alat Berat Searchable Selector (Otomatis Tanggal, Deteksi Backlog & Tambah Susulan)
                         SelectorFieldTrigger(
-                            label = "2. Unit Alat Berat (Deteksi Backlog & Rencana Susulan)",
+                            label = "2. Unit Alat Berat",
                             selectedValue = rencanaState.selectedUnit?.let { u ->
                                 when {
                                     rencanaState.isBacklog -> "${u.unitCode} - ${u.brandModel} [Backlog Kemarin]"
@@ -646,29 +647,29 @@ fun FormReportScreen(
                                                 else -> Emerald900
                                             }
                                         )
-                                        Text(
-                                            text = when {
-                                                rencanaState.isBacklog -> "Unit belum diisi kemarin. Kasie wajib menyelesaikan pengisian backlog ini terlebih dahulu."
-                                                rencanaState.isSusulan -> "Unit ini sudah memiliki rencana kerja hari ini. Anda sedang membuat Rencana Kerja Tambahan/Susulan."
-                                                else -> "Tanggal otomatis terisi oleh sistem. Pengguna tidak perlu menginput tanggal manual."
-                                            },
-                                            fontSize = 10.sp,
-                                            color = when {
-                                                rencanaState.isBacklog -> Color(0xFFB91C1C)
-                                                rencanaState.isSusulan -> Emerald700
-                                                else -> Emerald700
-                                            }
-                                        )
+                                        if (rencanaState.isBacklog) {
+                                            Text(
+                                                text = "Unit belum diisi kemarin. Pengisian backlog diselesaikan terlebih dahulu.",
+                                                fontSize = 10.sp,
+                                                color = Color(0xFFB91C1C)
+                                            )
+                                        } else if (rencanaState.isSusulan) {
+                                            Text(
+                                                text = "Unit sudah ada rencana hari ini. Membuat rencana susulan tambahan.",
+                                                fontSize = 10.sp,
+                                                color = Emerald700
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                        // 3. Operator Pelaksana Utama
+                        // 3. Operator Pelaksana
                         SelectorFieldTrigger(
-                            label = "3. Operator Pelaksana (Rencana Utama)",
+                            label = "3. Operator Pelaksana",
                             selectedValue = rencanaState.selectedOperator?.name,
                             placeholder = "Pilih Nama Operator Pelaksana...",
                             leadingIcon = Icons.Default.Person,
@@ -680,15 +681,19 @@ fun FormReportScreen(
                             }
                         )
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                        // 4. Aktivitas / Jenis Pekerjaan Utama
+                        // 4. Aktivitas / Jenis Pekerjaan (Cascading sesuai Jenis Unit)
                         SelectorFieldTrigger(
-                            label = "4. Aktivitas / Jenis Pekerjaan (Rencana Utama)",
+                            label = "4. Aktivitas / Jenis Pekerjaan",
                             selectedValue = rencanaState.selectedActivity?.let { "${it.activityName} (${it.sapCode})" },
-                            placeholder = "Pilih Jenis Pekerjaan (Galian, Loading, dll)...",
+                            placeholder = if (rencanaState.selectedUnit == null)
+                                "Pilih Unit terlebih dahulu..."
+                            else
+                                "Pilih Jenis Pekerjaan (${rencanaState.selectedUnit?.unitType ?: ""})...",
                             leadingIcon = Icons.Default.Assignment,
-                            badgeText = rencanaState.selectedActivity?.unitOfMeasure,
+                            badgeText = rencanaState.selectedActivity?.unitOfMeasure ?: selectedRencanaUnitType.takeIf { it.isNotBlank() },
+                            enabled = rencanaState.selectedUnit != null,
                             testTag = "selector_rencana_aktivitas",
                             onClick = {
                                 activeSubPlanActivityTarget = null
@@ -696,11 +701,11 @@ fun FormReportScreen(
                             }
                         )
 
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                        // 5. Lokasi Kerja Lapangan Utama
+                        // 5. Lokasi Kerja Lapangan
                         SelectorFieldTrigger(
-                            label = "5. Lokasi Kerja Lapangan (Rencana Utama)",
+                            label = "5. Lokasi Kerja Lapangan",
                             selectedValue = rencanaState.selectedLokasi?.let { "${it.kodeLokasi} (${it.wilayah})" },
                             placeholder = "Pilih Lokasi Kerja (001A / PG1)...",
                             leadingIcon = Icons.Default.LocationOn,
@@ -871,13 +876,17 @@ fun FormReportScreen(
 
                                         Spacer(modifier = Modifier.height(8.dp))
 
-                                        // Sub 2: Aktivitas
+                                        // Sub 2: Aktivitas (Cascading sesuai Jenis Unit)
                                         SelectorFieldTrigger(
                                             label = "Aktivitas / Jenis Pekerjaan #${index + 2}",
                                             selectedValue = sub.selectedActivity?.let { "${it.activityName} (${it.sapCode})" },
-                                            placeholder = "Pilih Aktivitas...",
+                                            placeholder = if (rencanaState.selectedUnit == null)
+                                                "Pilih Unit terlebih dahulu..."
+                                            else
+                                                "Pilih Aktivitas (${rencanaState.selectedUnit?.unitType ?: ""})...",
                                             leadingIcon = Icons.Default.Assignment,
-                                            badgeText = sub.selectedActivity?.unitOfMeasure,
+                                            badgeText = sub.selectedActivity?.unitOfMeasure ?: selectedRencanaUnitType.takeIf { it.isNotBlank() },
+                                            enabled = rencanaState.selectedUnit != null,
                                             testTag = "sub_aktivitas_${index + 1}",
                                             onClick = {
                                                 activeSubPlanActivityTarget = sub.id
@@ -1472,14 +1481,18 @@ fun FormReportScreen(
                             modifier = Modifier.padding(bottom = 6.dp)
                         )
 
-                        // Editable Dropdown Aktivitas
+                        // Editable Dropdown Aktivitas (Cascading dari Rencana Terpilih)
                         SelectorFieldTrigger(
                             label = "Aktivitas / Jenis Pekerjaan Aktual",
                             selectedValue = realisasiState.selectedActivity?.let { "${it.activityName} (${it.sapCode})" }
                                 ?: realisasiState.selectedRencana?.namaAktivitas,
-                            placeholder = "Pilih Aktivitas Aktual Lapangan...",
+                            placeholder = if (realisasiState.selectedRencana == null)
+                                "Pilih Rencana Unit terlebih dahulu..."
+                            else
+                                "Pilih Aktivitas Aktual Lapangan...",
                             leadingIcon = Icons.Default.Assignment,
-                            badgeText = "Dapat Diubah",
+                            badgeText = if (realisasiState.selectedRencana != null) "Dapat Diubah" else null,
+                            enabled = realisasiState.selectedRencana != null,
                             testTag = "selector_realisasi_aktivitas_editable",
                             onClick = { isRealisasiActivitySheetOpen = true }
                         )
@@ -1546,14 +1559,18 @@ fun FormReportScreen(
 
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        // Editable Dropdown Lokasi
+                        // Editable Dropdown Lokasi (Cascading dari Rencana Terpilih)
                         SelectorFieldTrigger(
                             label = "Lokasi Kerja Lapangan Aktual",
                             selectedValue = realisasiState.selectedLokasi?.let { "${it.kodeLokasi} (${it.wilayah})" }
                                 ?: realisasiState.selectedRencana?.kodeLokasi,
-                            placeholder = "Pilih Lokasi Aktual Lapangan...",
+                            placeholder = if (realisasiState.selectedRencana == null)
+                                "Pilih Rencana Unit terlebih dahulu..."
+                            else
+                                "Pilih Lokasi Aktual Lapangan...",
                             leadingIcon = Icons.Default.LocationOn,
-                            badgeText = "Dapat Diubah",
+                            badgeText = if (realisasiState.selectedRencana != null) "Dapat Diubah" else null,
+                            enabled = realisasiState.selectedRencana != null,
                             testTag = "selector_realisasi_lokasi_editable",
                             onClick = { isRealisasiLokasiSheetOpen = true }
                         )
@@ -1846,7 +1863,7 @@ fun FormReportScreen(
                                                     unfocusedContainerColor = Color(0xFFFFFBEB)
                                                 ),
                                                 shape = RoundedCornerShape(10.dp),
-                                                modifier = Modifier.fillMaxWidth().height(52.dp).testTag("input_hm_awal_manual")
+                                                modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("input_hm_awal_manual")
                                             )
                                         }
                                     }
@@ -1906,7 +1923,7 @@ fun FormReportScreen(
                                                 unfocusedContainerColor = Color.White
                                             ),
                                             shape = RoundedCornerShape(10.dp),
-                                            modifier = Modifier.fillMaxWidth().height(52.dp).testTag("input_hm_akhir")
+                                            modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("input_hm_akhir")
                                         )
                                     }
                                 }
@@ -3584,6 +3601,7 @@ fun FormReportScreen(
         } else {
             rencanaState.selectedActivity
         },
+        unitType = selectedRencanaUnitType.takeIf { it.isNotBlank() },
         onActivitySelected = { act ->
             val subId = activeSubPlanActivityTarget
             if (subId != null) {
@@ -3627,6 +3645,7 @@ fun FormReportScreen(
         onDismissRequest = { isRealisasiActivitySheetOpen = false },
         activities = filteredActivitiesForRealisasi,
         selectedActivity = realisasiState.selectedActivity,
+        unitType = realisasiUnitType.takeIf { it.isNotBlank() },
         onActivitySelected = {
             viewModel.setRealisasiActivity(it)
             isRealisasiActivitySheetOpen = false

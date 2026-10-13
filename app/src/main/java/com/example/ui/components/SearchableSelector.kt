@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -221,6 +222,9 @@ fun <T> SearchableSelectorSheet(
     filterPredicate: (item: T, query: String) -> Boolean,
     onItemSelected: (T) -> Unit,
     onDismissRequest: () -> Unit,
+    subtitle: String? = null,
+    emptyMessage: String = "Tidak ada hasil yang cocok",
+    emptySubtitle: String = "Coba kata kunci pencarian yang lain",
     sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     itemContent: @Composable (item: T, isSelected: Boolean, onClick: () -> Unit) -> Unit
 ) {
@@ -251,7 +255,7 @@ fun <T> SearchableSelectorSheet(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.85f)
+                    .heightIn(min = 280.dp, max = 560.dp)
                     .padding(horizontal = 20.dp)
             ) {
                 // Header
@@ -271,7 +275,7 @@ fun <T> SearchableSelectorSheet(
                             )
                         )
                         Text(
-                            text = "${filteredItems.size} opsi tersedia",
+                            text = subtitle ?: "${filteredItems.size} opsi tersedia",
                             style = MaterialTheme.typography.bodySmall.copy(color = Slate500)
                         )
                     }
@@ -353,14 +357,14 @@ fun <T> SearchableSelectorSheet(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = "Tidak ada hasil yang cocok",
+                                text = emptyMessage,
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.SemiBold,
                                     color = Slate700
                                 )
                             )
                             Text(
-                                text = "Coba kata kunci pencarian yang lain",
+                                text = emptySubtitle,
                                 style = MaterialTheme.typography.bodySmall.copy(color = Slate500)
                             )
                         }
@@ -850,7 +854,7 @@ fun LokasiSearchableSelectorSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.85f)
+                .heightIn(min = 280.dp, max = 560.dp)
                 .padding(horizontal = 20.dp, vertical = 6.dp)
         ) {
             Row(
@@ -1009,7 +1013,10 @@ fun OperatorSearchableSelectorSheet(
     SearchableSelectorSheet(
         isOpen = isOpen,
         title = "Pilih Operator Pelaksana",
+        subtitle = "${operators.size} operator terdaftar",
         searchPlaceholder = "Cari nama operator atau NIK...",
+        emptyMessage = "Operator tidak ditemukan",
+        emptySubtitle = "Pastikan nama atau NIK operator terdaftar di sistem",
         items = operators,
         filterPredicate = { op, query ->
             op.name.contains(query, ignoreCase = true) ||
@@ -1033,12 +1040,17 @@ fun ActivitySearchableSelectorSheet(
     onDismissRequest: () -> Unit,
     activities: List<ActivityMasterEntity>,
     selectedActivity: ActivityMasterEntity?,
+    unitType: String? = null,
     onActivitySelected: (ActivityMasterEntity) -> Unit
 ) {
+    val cleanUnit = unitType?.trim()?.takeIf { it.isNotBlank() }
     SearchableSelectorSheet(
         isOpen = isOpen,
         title = "Pilih Aktivitas Kerja Lapangan",
-        searchPlaceholder = "Cari jenis pekerjaan atau kode SAP...",
+        subtitle = cleanUnit?.let { "Sesuai Unit $it (${activities.size} aktivitas)" },
+        searchPlaceholder = if (cleanUnit != null) "Cari pekerjaan untuk $cleanUnit..." else "Cari jenis pekerjaan atau kode SAP...",
+        emptyMessage = if (cleanUnit != null) "Tidak ada aktivitas khusus unit $cleanUnit" else "Tidak ada hasil yang cocok",
+        emptySubtitle = if (cleanUnit != null) "Pilih jenis unit lain atau daftarkan di Web Admin" else "Coba kata kunci pencarian yang lain",
         items = activities,
         filterPredicate = { act, query ->
             act.activityName.contains(query, ignoreCase = true) ||
@@ -1232,7 +1244,10 @@ fun UnitPlanSearchableSelectorSheet(
     SearchableSelectorSheet(
         isOpen = isOpen,
         title = "Pilih Unit Alat Berat",
+        subtitle = if (backlogCount > 0) "${availableUnits.size} unit ($backlogCount backlog)" else "${availableUnits.size} unit terdaftar",
         searchPlaceholder = "Cari kode unit atau jenis (mis. EX-201, Dozer)...",
+        emptyMessage = "Unit alat berat tidak ditemukan",
+        emptySubtitle = "Cek filter pengawas atau hubungi Admin Alat Berat",
         items = availableUnits,
         filterPredicate = { item, query ->
             item.unit.unitCode.contains(query, ignoreCase = true) ||

@@ -482,7 +482,8 @@ data class UnitPayload(
         supervisorAssigned = supervisorAssigned,
         status = status,
         hm_min_standar = hmMinStandar,
-        hm_max_standar = hmMaxStandar
+        hm_max_standar = hmMaxStandar,
+        wilayah = wilayah
     )
 
     val resolvedUnitCode: String get() = kode_unit ?: unit_code ?: unitCode ?: "UNKNOWN"
@@ -493,7 +494,11 @@ data class UnitPayload(
     val resolvedStatus: String get() = status ?: "OPERASIONAL"
     val resolvedHmMinStandar: Double get() = hm_min_standar ?: hm_min ?: min_standar ?: hmMinStandar ?: 6.0
     val resolvedHmMaxStandar: Double get() = hm_max_standar ?: hm_max ?: max_standar ?: hmMaxStandar ?: 10.0
-    val resolvedWilayah: String get() = wilayah?.takeIf { it.isNotBlank() } ?: "PG1"
+    val resolvedWilayah: String get() = wilayah?.takeIf { it.isNotBlank() } ?: when {
+        resolvedSupervisor.contains("Agus", ignoreCase = true) -> "PG2"
+        resolvedSupervisor.contains("Rudi", ignoreCase = true) -> "PG3"
+        else -> "PG1"
+    }
 }
 
 @JsonClass(generateAdapter = true)
@@ -527,7 +532,8 @@ data class ActivityPayload(
         unitOfMeasure: String,
         description: String = "",
         category: String = "PRODUKSI",
-        kategoriStatus: String = "OPERASI"
+        kategoriStatus: String = "OPERASI",
+        jenisUnit: String = "ALL"
     ) : this(
         kode_sap = sapCode,
         sap_code = sapCode,
@@ -543,7 +549,8 @@ data class ActivityPayload(
         kategori = category,
         category = category,
         kategori_status = kategoriStatus,
-        kategoriStatus = kategoriStatus
+        kategoriStatus = kategoriStatus,
+        jenis_unit = jenisUnit
     )
 
     val resolvedSapCode: String get() = kode_sap ?: sap_code ?: sapCode ?: "ACT-SAP-999"
@@ -551,7 +558,21 @@ data class ActivityPayload(
     val resolvedUnitOfMeasure: String get() = satuan ?: unit_of_measure ?: unitOfMeasure ?: "m3"
     val resolvedDescription: String get() = description ?: keterangan ?: ""
     val resolvedCategory: String get() = kategori ?: category ?: "PRODUKSI"
-    val resolvedJenisUnit: String get() = (jenis_unit ?: "ALL").trim().ifBlank { "ALL" }
+    val resolvedJenisUnit: String get() {
+        val raw = jenis_unit?.trim()
+        if (!raw.isNullOrBlank() && !raw.equals("ALL", ignoreCase = true)) {
+            return raw
+        }
+        val name = resolvedActivityName.uppercase()
+        return when {
+            name.contains("GALIAN") || name.contains("LOADING") || name.contains("EXCAVATOR") -> "EXCAVATOR"
+            name.contains("DUMPING") || name.contains("SPREADING") || name.contains("HAULING") || name.contains("DUMP TRUCK") -> "DUMP TRUCK"
+            name.contains("RIPPING") || name.contains("DOZING") || name.contains("BULLDOZER") -> "BULLDOZER"
+            name.contains("GRADING") || name.contains("MOTOR GRADER") || name.contains("GRADER") -> "MOTOR GRADER"
+            name.contains("PENYIRAMAN") || name.contains("WATER TRUCK") -> "WATER TRUCK"
+            else -> raw?.ifBlank { "ALL" } ?: "ALL"
+        }
+    }
     val resolvedKategoriStatus: String get() = (kategori_status ?: kategoriStatus)?.trim()?.uppercase()?.takeIf { it.isNotBlank() } ?: when {
         resolvedActivityName.contains("Standby", ignoreCase = true) || resolvedSapCode.contains("STB", ignoreCase = true) -> "STANDBY"
         resolvedActivityName.contains("Breakdown", ignoreCase = true) || resolvedActivityName.contains("Perbaikan", ignoreCase = true) || resolvedSapCode.contains("BDN", ignoreCase = true) -> "BREAKDOWN"
@@ -627,7 +648,11 @@ data class OperatorPayload(
     val resolvedSupervisor: String get() = nama_pengawas ?: supervisor_assigned ?: supervisorAssigned ?: ""
     val resolvedSkillLevel: String get() = jabatan ?: skill_level ?: skillLevel ?: "Class A"
     val resolvedStatus: String get() = status ?: "AKTIF"
-    val resolvedWilayah: String get() = wilayah?.takeIf { it.isNotBlank() } ?: "PG1"
+    val resolvedWilayah: String get() = wilayah?.takeIf { it.isNotBlank() } ?: when {
+        resolvedSupervisor.contains("Agus", ignoreCase = true) -> "PG2"
+        resolvedSupervisor.contains("Rudi", ignoreCase = true) -> "PG3"
+        else -> "PG1"
+    }
 }
 
 @JsonClass(generateAdapter = true)
