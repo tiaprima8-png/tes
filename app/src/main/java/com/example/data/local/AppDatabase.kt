@@ -14,6 +14,7 @@ import com.example.data.local.dao.OperatorDao
 import com.example.data.local.dao.RencanaKerjaDao
 import com.example.data.local.dao.AktivitasUnitDao
 import com.example.data.local.dao.UnitDao
+import com.example.data.local.dao.UserDao
 import com.example.data.local.entity.ActivityMasterEntity
 import com.example.data.local.entity.ActivityReportEntity
 import com.example.data.local.entity.AktivitasUnitEntity
@@ -24,6 +25,7 @@ import com.example.data.local.entity.LokasiEntity
 import com.example.data.local.entity.OperatorEntity
 import com.example.data.local.entity.RencanaKerjaEntity
 import com.example.data.local.entity.UnitEntity
+import com.example.data.local.entity.UserEntity
 
 @Database(
     entities = [
@@ -36,9 +38,10 @@ import com.example.data.local.entity.UnitEntity
         HasilInputAktivitasEntity::class,
         KendalaEntity::class,
         DraftRealisasiEntity::class,
-        AktivitasUnitEntity::class
+        AktivitasUnitEntity::class,
+        UserEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -52,6 +55,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun kendalaDao(): KendalaDao
     abstract fun draftRealisasiDao(): DraftRealisasiDao
     abstract fun aktivitasUnitDao(): AktivitasUnitDao
+    abstract fun userDao(): UserDao
 
     companion object {
         @Volatile
