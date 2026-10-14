@@ -39,4 +39,7 @@ interface ActivityMasterDao {
 
     @Query("DELETE FROM master_activities")
     suspend fun clearAllActivities()
+
+    @Query("DELETE FROM master_activities")
+    suspend fun deleteAll()
 }

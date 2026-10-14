@@ -245,14 +245,14 @@ class HeavyTrackRepository(
             fetchMasterData(activeSupervisor)
         } catch (_: Exception) {
             val initialUnits = listOf(
-                UnitEntity("HEH1", "Excavator Standar", "Komatsu PC200-8", 4125.5, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
-                UnitEntity("EXC-02", "Excavator Long Arm", "Caterpillar 320D Long Arm", 6280.0, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
-                UnitEntity("EXC-M01", "Excavator Mini", "Kubota U50-5", 1450.0, activeSupervisor, "OPERASIONAL", 5.0, 8.0, "Geodesi PG1"),
-                UnitEntity("MG-01", "Motor Grader", "Caterpillar 140K", 2150.0, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
-                UnitEntity("CMP-01", "Compactor", "Bomag BW211 D-40", 2100.0, "Agus Wijaya", "OPERASIONAL", 5.0, 8.5, "Geodesi PG2"),
-                UnitEntity("EXC-15", "Excavator Standar", "Kobelco SK200", 4500.0, "Hendra Setiawan", "OPERASIONAL", 6.0, 10.0, "RC PG2"),
-                UnitEntity("GRD-02", "Motor Grader", "CAT 140M", 2300.0, "Yanto Prasetyo", "OPERASIONAL", 5.0, 9.0, "RC PG3"),
-                UnitEntity("CMP-02", "Compactor", "Sakai SV520", 1750.0, "Ilham Saputra", "OPERASIONAL", 5.0, 8.5, "LEBUNG PG12")
+                UnitEntity("HEH0004", "Excavator Mini", "Kubota U50-5", 6.0, activeSupervisor, "OPERASIONAL", 6.0, 10.5, "Geodesi PG1"),
+                UnitEntity("HEH0013", "Excavator Standar", "Komatsu PC200-8", 12.0, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
+                UnitEntity("HEH0015", "Excavator Standar", "Kobelco SK200", 25.0, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
+                UnitEntity("HEH0029", "Excavator Long Arm", "Caterpillar 320D Long Arm", 18.0, activeSupervisor, "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
+                UnitEntity("SCC0001", "Compactor", "Bomag BW211 D-40", 15.0, activeSupervisor, "OPERASIONAL", 5.0, 8.5, "Geodesi PG1"),
+                UnitEntity("EXC-09", "Excavator Standar", "Hitachi ZX210-5G", 3990.2, "Zainudin", "OPERASIONAL", 6.0, 10.0, "Geodesi PG2"),
+                UnitEntity("GRD-02", "Motor Grader", "CAT 140M", 2300.0, "Zainudin", "OPERASIONAL", 5.0, 9.0, "Geodesi PG2"),
+                UnitEntity("CMP-02", "Compactor", "Sakai SV520", 1750.0, "Jaidi", "OPERASIONAL", 5.0, 8.5, "Geodesi PG3")
             )
             unitDao.insertUnits(initialUnits)
 
@@ -310,81 +310,13 @@ class HeavyTrackRepository(
             kendalaDao.clearAll()
             kendalaDao.insertKendalaList(initialKendala)
 
-            // Seed initial sample plans & reports for rich executive multi-region analytics
-            val samplePlans = listOf(
-                RencanaKerjaEntity(
-                    id = 101L,
-                    supervisorName = "Budi Santoso",
-                    pengawas = "Budi Santoso",
-                    statusUnit = "OPERASI",
-                    kodeUnit = "HEH1",
-                    operator = "Ahmad Fauzi",
-                    sapCode = "ACT-SAP-101",
-                    namaAktivitas = "Galian Tanah Lunak",
-                    satuanAktivitas = "m3",
-                    kodeLokasi = "001A",
-                    wilayah = "Geodesi PG1",
-                    shiftKerja = "SIANG",
-                    keterangan = "Penggalian front 001A",
-                    nomorSpk = "SPK-GEO1-001",
-                    statusSpk = "SPK_TERBIT",
-                    statusTahap = "REALISASI_SELESAI",
-                    statusRealisasi = "SUDAH",
-                    isRealized = true,
-                    isSynced = true
-                ),
-                RencanaKerjaEntity(
-                    id = 102L,
-                    supervisorName = "Agus Wijaya",
-                    pengawas = "Agus Wijaya",
-                    statusUnit = "OPERASI",
-                    kodeUnit = "EXC-09",
-                    operator = "Bambang Sudrajat",
-                    sapCode = "ACT-SAP-101",
-                    namaAktivitas = "Galian Tanah Lunak",
-                    satuanAktivitas = "m3",
-                    kodeLokasi = "100A",
-                    wilayah = "Geodesi PG2",
-                    shiftKerja = "SIANG",
-                    keterangan = "Penggalian area cut pit B",
-                    nomorSpk = "SPK-GEO2-045",
-                    statusSpk = "SPK_TERBIT",
-                    statusTahap = "REALISASI_SELESAI",
-                    statusRealisasi = "SUDAH",
-                    isRealized = true,
-                    isSynced = true
-                ),
-                RencanaKerjaEntity(
-                    id = 103L,
-                    supervisorName = "Rudi Hermawan",
-                    pengawas = "Rudi Hermawan",
-                    statusUnit = "OPERASI",
-                    kodeUnit = "CMP-02",
-                    operator = "Dedi Supriyadi",
-                    sapCode = "ACT-SAP-201",
-                    namaAktivitas = "Pemadatan Subgrade",
-                    satuanAktivitas = "m2",
-                    kodeLokasi = "201C",
-                    wilayah = "RC PG1",
-                    shiftKerja = "SIANG",
-                    keterangan = "Pemadatan jalan hauling route",
-                    nomorSpk = "SPK-GEO3-089",
-                    statusSpk = "SPK_TERBIT",
-                    statusTahap = "REALISASI_SELESAI",
-                    statusRealisasi = "SUDAH",
-                    isRealized = true,
-                    isSynced = true
-                )
-            )
-            rencanaDao.insertRencanaList(samplePlans)
-
             val sampleReports = listOf(
                 ActivityReportEntity(
                     id = 201L,
                     clientUuid = "SEED-REP-01",
                     reportDate = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date()),
-                    supervisorName = "Budi Santoso",
-                    unitCode = "HEH1",
+                    supervisorName = "Agung",
+                    unitCode = "HEH0013",
                     unitType = "Excavator Standar",
                     activityName = "Galian Tanah Lunak",
                     sapCode = "ACT-SAP-101",
@@ -487,15 +419,21 @@ class HeavyTrackRepository(
         try {
             val (payload, message) = apiClientManager.fetchMasterData(supervisorName)
 
-            // PEMBERSIHAN LOKAL SQLITE: masterUnitDao.deleteAll()
+            // PEMBERSIHAN TABEL LOKAL SQLITE: dao.deleteAll()
+            unitDao.deleteAll()
             masterUnitDao.deleteAll()
+            activityDao.deleteAll()
+            operatorDao.deleteAll()
+            lokasiDao.deleteAll()
+            kendalaDao.deleteAll()
             database.cleanDumpTruckAndBulldozerDirect()
-            unitDao.deleteDumpTruckAndBulldozer()
-            rencanaDao.deleteOrphanedRencanaKerja()
+            rencanaDao.deleteAll()
             reportDao.deleteOrphanedReports()
 
-            // 1. Process Units
-            val incomingUnits = (payload.units ?: emptyList()).filter { com.example.data.model.UnitConstants.isJenisUnitValid(it.resolvedUnitType) }
+            // 1. Process Units Aktif
+            val incomingUnits = (payload.units ?: emptyList())
+                .filter { com.example.data.model.UnitConstants.isJenisUnitValid(it.resolvedUnitType) }
+                .filter { !it.resolvedStatus.equals("Nonaktif", ignoreCase = true) && !it.resolvedStatus.equals("Inactive", ignoreCase = true) }
             if (incomingUnits.isNotEmpty()) {
                 val unitEntities = incomingUnits.map {
                     UnitEntity(
@@ -513,10 +451,10 @@ class HeavyTrackRepository(
                 }
                 unitDao.insertUnits(unitEntities)
             }
-            rencanaDao.deleteOrphanedRencanaKerja()
 
-            // 2. Process Activities
+            // 2. Process Activities Aktif
             val incomingActivities = payload.resolvedActivities
+                .filter { !it.resolvedKategoriStatus.equals("Nonaktif", ignoreCase = true) }
             if (incomingActivities.isNotEmpty()) {
                 val actEntities = incomingActivities.map {
                     ActivityMasterEntity(
@@ -530,12 +468,12 @@ class HeavyTrackRepository(
                         updatedAt = System.currentTimeMillis()
                     )
                 }
-                activityDao.clearAllActivities()
                 activityDao.insertActivities(actEntities)
             }
 
-            // 3. Process Operators
-            val incomingOperators = payload.operators ?: emptyList()
+            // 3. Process Operators Aktif
+            val incomingOperators = (payload.operators ?: emptyList())
+                .filter { it.resolvedStatus.equals("Aktif", ignoreCase = true) || it.resolvedStatus.equals("Active", ignoreCase = true) || it.resolvedStatus.isBlank() }
             if (incomingOperators.isNotEmpty()) {
                 val opEntities = incomingOperators.map {
                     OperatorEntity(
@@ -580,7 +518,6 @@ class HeavyTrackRepository(
                         updatedAt = System.currentTimeMillis()
                     )
                 }
-                kendalaDao.clearAll()
                 kendalaDao.insertKendalaList(kendalaEntities)
             } else {
                 // Jika payload kendala kosong dari API luar, pastikan database lokal memiliki 15 master kendala standar
@@ -610,14 +547,21 @@ class HeavyTrackRepository(
             // 1. Process Master Data
             val master = payload.resolvedMasterData
 
-            // PEMBERSIHAN LOKAL SQLITE: masterUnitDao.deleteAll()
+            // PEMBERSIHAN TABEL LOKAL SQLITE: dao.deleteAll() sesuai arahan sinkronisasi
+            unitDao.deleteAll()
             masterUnitDao.deleteAll()
+            activityDao.deleteAll()
+            operatorDao.deleteAll()
+            lokasiDao.deleteAll()
+            kendalaDao.deleteAll()
             database.cleanDumpTruckAndBulldozerDirect()
-            unitDao.deleteDumpTruckAndBulldozer()
-            rencanaDao.deleteOrphanedRencanaKerja()
+            rencanaDao.deleteAll()
             reportDao.deleteOrphanedReports()
 
-            val incomingUnits = (master.units ?: emptyList()).filter { com.example.data.model.UnitConstants.isJenisUnitValid(it.resolvedUnitType) }
+            // 1. Process Master Data Aktif
+            val incomingUnits = (master.units ?: emptyList())
+                .filter { com.example.data.model.UnitConstants.isJenisUnitValid(it.resolvedUnitType) }
+                .filter { !it.resolvedStatus.equals("Nonaktif", ignoreCase = true) && !it.resolvedStatus.equals("Inactive", ignoreCase = true) }
             if (incomingUnits.isNotEmpty()) {
                 val unitEntities = incomingUnits.map {
                     UnitEntity(
@@ -635,9 +579,9 @@ class HeavyTrackRepository(
                 }
                 unitDao.insertUnits(unitEntities)
             }
-            rencanaDao.deleteOrphanedRencanaKerja()
 
             val incomingActivities = master.resolvedActivities
+                .filter { !it.resolvedKategoriStatus.equals("Nonaktif", ignoreCase = true) }
             if (incomingActivities.isNotEmpty()) {
                 val actEntities = incomingActivities.map {
                     ActivityMasterEntity(
@@ -651,11 +595,11 @@ class HeavyTrackRepository(
                         updatedAt = System.currentTimeMillis()
                     )
                 }
-                activityDao.clearAllActivities()
                 activityDao.insertActivities(actEntities)
             }
 
-            val incomingOperators = master.operators ?: emptyList()
+            val incomingOperators = (master.operators ?: emptyList())
+                .filter { it.resolvedStatus.equals("Aktif", ignoreCase = true) || it.resolvedStatus.equals("Active", ignoreCase = true) || it.resolvedStatus.isBlank() }
             if (incomingOperators.isNotEmpty()) {
                 val opEntities = incomingOperators.map {
                     OperatorEntity(
@@ -698,7 +642,6 @@ class HeavyTrackRepository(
                         updatedAt = System.currentTimeMillis()
                     )
                 }
-                kendalaDao.clearAll()
                 kendalaDao.insertKendalaList(kendalaEntities)
             }
 
@@ -925,25 +868,15 @@ class HeavyTrackRepository(
      */
     suspend fun fetchAndReplaceActiveRencana(supervisorName: String): Result<Pair<List<RencanaKerjaEntity>, String>> = withContext(Dispatchers.IO) {
         try {
+            // 1. Mekanisme Sinkronisasi Bersih: Kosongkan tabel rencana kerja lokal terlebih dahulu
+            val deletedCount = rencanaDao.deleteAll()
+            android.util.Log.d("HeavyTrackRepository", "Clear & Replace: $deletedCount rencana kerja dibersihkan dari SQLite lokal")
+
+            // 2. Ambil data rencana kerja resmi terbaru dari server
             val (incomingRequests, msg) = apiClientManager.fetchActiveRencanaKerja(supervisorName)
             val today = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
 
-            // 1. Ambil list ID rencana kerja aktif dari respons server
-            val activeServerIds = incomingRequests.mapNotNull { it.numericId.takeIf { id -> id > 0L } }
-
-            // 2. Pembersihan (Sync Pruning):
-            // Hapus semua rencana kerja milik pengawas tersebut yang berstatus belum terealisasi
-            // TAPI ID-nya sudah TIDAK ADA di dalam activeServerIds:
-            if (activeServerIds.isNotEmpty()) {
-                val deletedCount = rencanaDao.deletePrunedRencana(supervisorName, activeServerIds)
-                android.util.Log.d("HeavyTrackRepository", "Sync Pruning: $deletedCount rencana kerja dibersihkan dari SQLite")
-            } else {
-                // Jika server merespons 0 rencana aktif, bersihkan seluruh rencana yang berstatus belum terealisasi
-                val deletedCount = rencanaDao.clearActiveRencanaForSupervisor(supervisorName)
-                android.util.Log.d("HeavyTrackRepository", "Sync Pruning: Seluruh rencana kerja belum terealisasi ($deletedCount) dibersihkan dari SQLite")
-            }
-
-            // 3. Kemudian lakukan Upsert untuk sisa data yang valid dari server
+            // 3. Simpan data rencana kerja resmi terbaru dari server ke Room SQLite
             val upsertedEntities = mutableListOf<RencanaKerjaEntity>()
             for ((index, renReq) in incomingRequests.withIndex()) {
                 val kodeUnitVal = renReq.resolvedUnitKode.ifBlank { "UNIT-${index + 1}" }
@@ -955,17 +888,7 @@ class HeavyTrackRepository(
                 }
 
                 val serverId = renReq.numericId
-                val existing = if (serverId > 0) {
-                    rencanaDao.getRencanaById(serverId)
-                } else {
-                    rencanaDao.findRencana(supervisorName, kodeUnitVal, today) ?: rencanaDao.getRencanaByUnit(kodeUnitVal)
-                }
-
-                if (existing != null && serverId > 0 && existing.id != serverId) {
-                    rencanaDao.deleteRencana(existing.id)
-                }
-
-                val targetId = if (serverId > 0) serverId else (existing?.id ?: 0L)
+                val targetId = if (serverId > 0) serverId else 0L
 
                 val entity = RencanaKerjaEntity(
                     id = targetId,
@@ -978,6 +901,7 @@ class HeavyTrackRepository(
                     namaAktivitas = renReq.resolvedAktivitas,
                     satuanAktivitas = renReq.resolvedSatuan,
                     kodeLokasi = renReq.resolvedLokasi,
+                    wilayah = renReq.wilayah?.takeIf { it.isNotBlank() } ?: "Geodesi PG1",
                     shiftKerja = renReq.resolvedShift,
                     keterangan = renReq.keterangan ?: renReq.keterangan_rencana ?: "",
                     nomorSpk = spkNum,
@@ -986,12 +910,12 @@ class HeavyTrackRepository(
                     statusRealisasi = if (renReq.is_realized == true) "SUDAH" else "BELUM",
                     isRealized = renReq.is_realized ?: false,
                     isSynced = true,
-                    createdAt = existing?.createdAt ?: (System.currentTimeMillis() - (index * 1000L)),
+                    createdAt = System.currentTimeMillis() - (index * 1000L),
                     tanggalFormat = renReq.tanggal?.takeIf { it.isNotBlank() } ?: renReq.tanggal_kerja?.takeIf { it.isNotBlank() } ?: today
                 )
 
-                rencanaDao.insertRencana(entity)
-                upsertedEntities.add(entity)
+                val savedId = rencanaDao.insertRencana(entity)
+                upsertedEntities.add(entity.copy(id = if (targetId > 0) targetId else savedId))
             }
 
             _lastSyncTimeMillis.value = System.currentTimeMillis()
@@ -1001,6 +925,10 @@ class HeavyTrackRepository(
             addLog("GET /api/mobile/rencana-kerja/active", "GET", "ERROR", e.localizedMessage ?: "Gagal", false)
             Result.failure(e)
         }
+    }
+
+    suspend fun clearAllRencanaKerja(): Int = withContext(Dispatchers.IO) {
+        rencanaDao.deleteAll()
     }
 
     suspend fun markRencanaRealized(planId: Long) = withContext(Dispatchers.IO) {

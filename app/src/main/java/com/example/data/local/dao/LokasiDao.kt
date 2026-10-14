@@ -31,4 +31,7 @@ interface LokasiDao {
 
     @Query("DELETE FROM lokasi")
     suspend fun clearAll()
+
+    @Query("DELETE FROM lokasi")
+    suspend fun deleteAll()
 }

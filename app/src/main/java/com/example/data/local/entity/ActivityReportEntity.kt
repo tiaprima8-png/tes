@@ -10,7 +10,7 @@ data class ActivityReportEntity(
     val clientUuid: String = UUID.randomUUID().toString(),
     val reportDate: String,              // Format: "DD/MM/YYYY"
     val supervisorName: String,          // Active supervisor
-    val unitCode: String,                // Selected Unit Code e.g. "HEH1"
+    val unitCode: String,                // Selected Unit Code e.g. "HEH0004"
     val unitType: String,                // e.g. "EXCAVATOR"
     val activityName: String,            // e.g. "Galian Tanah Lunak"
     val sapCode: String,                 // e.g. "ACT-SAP-101"

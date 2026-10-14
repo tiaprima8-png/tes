@@ -29,7 +29,7 @@ class ExampleUnitTest {
 
     @Test
     fun test_search_multi_criteria_unit() {
-        val unit = UnitEntity("HEH1", "EXCAVATOR", "Komatsu PC200-8", 4125.5, "Budi Santoso")
+        val unit = UnitEntity("HEH0004", "EXCAVATOR", "Komatsu PC200-8", 4125.5, "Agung")
         assertTrue(unit.unitCode.contains("HEH", ignoreCase = true))
         assertTrue(unit.unitType.contains("EXCAVATOR", ignoreCase = true))
         assertTrue(unit.brandModel.contains("Komatsu", ignoreCase = true))
@@ -44,13 +44,13 @@ class ExampleUnitTest {
 
     @Test
     fun test_supervisor_authentication_success() {
-        val spv1 = SupervisorDirectory.authenticate("SPV-901", "1234")
+        val spv1 = SupervisorDirectory.authenticate("Agung", "123")
         assertNotNull(spv1)
-        assertEquals("Budi Santoso", spv1?.name)
+        assertEquals("Agung", spv1?.name)
 
-        val spv2 = SupervisorDirectory.authenticate("Agus Wijaya", "1234")
+        val spv2 = SupervisorDirectory.authenticate("Zainudin", "123")
         assertNotNull(spv2)
-        assertEquals("SPV-902", spv2?.nik)
+        assertEquals("KASIE-ZAINUDIN", spv2?.nik)
     }
 
     @Test
@@ -151,7 +151,7 @@ class ExampleUnitTest {
 
     @Test
     fun test_spk_lock_verification() {
-        val publishedSpk = "SPK-2026-X101"
+        val publishedSpk = "SPK-2026-GEO-001"
         val isLocked = publishedSpk.isNotBlank() && publishedSpk != "Belum Terbit (Menunggu Admin)"
         assertTrue(isLocked)
     }
@@ -352,8 +352,8 @@ class ExampleUnitTest {
         val request = com.example.data.remote.PostActivityReportRequest.create(
             clientUuid = "TEST-UUID-01",
             reportDate = "12/10/2026",
-            supervisorName = "Budi Santoso",
-            unitCode = "HEH1",
+            supervisorName = "Agung",
+            unitCode = "HEH0004",
             unitType = "EXCAVATOR",
             activityName = "Galian Tanah",
             sapCode = "ACT-SAP-101",
@@ -400,7 +400,7 @@ class ExampleUnitTest {
         val hasilReq = com.example.data.remote.PostHasilAktivitasRequest(
             id = 101L,
             rencana_id = 12L,
-            kode_unit = "HEH1",
+            kode_unit = "HEH0004",
             hm_awal = 4125.0,
             hm_akhir = 4132.0,
             kendala_lapangan = listKendala,
@@ -734,7 +734,7 @@ class ExampleUnitTest {
 
     @Test
     fun test_supervisor_session_logout_clears_session() {
-        val spv = SupervisorDirectory.authenticate("SPV-901", "1234")
+        val spv = SupervisorDirectory.authenticate("Agung", "123")
         assertNotNull(spv)
 
         var currentSession = spv
@@ -755,33 +755,44 @@ class ExampleUnitTest {
         val payload = com.example.data.remote.BootstrapDataPayload(
             rencana_aktif = listOf(
                 com.example.data.remote.PostRencanaKerjaRequest(
-                    kode_unit = "HEH1",
-                    nomor_spk = "SPK-2026-X101",
+                    kode_unit = "HEH0013",
+                    nomor_spk = "SPK-2026-GEO-001",
                     status_spk = "TERBIT_SPK",
-                    nama_pengawas = "Budi Santoso"
+                    nama_pengawas = "Agung"
                 )
             ),
             riwayat_aktivitas = listOf(
                 com.example.data.remote.PostActivityReportRequest(
                     tanggal = "11/10/2026",
-                    nama_pengawas = "Budi Santoso",
-                    kode_unit = "HEH1",
-                    hm_akhir = 4125.5
+                    nama_pengawas = "Agung",
+                    kode_unit = "HEH0013",
+                    hm_akhir = 12.0
                 )
             )
         )
 
         assertEquals(1, payload.resolvedRencanaAktif.size)
-        assertEquals("SPK-2026-X101", payload.resolvedRencanaAktif[0].nomor_spk)
+        assertEquals("SPK-2026-GEO-001", payload.resolvedRencanaAktif[0].nomor_spk)
         assertEquals("TERBIT_SPK", payload.resolvedRencanaAktif[0].status_spk)
         assertEquals(1, payload.resolvedRiwayatAktivitas.size)
-        assertEquals("HEH1", payload.resolvedRiwayatAktivitas[0].kode_unit)
+        assertEquals("HEH0013", payload.resolvedRiwayatAktivitas[0].kode_unit)
     }
 
     @Test
     fun test_bootstrap_simulator_returns_active_spk_plans_and_history() = kotlinx.coroutines.test.runTest {
+        com.example.data.remote.CompanyServerSimulator.serverRencanaKerja.add(
+            com.example.data.remote.PostRencanaKerjaRequest(
+                id = "101",
+                kode_unit = "HEH0013",
+                nomor_spk = "SPK-2026-GEO-001",
+                status_spk = "TERBIT_SPK",
+                status_tahap = "RENCANA",
+                is_realized = false,
+                nama_pengawas = "Agung"
+            )
+        )
         val response = com.example.data.remote.CompanyServerSimulator.fetchBootstrapData(
-            pengawas = "Budi Santoso",
+            pengawas = "Agung",
             tanggal = "11/10/2026"
         )
         assertNotNull(response.data)
@@ -823,22 +834,22 @@ class ExampleUnitTest {
 
     @Test
     fun test_supervisor_directory_wilayah_and_manager_role() {
-        val spvPg1 = SupervisorDirectory.authenticate("Budi Santoso", "1234")
+        val spvPg1 = SupervisorDirectory.authenticate("Agung", "123")
         assertNotNull(spvPg1)
         assertEquals("Geodesi PG1", spvPg1?.wilayah)
         assertEquals("KASIE", spvPg1?.role)
         assertTrue(spvPg1!!.isKasie)
 
-        val spvPg2 = SupervisorDirectory.authenticate("Agus Wijaya", "1234")
+        val spvPg2 = SupervisorDirectory.authenticate("Zainudin", "123")
         assertNotNull(spvPg2)
         assertEquals("Geodesi PG2", spvPg2?.wilayah)
         assertEquals("KASIE", spvPg2?.role)
 
-        val spvPg3 = SupervisorDirectory.authenticate("Rudi Hermawan", "1234")
+        val spvPg3 = SupervisorDirectory.authenticate("Hisar", "123")
         assertNotNull(spvPg3)
         assertEquals("RC PG1", spvPg3?.wilayah)
 
-        val mgr = SupervisorDirectory.authenticate("Farid Hadi Sofian", "1234")
+        val mgr = SupervisorDirectory.authenticate("Lutfi", "123")
         assertNotNull(mgr)
         assertTrue(mgr!!.isManager)
         assertEquals("Semua Wilayah", mgr.wilayah)
@@ -858,7 +869,7 @@ class ExampleUnitTest {
             assertTrue(com.example.data.model.UnitConstants.isJenisUnitValid(u.resolvedUnitType))
         }
 
-        val bootstrapResp = com.example.data.remote.CompanyServerSimulator.fetchBootstrapData("Budi Santoso", "13/10/2026")
+        val bootstrapResp = com.example.data.remote.CompanyServerSimulator.fetchBootstrapData("Agung", "13/10/2026")
         assertEquals("SUCCESS", bootstrapResp.status)
         assertNotNull(bootstrapResp.data)
         val bootstrapUnits = bootstrapResp.data!!.resolvedMasterData.units ?: emptyList()

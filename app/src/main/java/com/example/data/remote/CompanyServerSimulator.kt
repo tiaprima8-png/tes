@@ -52,11 +52,11 @@ object CompanyServerSimulator {
     val serverUnits = CopyOnWriteArrayList<UnitPayload>().apply {
         addAll(
             listOf(
-                UnitPayload("HEH1", "Excavator Standar", "Komatsu PC200-8", 4125.5, "Agung", "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
-                UnitPayload("EXC-02", "Excavator Long Arm", "Caterpillar 320D Long Arm", 6280.0, "Agung", "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
-                UnitPayload("EXC-M01", "Excavator Mini", "Kubota U50-5", 1450.0, "Agung", "OPERASIONAL", 5.0, 8.0, "Geodesi PG1"),
-                UnitPayload("GRD-01", "Motor Grader", "Caterpillar 140K", 1870.0, "Agung", "OPERASIONAL", 5.0, 9.0, "Geodesi PG1"),
-                UnitPayload("CMP-01", "Compactor", "Bomag BW211 D-40", 2100.0, "Agung", "OPERASIONAL", 5.0, 8.5, "Geodesi PG1"),
+                UnitPayload("HEH0004", "Excavator Mini", "Kubota U50-5", 6.0, "Agung", "OPERASIONAL", 6.0, 10.5, "Geodesi PG1"),
+                UnitPayload("HEH0013", "Excavator Standar", "Komatsu PC200-8", 12.0, "Agung", "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
+                UnitPayload("HEH0015", "Excavator Standar", "Kobelco SK200", 25.0, "Agung", "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
+                UnitPayload("HEH0029", "Excavator Long Arm", "Caterpillar 320D Long Arm", 18.0, "Agung", "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
+                UnitPayload("SCC0001", "Compactor", "Bomag BW211 D-40", 15.0, "Agung", "OPERASIONAL", 5.0, 8.5, "Geodesi PG1"),
                 // Units assigned to other official supervisors
                 UnitPayload("EXC-09", "Excavator Standar", "Hitachi ZX210-5G", 3990.2, "Zainudin", "OPERASIONAL", 6.0, 10.0, "Geodesi PG2"),
                 UnitPayload("GRD-02", "Motor Grader", "CAT 140M", 2300.0, "Zainudin", "OPERASIONAL", 5.0, 9.0, "Geodesi PG2"),
@@ -211,67 +211,7 @@ object CompanyServerSimulator {
             kendala = kendala
         )
 
-        // 2. Ensure initial work plans on server for this supervisor if none yet
-        if (serverRencanaKerja.none { it.nama_pengawas.equals(pengawas, ignoreCase = true) }) {
-            // Seed realistic work plans issued by Admin with SPK Terbit
-            serverRencanaKerja.addAll(
-                listOf(
-                    PostRencanaKerjaRequest(
-                        id = "101",
-                        status_unit = "OPERASI",
-                        kode_unit = "HEH1",
-                        operator = "Ahmad Fauzi",
-                        sap_code = "ACT-SAP-101",
-                        nama_aktivitas = "Galian Tanah Lunak",
-                        satuan_aktivitas = "m3",
-                        kode_lokasi = "001A",
-                        shift_kerja = "SIANG",
-                        keterangan = "Prioritas penggalian front area utara cut site",
-                        nomor_spk = "SPK-2026-X101",
-                        status_spk = "TERBIT_SPK",
-                        status_tahap = "RENCANA",
-                        is_realized = false,
-                        nama_pengawas = pengawas
-                    ),
-                    PostRencanaKerjaRequest(
-                        id = "102",
-                        status_unit = "OPERASI",
-                        kode_unit = "EXC-02",
-                        operator = "Bambang Sudrajat",
-                        sap_code = "ACT-SAP-102",
-                        nama_aktivitas = "Loading Overburden",
-                        satuan_aktivitas = "m3",
-                        kode_lokasi = "002B",
-                        shift_kerja = "SIANG",
-                        keterangan = "Pemuatan overburden ke area disposal",
-                        nomor_spk = "SPK-2026-X102",
-                        status_spk = "TERBIT_SPK",
-                        status_tahap = "RENCANA",
-                        is_realized = false,
-                        nama_pengawas = pengawas
-                    ),
-                    PostRencanaKerjaRequest(
-                        id = "103",
-                        status_unit = "OPERASI",
-                        kode_unit = "CMP-01",
-                        operator = "Eko Prasetyo",
-                        sap_code = "ACT-SAP-201",
-                        nama_aktivitas = "Pemadatan Subgrade",
-                        satuan_aktivitas = "m2",
-                        kode_lokasi = "002B",
-                        shift_kerja = "SIANG",
-                        keterangan = "Pemadatan subgrade jalan akses disposal",
-                        nomor_spk = "SPK-2026-X103",
-                        status_spk = "TERBIT_SPK",
-                        status_tahap = "RENCANA",
-                        is_realized = false,
-                        nama_pengawas = pengawas
-                    )
-                )
-            )
-        }
-
-        // Active plans for supervisor
+        // 2. Active plans for supervisor (Synchronized with live Web Admin database)
         val activePlans = serverRencanaKerja.filter {
             it.nama_pengawas.equals(pengawas, ignoreCase = true) &&
             it.is_realized != true &&
@@ -285,7 +225,7 @@ object CompanyServerSimulator {
                     PostActivityReportRequest(
                         tanggal = tanggal,
                         nama_pengawas = pengawas,
-                        kode_unit = "HEH1",
+                        kode_unit = "HEH0013",
                         jenis_unit = "Excavator Standar",
                         nama_aktivitas = "Galian Tanah Lunak",
                         kode_sap = "ACT-SAP-101",
@@ -294,9 +234,9 @@ object CompanyServerSimulator {
                         lokasi_kerja = "001A",
                         shift = "SIANG",
                         durasi_jam_kerja = 7.0,
-                        hm_awal = 4118.0,
-                        hm_akhir = 4125.5,
-                        hm_harian_berjalan = 7.5,
+                        hm_awal = 11.0,
+                        hm_akhir = 12.0,
+                        hm_harian_berjalan = 1.0,
                         hasil_kerja = 450.0,
                         keterangan = "Penggalian front cut berjalan lancar dan aman.",
                         status_unit = "OPERASI",
@@ -305,7 +245,7 @@ object CompanyServerSimulator {
                         stik_solar_awal = 80.0,
                         stik_solar_akhir = 48.0,
                         pemakaian_solar = 152.0,
-                        client_uuid = "SRV-REP-$pengawas-HEH1-4125.5",
+                        client_uuid = "SRV-REP-$pengawas-HEH0013-12.0",
                         client_transaction_id = "TX-SRV-001"
                     ),
                     PostActivityReportRequest(

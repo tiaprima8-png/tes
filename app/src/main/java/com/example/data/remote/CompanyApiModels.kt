@@ -747,7 +747,10 @@ data class PostRencanaKerjaRequest(
         get() = shift_kerja ?: shift ?: "SIANG"
 
     val resolvedPengawas: String
-        get() = nama_pengawas ?: pengawas ?: "Budi Santoso"
+        get() = (nama_pengawas ?: pengawas ?: "").trim()
+
+    val resolvedSupervisor: String
+        get() = resolvedPengawas
 }
 
 @JsonClass(generateAdapter = true)

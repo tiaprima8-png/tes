@@ -6,6 +6,12 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -73,6 +79,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -140,7 +147,6 @@ fun HeavyTrackApp() {
     )
 
     var currentTab by remember { mutableIntStateOf(0) }
-    var showMasterDataScreen by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showProfilePopup by remember { mutableStateOf(false) }
     var showDistributionDialog by remember { mutableStateOf(false) }
@@ -156,13 +162,9 @@ fun HeavyTrackApp() {
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
-    // Handle back button: return to default main tab (Tab 0) if in other tabs, or close master data
-    BackHandler(enabled = isLoggedIn && (showMasterDataScreen || currentTab != 0)) {
-        if (showMasterDataScreen) {
-            showMasterDataScreen = false
-        } else {
-            currentTab = 0
-        }
+    // Handle back button: kembali ke tab utama (Tab 0 - Formulir) jika sedang berada di tab lain
+    BackHandler(enabled = isLoggedIn && currentTab != 0) {
+        currentTab = 0
     }
 
     // Reset tab ke posisi awal saat role berganti atau login baru
@@ -217,21 +219,25 @@ fun HeavyTrackApp() {
                 val activeSupervisorName by viewModel.activeSupervisor.collectAsState()
 
                 Column {
-                    // Header (AppBar) RKCE dengan Indikator Status Minimalis di Pojok Kanan Atas
+                    // Header (Top App Bar) RKCE Ringkas, Bersih, dan Fungsional
                     TopAppBar(
                         title = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.testTag("app_header_logo_title")
+                            ) {
                                 Surface(
-                                    shape = RoundedCornerShape(8.dp),
+                                    shape = RoundedCornerShape(10.dp),
                                     color = Emerald600,
-                                    modifier = Modifier.size(34.dp)
+                                    modifier = Modifier.size(36.dp),
+                                    shadowElevation = 2.dp
                                 ) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(
                                             imageVector = Icons.Default.PrecisionManufacturing,
-                                            contentDescription = null,
+                                            contentDescription = "Logo RKCE",
                                             tint = Color.White,
-                                            modifier = Modifier.size(20.dp)
+                                            modifier = Modifier.size(22.dp)
                                         )
                                     }
                                 }
@@ -240,16 +246,17 @@ fun HeavyTrackApp() {
                                     Text(
                                         text = "RKCE",
                                         style = MaterialTheme.typography.titleMedium.copy(
-                                            fontWeight = FontWeight.ExtraBold,
+                                            fontWeight = FontWeight.Black,
                                             color = Slate900,
-                                            fontSize = 17.sp
+                                            fontSize = 17.sp,
+                                            letterSpacing = (-0.3).sp
                                         )
                                     )
                                     Text(
                                         text = "Rencana Kerja Civil Engineering",
                                         style = MaterialTheme.typography.bodySmall.copy(
                                             color = Slate500,
-                                            fontWeight = FontWeight.Normal,
+                                            fontWeight = FontWeight.Medium,
                                             fontSize = 10.sp
                                         )
                                     )
@@ -257,31 +264,29 @@ fun HeavyTrackApp() {
                             }
                         },
                         actions = {
-                            // Tombol Download Installer APK di Pojok Kanan Atas AppBar
+                            // 1. Tombol "Unduh APK" versi pembaruan resmi
                             Surface(
                                 shape = RoundedCornerShape(20.dp),
                                 color = Emerald600,
-                                shadowElevation = 2.dp,
+                                shadowElevation = 1.dp,
                                 modifier = Modifier
-                                    .padding(end = 8.dp)
+                                    .padding(end = 6.dp)
                                     .height(34.dp)
                                     .clip(RoundedCornerShape(20.dp))
-                                    .clickable {
-                                        showDistributionDialog = true
-                                    }
+                                    .clickable { showDistributionDialog = true }
                                     .testTag("appbar_download_installer_btn")
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Default.Download,
-                                        contentDescription = "Download Installer APK",
+                                        contentDescription = "Unduh APK",
                                         tint = Color.White,
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(15.dp)
                                     )
-                                    Spacer(modifier = Modifier.width(5.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = "Unduh APK",
                                         fontSize = 11.sp,
@@ -291,25 +296,29 @@ fun HeavyTrackApp() {
                                 }
                             }
 
-                            // Tombol "Sinkron" (Manual Pull dari Server) di Pojok Kanan Atas AppBar
+                            // 2. Ikon Sinkron / Refresh (berputar saat memproses sync data master terbaru)
                             val isSyncing = isSyncingMaster || isSyncingPending
+                            val infiniteTransition = rememberInfiniteTransition(label = "sync_spin")
+                            val spinAngle by infiniteTransition.animateFloat(
+                                initialValue = 0f,
+                                targetValue = 360f,
+                                animationSpec = infiniteRepeatable(
+                                    animation = tween(1000, easing = LinearEasing),
+                                    repeatMode = RepeatMode.Restart
+                                ),
+                                label = "sync_angle"
+                            )
+
                             Surface(
                                 shape = RoundedCornerShape(20.dp),
-                                color = when {
-                                    isSyncing -> Emerald100
-                                    isOfflineSimulated -> Color(0xFFFEF3C7)
-                                    else -> Emerald50
-                                },
+                                color = if (isSyncing) Emerald100 else Color(0xFFF1F5F9),
                                 border = androidx.compose.foundation.BorderStroke(
                                     1.dp,
-                                    when {
-                                        isSyncing -> Emerald600
-                                        isOfflineSimulated -> WarningAmber.copy(alpha = 0.6f)
-                                        else -> Emerald600.copy(alpha = 0.5f)
-                                    }
+                                    if (isSyncing) Emerald600 else Slate200
                                 ),
                                 modifier = Modifier
-                                    .padding(end = 12.dp)
+                                    .padding(end = 6.dp)
+                                    .height(34.dp)
                                     .clip(RoundedCornerShape(20.dp))
                                     .clickable {
                                         if (!isSyncing) {
@@ -319,190 +328,38 @@ fun HeavyTrackApp() {
                                     .testTag("appbar_sync_status_chip")
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    if (isSyncing) {
-                                        CircularProgressIndicator(
-                                            color = Emerald700,
-                                            modifier = Modifier.size(13.dp),
-                                            strokeWidth = 2.dp
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = "Menyinkronkan...",
-                                            fontSize = 12.sp,
-                                            color = Emerald900,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    } else if (isOfflineSimulated) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(7.dp)
-                                                .background(WarningAmber, CircleShape)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = "Sinkron (Offline)",
-                                            fontSize = 12.sp,
-                                            color = Color(0xFFB45309),
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.Default.CloudSync,
-                                            contentDescription = "Tombol Sinkron Manual Pull dari Server",
-                                            tint = Emerald700,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = "Sinkron",
-                                            fontSize = 12.sp,
-                                            color = Emerald900,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        if (isSocketConnected) {
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(6.dp)
-                                                    .background(Color(0xFF10B981), CircleShape)
-                                            )
-                                        }
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.width(6.dp))
-
-                                // Tombol Web Admin Master Unit
-                                Surface(
-                                    shape = RoundedCornerShape(10.dp),
-                                    color = if (showMasterDataScreen) Emerald600 else Color(0xFFF1F5F9),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, if (showMasterDataScreen) Emerald600 else Slate300),
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .clickable { showMasterDataScreen = !showMasterDataScreen }
-                                        .testTag("btn_top_master_data")
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.PrecisionManufacturing,
-                                            contentDescription = "Kelola Master Unit (Web Admin)",
-                                            tint = if (showMasterDataScreen) Color.White else Slate700,
-                                            modifier = Modifier.size(15.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = "Master",
-                                            fontSize = 11.5.sp,
-                                            color = if (showMasterDataScreen) Color.White else Slate800,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            }
-                        },
-                        colors = TopAppBarDefaults.topAppBarColors(
-                            containerColor = Color.White
-                        ),
-                        modifier = Modifier.testTag("main_app_bar")
-                    )
-
-                    // IDENTITAS USER PENGAWAS AKTIF (Konsisten di bagian atas)
-                    Surface(
-                        color = Color.White,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("active_supervisor_identity_bar")
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 7.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            val rawSpvName = supervisorSession?.namaLengkap?.ifBlank { null }
-                                ?: supervisorSession?.name
-                                ?: activeSupervisorName
-                            val initials = getInitials(rawSpvName)
-                            val isSuperAdmin = supervisorSession?.isSuperAdmin == true
-                            val isMgr = supervisorSession?.isManager == true
-
-                            val avatarBg = when {
-                                isSuperAdmin -> Color(0xFF6366F1) // Indigo
-                                isMgr -> Color(0xFFF59E0B) // Amber
-                                else -> Emerald600 // Emerald
-                            }
-
-                            val accountLabel = when {
-                                isSuperAdmin -> "$rawSpvName • Super Admin (Semua Wilayah)"
-                                isMgr -> "$rawSpvName • Manager (Monitoring)"
-                                else -> "$rawSpvName • Kasie (${supervisorSession?.wilayah ?: "Geodesi 1"})"
-                            }
-
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable { showProfilePopup = true }
-                                    .testTag("avatar_profile_trigger")
-                            ) {
-                                // Avatar Inisial Dinamis: Lingkaran inisial huruf nama (misal "AG", "LT", "ZA", "BS")
-                                Surface(
-                                    modifier = Modifier
-                                        .size(34.dp)
-                                        .testTag("avatar_initials_circle"),
-                                    shape = CircleShape,
-                                    color = avatarBg,
-                                    shadowElevation = 2.dp
-                                ) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Text(
-                                            text = initials,
-                                            color = Color.White,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            fontSize = 12.5.sp
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.width(10.dp))
-                                Column {
-                                    Text(
-                                        text = accountLabel,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 12.5.sp,
-                                        color = Slate900,
-                                        maxLines = 1,
-                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                    Icon(
+                                        imageVector = Icons.Default.CloudSync,
+                                        contentDescription = "Sinkronkan Data",
+                                        tint = if (isSyncing) Emerald700 else Slate700,
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .rotate(if (isSyncing) spinAngle else 0f)
                                     )
+                                    Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = if (isManagerSession) "Mode Eksekutif • Sentuh untuk detail akun" else "Wilayah: ${supervisorSession?.wilayah ?: "Geodesi 1"} • Shift ${supervisorSession?.defaultShift ?: "SIANG"}",
-                                        fontSize = 10.sp,
-                                        color = Slate500,
-                                        maxLines = 1,
-                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                                        text = if (isSyncing) "Sinkron..." else "Sinkron",
+                                        fontSize = 11.sp,
+                                        color = if (isSyncing) Emerald900 else Slate800,
+                                        fontWeight = FontWeight.Bold
                                     )
                                 }
                             }
 
-                            Spacer(modifier = Modifier.width(8.dp))
-
-                            // Tombol Log Out di Bar Identitas Pengawas
+                            // 3. Tombol / Ikon "Keluar" (Logout sesi)
                             Surface(
-                                shape = RoundedCornerShape(8.dp),
+                                shape = RoundedCornerShape(20.dp),
                                 color = ErrorRose50,
                                 border = androidx.compose.foundation.BorderStroke(1.dp, ErrorRose.copy(alpha = 0.35f)),
                                 modifier = Modifier
-                                    .clip(RoundedCornerShape(8.dp))
+                                    .padding(end = 8.dp)
+                                    .height(34.dp)
+                                    .clip(RoundedCornerShape(20.dp))
                                     .clickable { showLogoutDialog = true }
-                                    .testTag("btn_logout")
+                                    .testTag("appbar_logout_btn")
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
@@ -510,7 +367,7 @@ fun HeavyTrackApp() {
                                 ) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Filled.Logout,
-                                        contentDescription = "Log Out",
+                                        contentDescription = "Keluar",
                                         tint = ErrorRose,
                                         modifier = Modifier.size(14.dp)
                                     )
@@ -523,190 +380,239 @@ fun HeavyTrackApp() {
                                     )
                                 }
                             }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                        modifier = Modifier.testTag("main_app_bar")
+                    )
+
+                    // Baris Info Pengguna: Avatar inisial bulat, nama Kasie, serta badge wilayah kerja aktif (contoh: "Agung • Geodesi 1")
+                    Surface(
+                        color = Color(0xFFF8FAFC),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, Slate200),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("active_supervisor_identity_bar")
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { showProfilePopup = true }
+                                .padding(horizontal = 14.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            val rawSpvName = supervisorSession?.namaLengkap?.ifBlank { null }
+                                ?: supervisorSession?.name
+                                ?: activeSupervisorName
+                            val initials = getInitials(rawSpvName)
+                            val isSuperAdmin = supervisorSession?.isSuperAdmin == true
+                            val isMgr = supervisorSession?.isManager == true
+
+                            val avatarBg = when {
+                                isSuperAdmin -> Color(0xFF6366F1)
+                                isMgr -> Color(0xFFF59E0B)
+                                else -> Emerald600
+                            }
+
+                            val wilayahDisplay = supervisorSession?.wilayah ?: "Geodesi 1"
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                // Avatar inisial bulat
+                                Surface(
+                                    modifier = Modifier
+                                        .size(34.dp)
+                                        .testTag("avatar_initials_circle"),
+                                    shape = CircleShape,
+                                    color = avatarBg,
+                                    shadowElevation = 1.dp
+                                ) {
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Text(
+                                            text = initials,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            fontSize = 12.sp
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(10.dp))
+
+                                Column {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = rawSpvName,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = Slate900
+                                        )
+
+                                        // Badge wilayah kerja aktif (contoh: "Agung • Geodesi 1")
+                                        Surface(
+                                            shape = RoundedCornerShape(6.dp),
+                                            color = if (isMgr) Color(0xFFFEF3C7) else Emerald100,
+                                            border = androidx.compose.foundation.BorderStroke(
+                                                1.dp,
+                                                if (isMgr) Color(0xFFF59E0B).copy(alpha = 0.5f) else Emerald600.copy(alpha = 0.4f)
+                                            )
+                                        ) {
+                                            Text(
+                                                text = if (isMgr) "Manager Operasional" else wilayahDisplay,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (isMgr) Color(0xFF92400E) else Emerald900,
+                                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Text(
+                                        text = if (isMgr) "Seluruh Wilayah • Monitoring SPK & Analitik" else "Shift ${supervisorSession?.defaultShift ?: "SIANG"} • Realisasi Lapangan",
+                                        fontSize = 10.sp,
+                                        color = Slate500
+                                    )
+                                }
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color(0xFFECFDF5),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFA7F3D0))
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .background(Color(0xFF10B981), CircleShape)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "Aktif",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF065F46)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             },
             bottomBar = {
+                // Bottom Navigation Bar: HANYA Memuat 3 Tab Utama yang Esensial
                 NavigationBar(
                     containerColor = Color.White,
                     tonalElevation = 8.dp,
                     modifier = Modifier.testTag("main_navigation_bar")
                 ) {
-                    if (isManagerSession) {
-                        // MODE MANAGER EKSEKUTIF: HANYA 2 TAB MONITORING (HASIL KERJA & ANALITIK)
-                        // Tab "Formulir" input lapangan disembunyikan sepenuhnya!
+                    // 1. [Formulir] (Input Realisasi Lapangan)
+                    NavigationBarItem(
+                        selected = currentTab == 0,
+                        onClick = {
+                            currentTab = 0
+                            viewModel.autoFetchMasterDataOnResume()
+                        },
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Default.Assignment,
+                                contentDescription = "Formulir",
+                                modifier = Modifier.size(24.dp)
+                            )
+                        },
+                        label = {
+                            Text(
+                                text = "Formulir",
+                                fontWeight = if (currentTab == 0) FontWeight.Bold else FontWeight.Medium,
+                                fontSize = 11.sp
+                            )
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = Emerald900,
+                            selectedTextColor = Emerald900,
+                            indicatorColor = Emerald100,
+                            unselectedIconColor = Slate500,
+                            unselectedTextColor = Slate500
+                        ),
+                        modifier = Modifier.testTag("nav_item_form")
+                    )
 
-                        // Tab 0 (Manager): Hasil Kerja / Monitoring Lapangan
-                        NavigationBarItem(
-                            selected = currentTab == 0,
-                            onClick = { currentTab = 0 },
-                            icon = {
-                                BadgedBox(
-                                    badge = {
-                                        if (unsyncedCount > 0) {
-                                            Badge(
-                                                containerColor = WarningAmber,
-                                                contentColor = Slate900
-                                            ) {
-                                                Text("$unsyncedCount", fontWeight = FontWeight.Bold, fontSize = 10.sp)
-                                            }
+                    // 2. [Riwayat] (Log & Monitoring Pekerjaan)
+                    NavigationBarItem(
+                        selected = currentTab == 1,
+                        onClick = { currentTab = 1 },
+                        icon = {
+                            BadgedBox(
+                                badge = {
+                                    if (unsyncedCount > 0) {
+                                        Badge(
+                                            containerColor = WarningAmber,
+                                            contentColor = Slate900
+                                        ) {
+                                            Text("$unsyncedCount", fontWeight = FontWeight.Bold, fontSize = 10.sp)
                                         }
                                     }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.History,
-                                        contentDescription = "Hasil Kerja",
-                                        modifier = Modifier.size(24.dp)
-                                    )
                                 }
-                            },
-                            label = {
-                                Text(
-                                    text = "Hasil Kerja",
-                                    fontWeight = if (currentTab == 0) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 11.sp
-                                )
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Emerald900,
-                                selectedTextColor = Emerald900,
-                                indicatorColor = Emerald100,
-                                unselectedIconColor = Slate500,
-                                unselectedTextColor = Slate500
-                            ),
-                            modifier = Modifier.testTag("nav_item_history")
-                        )
-
-                        // Tab 1 (Manager): Analitik Eksekutif
-                        NavigationBarItem(
-                            selected = currentTab == 1,
-                            onClick = { currentTab = 1 },
-                            icon = {
+                            ) {
                                 Icon(
-                                    imageVector = Icons.Default.BarChart,
-                                    contentDescription = "Analitik",
+                                    imageVector = Icons.Default.History,
+                                    contentDescription = "Riwayat",
                                     modifier = Modifier.size(24.dp)
                                 )
-                            },
-                            label = {
-                                Text(
-                                    text = "Analitik",
-                                    fontWeight = if (currentTab == 1) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 11.sp
-                                )
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Emerald900,
-                                selectedTextColor = Emerald900,
-                                indicatorColor = Emerald100,
-                                unselectedIconColor = Slate500,
-                                unselectedTextColor = Slate500
-                            ),
-                            modifier = Modifier.testTag("nav_item_analytics")
-                        )
-                    } else {
-                        // MODE SUPERVISOR / PENGAWAS LAPANGAN: 3 TAB OPERASIONAL LENGKAP
-                        // Tab 0: Formulir (Rencana & Realisasi)
-                        NavigationBarItem(
-                            selected = currentTab == 0,
-                            onClick = {
-                                currentTab = 0
-                                viewModel.autoFetchMasterDataOnResume()
-                            },
-                            icon = {
-                                Icon(
-                                    imageVector = Icons.Default.Assignment,
-                                    contentDescription = "Formulir",
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            },
-                            label = {
-                                Text(
-                                    text = "Formulir",
-                                    fontWeight = if (currentTab == 0) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 11.sp
-                                )
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Emerald900,
-                                selectedTextColor = Emerald900,
-                                indicatorColor = Emerald100,
-                                unselectedIconColor = Slate500,
-                                unselectedTextColor = Slate500
-                            ),
-                            modifier = Modifier.testTag("nav_item_form")
-                        )
+                            }
+                        },
+                        label = {
+                            Text(
+                                text = "Riwayat",
+                                fontWeight = if (currentTab == 1) FontWeight.Bold else FontWeight.Medium,
+                                fontSize = 11.sp
+                            )
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = Emerald900,
+                            selectedTextColor = Emerald900,
+                            indicatorColor = Emerald100,
+                            unselectedIconColor = Slate500,
+                            unselectedTextColor = Slate500
+                        ),
+                        modifier = Modifier.testTag("nav_item_history")
+                    )
 
-                        // Tab 1: Riwayat Aktivitas
-                        NavigationBarItem(
-                            selected = currentTab == 1,
-                            onClick = { currentTab = 1 },
-                            icon = {
-                                BadgedBox(
-                                    badge = {
-                                        if (unsyncedCount > 0) {
-                                            Badge(
-                                                containerColor = WarningAmber,
-                                                contentColor = Slate900
-                                            ) {
-                                                Text("$unsyncedCount", fontWeight = FontWeight.Bold, fontSize = 10.sp)
-                                            }
-                                        }
-                                    }
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.History,
-                                        contentDescription = "Riwayat Saya",
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                            },
-                            label = {
-                                Text(
-                                    text = "Riwayat",
-                                    fontWeight = if (currentTab == 1) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 11.sp
-                                )
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Emerald900,
-                                selectedTextColor = Emerald900,
-                                indicatorColor = Emerald100,
-                                unselectedIconColor = Slate500,
-                                unselectedTextColor = Slate500
-                            ),
-                            modifier = Modifier.testTag("nav_item_history")
-                        )
-
-                        // Tab 2: Analitik Fleet
-                        NavigationBarItem(
-                            selected = currentTab == 2,
-                            onClick = { currentTab = 2 },
-                            icon = {
-                                Icon(
-                                    imageVector = Icons.Default.BarChart,
-                                    contentDescription = "Analitik",
-                                    modifier = Modifier.size(24.dp)
-                                )
-                            },
-                            label = {
-                                Text(
-                                    text = "Analitik",
-                                    fontWeight = if (currentTab == 2) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 11.sp
-                                )
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Emerald900,
-                                selectedTextColor = Emerald900,
-                                indicatorColor = Emerald100,
-                                unselectedIconColor = Slate500,
-                                unselectedTextColor = Slate500
-                            ),
-                            modifier = Modifier.testTag("nav_item_analytics")
-                        )
-                    }
+                    // 3. [Analitik] (Grafik & Rangkuman HM/Jam Kerja)
+                    NavigationBarItem(
+                        selected = currentTab == 2,
+                        onClick = { currentTab = 2 },
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Default.BarChart,
+                                contentDescription = "Analitik",
+                                modifier = Modifier.size(24.dp)
+                            )
+                        },
+                        label = {
+                            Text(
+                                text = "Analitik",
+                                fontWeight = if (currentTab == 2) FontWeight.Bold else FontWeight.Medium,
+                                fontSize = 11.sp
+                            )
+                        },
+                        colors = NavigationBarItemDefaults.colors(
+                            selectedIconColor = Emerald900,
+                            selectedTextColor = Emerald900,
+                            indicatorColor = Emerald100,
+                            unselectedIconColor = Slate500,
+                            unselectedTextColor = Slate500
+                        ),
+                        modifier = Modifier.testTag("nav_item_analytics")
+                    )
                 }
             }
         ) { innerPadding ->
@@ -716,39 +622,18 @@ fun HeavyTrackApp() {
                     .padding(innerPadding)
                     .imePadding()
             ) {
-                if (showMasterDataScreen) {
-                    com.example.ui.screens.MasterDataScreen(
+                when (currentTab) {
+                    0 -> FormReportScreen(
                         viewModel = viewModel,
-                        onBack = { showMasterDataScreen = false }
+                        onNavigateToHistory = { currentTab = 1 }
                     )
-                } else if (isManagerSession) {
-                    when (currentTab) {
-                        0 -> HistoryScreen(
-                            viewModel = viewModel,
-                            onNavigateToForm = { /* Tidak ada aksi navigasi formulir untuk Manager */ }
-                        )
-                        1 -> AnalyticsScreen(
-                            viewModel = viewModel
-                        )
-                        else -> HistoryScreen(
-                            viewModel = viewModel,
-                            onNavigateToForm = { }
-                        )
-                    }
-                } else {
-                    when (currentTab) {
-                        0 -> FormReportScreen(
-                            viewModel = viewModel,
-                            onNavigateToHistory = { currentTab = 1 }
-                        )
-                        1 -> HistoryScreen(
-                            viewModel = viewModel,
-                            onNavigateToForm = { currentTab = 0 }
-                        )
-                        2 -> AnalyticsScreen(
-                            viewModel = viewModel
-                        )
-                    }
+                    1 -> HistoryScreen(
+                        viewModel = viewModel,
+                        onNavigateToForm = { currentTab = 0 }
+                    )
+                    2 -> AnalyticsScreen(
+                        viewModel = viewModel
+                    )
                 }
             }
         }
@@ -862,21 +747,6 @@ fun HeavyTrackApp() {
                             ProfileDetailRow("Jabatan / Role", supervisorSession?.roleTitle ?: if (isManagerSession) "Manager Operasional" else "Kasie Lapangan")
                             ProfileDetailRow("Wilayah Kerja", supervisorSession?.wilayah ?: if (isManagerSession) "Semua Wilayah" else "Geodesi 1")
                             ProfileDetailRow("Status Akun", "Aktif", isStatusSuccess = true)
-
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Button(
-                                onClick = {
-                                    showProfilePopup = false
-                                    showMasterDataScreen = true
-                                },
-                                shape = RoundedCornerShape(8.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
-                                modifier = Modifier.fillMaxWidth().testTag("btn_profile_open_master_data")
-                            ) {
-                                Icon(Icons.Default.PrecisionManufacturing, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text("Buka Web Admin Master Unit", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            }
                         }
                     }
                 },

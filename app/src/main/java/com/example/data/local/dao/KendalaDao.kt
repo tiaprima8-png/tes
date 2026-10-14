@@ -17,4 +17,7 @@ interface KendalaDao {
 
     @Query("DELETE FROM master_kendala")
     suspend fun clearAll()
+
+    @Query("DELETE FROM master_kendala")
+    suspend fun deleteAll()
 }

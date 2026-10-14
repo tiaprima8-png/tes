@@ -55,4 +55,7 @@ interface OperatorDao {
 
     @Query("DELETE FROM operators")
     suspend fun clearAllOperators()
+
+    @Query("DELETE FROM operators")
+    suspend fun deleteAll()
 }

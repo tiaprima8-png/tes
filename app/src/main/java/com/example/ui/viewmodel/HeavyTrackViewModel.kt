@@ -811,6 +811,8 @@ class HeavyTrackViewModel(
                     _uiEvents.emit(UiMessage.Success("Selamat bertugas, Kasie ${supervisor.resolvedNamaLengkap} • ${supervisor.wilayah}"))
                 }
             }
+            // Mekanisme Sinkronisasi Bersih: Kosongkan tabel rencana kerja lama saat login
+            repository.clearAllRencanaKerja()
             fetchBootstrapData(showOverlay = true)
             syncPendingReports()
         }

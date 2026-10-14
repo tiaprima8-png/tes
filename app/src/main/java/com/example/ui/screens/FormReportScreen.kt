@@ -238,7 +238,6 @@ fun FormReportScreen(
     // State pemisahan alur: Tampilan Penugasan Berjalan vs Form Sub-Page Realisasi
     var isInputRealisasiOpen by remember { mutableStateOf(false) }
     var showNewPlanForm by remember { mutableStateOf(false) }
-    var rencanaFilterIndex by remember { mutableStateOf(0) }
 
     LaunchedEffect(realisasiState.selectedRencana) {
         if (realisasiState.selectedRencana != null) {
@@ -3082,7 +3081,7 @@ fun FormReportScreen(
                 }
             }
 
-            // 2. HEADER DAFTAR RENCANA KERJA & FILTER STATUS
+            // 2. HEADER DAFTAR RENCANA KERJA MENUNGGU REALISASI
             item {
                 Column(
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
@@ -3093,87 +3092,42 @@ fun FormReportScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Daftar Rencana Kerja",
+                                text = "Rencana Kerja Menunggu Realisasi",
                                 fontWeight = FontWeight.ExtraBold,
                                 fontSize = 16.sp,
                                 color = Slate900
                             )
                             Text(
-                                text = "Rencana kerja yang sudah pernah dibuat oleh pengawas",
+                                text = "Daftar tugas lapangan aktif yang belum selesai dikerjakan",
                                 fontSize = 11.sp,
                                 color = Slate500
                             )
                         }
 
                         Surface(
-                            shape = RoundedCornerShape(6.dp),
-                            color = Color(0xFFF1F5F9)
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (activeRencanaList.isNotEmpty()) Color(0xFFFEF3C7) else Color(0xFFF1F5F9),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (activeRencanaList.isNotEmpty()) Color(0xFFFDE68A) else Slate200
+                            )
                         ) {
                             Text(
-                                text = "${allRencanaList.size} Total",
+                                text = "${activeRencanaList.size} Menunggu",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Slate700,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                color = if (activeRencanaList.isNotEmpty()) Color(0xFF92400E) else Slate700,
+                                modifier = Modifier.padding(horizontal = 9.dp, vertical = 4.dp)
                             )
-                        }
-                    }
-
-                    // Filter chips: Semua, Menunggu Realisasi, Sudah Terealisasi
-                    val completedCount = allRencanaList.count { it.isRealized }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        listOf(
-                            Triple(0, "Semua", allRencanaList.size),
-                            Triple(1, "Menunggu", activeRencanaList.size),
-                            Triple(2, "Terealisasi", completedCount)
-                        ).forEach { (idx, label, count) ->
-                            val isSelected = rencanaFilterIndex == idx
-                            Surface(
-                                shape = RoundedCornerShape(8.dp),
-                                color = if (isSelected) Emerald600 else Color.White,
-                                border = androidx.compose.foundation.BorderStroke(
-                                    1.dp,
-                                    if (isSelected) Emerald600 else Slate300
-                                ),
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable { rencanaFilterIndex = idx }
-                                    .testTag("filter_rencana_$idx")
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(vertical = 7.dp, horizontal = 4.dp),
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "$label ($count)",
-                                        fontSize = 11.sp,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isSelected) Color.White else Slate700,
-                                        maxLines = 1,
-                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                                    )
-                                }
-                            }
                         }
                     }
                 }
             }
 
-            // 3. DAFTAR KARTU RENCANA KERJA YANG SUDAH DIBUAT (Reaktif membaca Flow Room SQLite)
-            val displayedList = when (rencanaFilterIndex) {
-                1 -> activeRencanaList // Langsung membaca query Room: SELECT * FROM rencana_kerja WHERE pengawas = :pengawas AND status_realisasi = 'BELUM'
-                2 -> allRencanaList.filter { it.isRealized || it.statusRealisasi == "SUDAH" }
-                else -> allRencanaList
-            }
-
-            if (displayedList.isEmpty()) {
+            // 3. DAFTAR KARTU RENCANA KERJA MENUNGGU REALISASI (Reaktif membaca Room SQLite)
+            if (activeRencanaList.isEmpty()) {
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth().testTag("empty_pending_assignments_card"),
@@ -3204,12 +3158,10 @@ fun FormReportScreen(
                             }
 
                             Text(
-                                text = when {
-                                    allRencanaList.isEmpty() -> "Belum Ada Rencana Kerja Dibuat"
-                                    rencanaFilterIndex == 1 && fleetProgress.realizedUnitsCount > 0 -> "Semua Penugasan Telah Direalisasikan! 🎉"
-                                    rencanaFilterIndex == 2 -> "Belum Ada Rencana Selesai"
-                                    else -> "Tidak Ada Rencana pada Kategori Ini"
-                                },
+                                text = if (fleetProgress.realizedUnitsCount > 0)
+                                    "Semua Tugas Telah Direalisasikan! 🎉"
+                                else
+                                    "Tidak Ada Rencana Menunggu Realisasi",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp,
                                 color = Slate900,
@@ -3217,12 +3169,10 @@ fun FormReportScreen(
                             )
 
                             Text(
-                                text = when {
-                                    allRencanaList.isEmpty() -> "Belum ada rencana kerja yang ditugaskan kepada pengawas. Silakan tekan tombol 'Buat Rencana Kerja' di atas untuk membuat rencana kerja unit."
-                                    rencanaFilterIndex == 1 && fleetProgress.realizedUnitsCount > 0 -> "Seluruh ${fleetProgress.totalUnitsCount} unit shift hari ini telah berhasil dilaporkan lengkap. Rekapitulasi tersimpan di Tab Riwayat."
-                                    rencanaFilterIndex == 2 -> "Pilih filter 'Menunggu' untuk melihat unit yang belum diinput realisasinya."
-                                    else -> "Silakan ganti filter status di atas untuk melihat rencana kerja lainnya."
-                                },
+                                text = if (fleetProgress.realizedUnitsCount > 0)
+                                    "Seluruh unit penugasan hari ini telah selesai dilaporkan. Rangkuman data tersimpan di Tab Riwayat & Analitik."
+                                else
+                                    "Tidak ada rencana kerja aktif yang menunggu realisasi. Data master selalu mutakhir dengan Web Admin.",
                                 fontSize = 12.sp,
                                 color = Slate500,
                                 textAlign = TextAlign.Center
@@ -3230,30 +3180,36 @@ fun FormReportScreen(
 
                             Spacer(modifier = Modifier.height(4.dp))
 
-                            if (allRencanaList.isEmpty()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { viewModel.triggerHeaderSync() },
+                                    shape = RoundedCornerShape(10.dp),
+                                    modifier = Modifier.weight(1f).height(42.dp).testTag("btn_tarik_dari_web_admin")
+                                ) {
+                                    Icon(Icons.Default.Refresh, contentDescription = null, tint = Slate700, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Sinkron Web", fontSize = 12.sp, color = Slate700, fontWeight = FontWeight.SemiBold)
+                                }
+
                                 Button(
                                     onClick = { showNewPlanForm = true },
                                     colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
                                     shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.fillMaxWidth().height(42.dp).testTag("btn_buat_rencana_pertama")
+                                    modifier = Modifier.weight(1f).height(42.dp).testTag("btn_buat_rencana_pertama")
                                 ) {
                                     Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("+ Buat Rencana Kerja Unit", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                }
-                                OutlinedButton(
-                                    onClick = { viewModel.syncActivePlansFromServer() },
-                                    shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.fillMaxWidth().height(42.dp).testTag("btn_tarik_dari_web_admin")
-                                ) {
-                                    Icon(Icons.Default.Refresh, contentDescription = null, tint = Slate700, modifier = Modifier.size(16.dp))
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    Text("Tarik dari Web Admin", fontSize = 12.sp, color = Slate700, fontWeight = FontWeight.SemiBold)
+                                    Text("Buat Rencana", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
-                            } else if (rencanaFilterIndex == 1 && fleetProgress.realizedUnitsCount > 0) {
+                            }
+
+                            if (fleetProgress.realizedUnitsCount > 0) {
                                 Button(
                                     onClick = onNavigateToHistory,
-                                    colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Slate800),
                                     shape = RoundedCornerShape(10.dp),
                                     modifier = Modifier.fillMaxWidth().height(42.dp).testTag("btn_buka_tab_riwayat")
                                 ) {
@@ -3261,42 +3217,19 @@ fun FormReportScreen(
                                     Spacer(modifier = Modifier.width(6.dp))
                                     Text("Buka Tab Riwayat", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                                 }
-                                OutlinedButton(
-                                    onClick = { showNewPlanForm = true },
-                                    shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.fillMaxWidth().height(42.dp).testTag("btn_tambah_rencana_susulan")
-                                ) {
-                                    Text("+ Buat Penugasan Unit Tambahan", fontSize = 12.sp, color = Slate700, fontWeight = FontWeight.SemiBold)
-                                }
-                            } else if (rencanaFilterIndex == 2) {
-                                Button(
-                                    onClick = { rencanaFilterIndex = 1 },
-                                    colors = ButtonDefaults.buttonColors(containerColor = Emerald600),
-                                    shape = RoundedCornerShape(10.dp),
-                                    modifier = Modifier.fillMaxWidth().height(42.dp)
-                                ) {
-                                    Text("Lihat Rencana Menunggu Realisasi", fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                }
                             }
                         }
                     }
                 }
             } else {
-                items(displayedList, key = { it.id }) { ren ->
-                    if (!ren.isRealized) {
-                        PendingAssignmentCard(
-                            rencana = ren,
-                            onInputRealisasi = {
-                                viewModel.selectRencanaForRealisasi(ren)
-                                isInputRealisasiOpen = true
-                            }
-                        )
-                    } else {
-                        CompletedRencanaCard(
-                            rencana = ren,
-                            onLihatRiwayat = onNavigateToHistory
-                        )
-                    }
+                items(activeRencanaList, key = { it.id }) { ren ->
+                    PendingAssignmentCard(
+                        rencana = ren,
+                        onInputRealisasi = {
+                            viewModel.selectRencanaForRealisasi(ren)
+                            isInputRealisasiOpen = true
+                        }
+                    )
                 }
             }
 

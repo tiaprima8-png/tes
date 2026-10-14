@@ -27,6 +27,9 @@ interface CompanyApiService {
         @Query("pengawas") pengawas: String
     ): Response<ResponseBody>
 
+    @GET("api/rencana-kerja")
+    suspend fun getRencanaKerja(): Response<ResponseBody>
+
     @GET("api/mobile/bootstrap-data")
     suspend fun getBootstrapData(
         @Query("pengawas") pengawas: String,
@@ -300,9 +303,29 @@ class ApiClientManager(val context: Context) {
                 } catch (_: Exception) {}
             }
 
-            if (parsed.isNotEmpty()) {
-                return@withContext Pair(parsed, "Berhasil menarik ${parsed.size} rencana kerja aktif dari Web Admin (${response.code()} OK)")
+            if (parsed.isEmpty()) {
+                try {
+                    val renResp = apiService.getRencanaKerja()
+                    if (renResp.isSuccessful && renResp.body() != null) {
+                        val renStr = renResp.body()!!.string()
+                        val renParsed = parseActiveRencanaList(renStr)
+                        if (renParsed.isNotEmpty()) {
+                            val filtered = if (!pengawas.equals("Semua", ignoreCase = true) && pengawas.isNotBlank()) {
+                                renParsed.filter {
+                                    it.resolvedSupervisor.equals(pengawas, ignoreCase = true) ||
+                                    it.nama_pengawas.equals(pengawas, ignoreCase = true) ||
+                                    it.pengawas.equals(pengawas, ignoreCase = true)
+                                }
+                            } else renParsed
+                            if (filtered.isNotEmpty()) {
+                                parsed = filtered
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
             }
+
+            return@withContext Pair(parsed, "Sinkron Web Admin berhasil: ${parsed.size} rencana kerja aktif (${response.code()} OK)")
         } catch (e: Exception) {
             if (useSimulationFallback) {
                 val simResp = CompanyServerSimulator.getActiveRencanaKerja(pengawas)
@@ -313,9 +336,6 @@ class ApiClientManager(val context: Context) {
             }
             throw e
         }
-
-        val simResp = CompanyServerSimulator.getActiveRencanaKerja(pengawas)
-        Pair(simResp.data ?: emptyList(), "Rencana kerja aktif dimuat.")
     }
 
     private fun parseActiveRencanaList(rawJson: String): List<PostRencanaKerjaRequest> {
@@ -509,29 +529,29 @@ class ApiClientManager(val context: Context) {
         var responseCode: Int = 0
 
         try {
-            // Coba POST /api/mobile/login terlebih dahulu
-            val mobileResp = apiService.loginMobile(loginReq)
-            responseCode = mobileResp.code()
-            if (mobileResp.isSuccessful && mobileResp.body() != null) {
-                rawResponseStr = mobileResp.body()!!.string()
+            // Proses autentikasi wajib memanggil endpoint live: POST https://1-portalce.ai.studio/api/login
+            val mainResp = apiService.login(loginReq)
+            responseCode = mainResp.code()
+            if (mainResp.isSuccessful && mainResp.body() != null) {
+                rawResponseStr = mainResp.body()!!.string()
             } else if (responseCode == 404 || responseCode == 405) {
-                // Fallback ke POST /api/login jika /api/mobile/login tidak ditemukan
-                val mainResp = apiService.login(loginReq)
-                responseCode = mainResp.code()
-                if (mainResp.isSuccessful && mainResp.body() != null) {
-                    rawResponseStr = mainResp.body()!!.string()
-                } else if (mainResp.errorBody() != null) {
-                    rawResponseStr = mainResp.errorBody()!!.string()
+                // Alternatif jika server route menggunakan /api/mobile/login
+                val mobileResp = apiService.loginMobile(loginReq)
+                responseCode = mobileResp.code()
+                if (mobileResp.isSuccessful && mobileResp.body() != null) {
+                    rawResponseStr = mobileResp.body()!!.string()
+                } else if (mobileResp.errorBody() != null) {
+                    rawResponseStr = mobileResp.errorBody()!!.string()
                 }
-            } else if (mobileResp.errorBody() != null) {
-                rawResponseStr = mobileResp.errorBody()!!.string()
+            } else if (mainResp.errorBody() != null) {
+                rawResponseStr = mainResp.errorBody()!!.string()
             }
         } catch (e: Exception) {
             // Jika koneksi server gagal dan fallback diperbolehkan, gunakan simulator lokal
             if (useSimulationFallback) {
                 return@withContext CompanyServerSimulator.authenticate(trimmedUsername, trimmedPassword)
             }
-            return@withContext LoginResult.Error("Gagal terhubung ke server: ${e.localizedMessage ?: "Periksa koneksi Anda"}")
+            return@withContext LoginResult.Error("Gagal terhubung ke server live: ${e.localizedMessage ?: "Periksa koneksi Anda"}")
         }
 
         if (!rawResponseStr.isNullOrBlank()) {

@@ -29,10 +29,29 @@ interface RencanaKerjaDao {
     """)
     fun getRencanaFiltered(wilayah: String?, kodeUnit: String?): Flow<List<RencanaKerjaEntity>>
 
-    @Query("SELECT * FROM rencana_kerja WHERE (supervisor_name = :supervisor OR pengawas = :supervisor) AND (status_realisasi = 'BELUM' OR (is_realized = 0 AND status_tahap = 'RENCANA')) ORDER BY created_at DESC")
+    @Query("DELETE FROM rencana_kerja")
+    suspend fun deleteAll(): Int
+
+    @Query("""
+        SELECT * FROM rencana_kerja 
+        WHERE (:supervisor = 'Semua' OR :supervisor = '' OR supervisor_name = :supervisor OR pengawas = :supervisor) 
+          AND is_realized = 0 
+          AND (status_realisasi = 'BELUM' OR status_realisasi = '' OR status_realisasi IS NULL)
+          AND status_tahap != 'REALISASI_SELESAI' 
+          AND status_spk != 'SELESAI'
+        ORDER BY created_at DESC
+    """)
     fun getActiveRencanaForSupervisor(supervisor: String): Flow<List<RencanaKerjaEntity>>
 
-    @Query("SELECT * FROM rencana_kerja WHERE (supervisor_name = :pengawas OR pengawas = :pengawas) AND status_realisasi = 'BELUM' ORDER BY created_at DESC")
+    @Query("""
+        SELECT * FROM rencana_kerja 
+        WHERE (:pengawas = 'Semua' OR :pengawas = '' OR supervisor_name = :pengawas OR pengawas = :pengawas) 
+          AND is_realized = 0 
+          AND (status_realisasi = 'BELUM' OR status_realisasi = '' OR status_realisasi IS NULL)
+          AND status_tahap != 'REALISASI_SELESAI' 
+          AND status_spk != 'SELESAI'
+        ORDER BY created_at DESC
+    """)
     fun getRencanaKerjaBelumRealisasi(pengawas: String): Flow<List<RencanaKerjaEntity>>
 
     @Query("SELECT * FROM rencana_kerja WHERE id = :id LIMIT 1")
