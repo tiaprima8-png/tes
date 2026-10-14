@@ -863,7 +863,7 @@ fun UnitFormModal(
     }
     var isJenisDropdownOpen by remember { mutableStateOf(false) }
     var brandModel by remember { mutableStateOf(unit?.brandModel ?: "") }
-    var supervisor by remember { mutableStateOf(unit?.supervisorAssigned ?: "Budi Santoso") }
+    var supervisor by remember { mutableStateOf(unit?.supervisorAssigned ?: "Agung") }
     var wilayah by remember { mutableStateOf(unit?.wilayah ?: "Geodesi PG1") }
     var lastHmStr by remember { mutableStateOf(unit?.lastHm?.toString() ?: "0.0") }
     var minHmStr by remember { mutableStateOf(unit?.hmMinStandar?.toString() ?: "6.0") }

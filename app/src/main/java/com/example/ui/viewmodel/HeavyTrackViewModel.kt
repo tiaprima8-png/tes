@@ -130,7 +130,7 @@ class HeavyTrackViewModel(
     }
 
     // Active Supervisor
-    private val _activeSupervisor = MutableStateFlow("Budi Santoso")
+    private val _activeSupervisor = MutableStateFlow("Agung")
     val activeSupervisor: StateFlow<String> = _activeSupervisor.asStateFlow()
 
     // Supervisor Login Session
@@ -865,34 +865,8 @@ class HeavyTrackViewModel(
         val trimmedUser = username.trim()
         val trimmedPin = pin.trim()
         val matched = SupervisorDirectory.authenticate(trimmedUser, trimmedPin)
-        if (matched != null) {
+        if (matched != null && matched.isAktif) {
             login(matched)
-            return true
-        }
-
-        // Field standalone fallback for newly deployed supervisors or executive managers
-        if (trimmedUser.isNotBlank() && (trimmedPin == "1234" || trimmedPin.length >= 4)) {
-            val isSuperAdmin = trimmedUser.contains("super", ignoreCase = true) || trimmedUser.contains("admin", ignoreCase = true)
-            val isManagerRole = isSuperAdmin || trimmedUser.contains("manager", ignoreCase = true) ||
-                    trimmedUser.startsWith("mgr", ignoreCase = true) ||
-                    trimmedUser.startsWith("gm", ignoreCase = true)
-
-            val fallback = Supervisor(
-                id = if (isManagerRole) "MGR-${System.currentTimeMillis().toString().takeLast(3)}" else "SPV-${System.currentTimeMillis().toString().takeLast(3)}",
-                name = trimmedUser,
-                namaLengkap = trimmedUser,
-                username = trimmedUser,
-                nik = trimmedUser.uppercase(),
-                passwordPin = trimmedPin,
-                defaultShift = if (isManagerRole) "ALL" else "SIANG",
-                assignedSector = if (isManagerRole) "Seluruh Proyek & Armada" else "Sektor Operasional Lapangan (Geodesi 1)",
-                phone = "+62 812-0000-0000",
-                roleTitle = if (isSuperAdmin) "Super Admin" else if (isManagerRole) "Manager Operasional" else "Kasie Lapangan",
-                role = if (isSuperAdmin) "SUPER ADMIN" else if (isManagerRole) "MANAGER" else "KASIE",
-                wilayah = if (isManagerRole) "Semua Wilayah" else "Geodesi 1",
-                status = "Aktif"
-            )
-            login(fallback)
             return true
         }
         return false

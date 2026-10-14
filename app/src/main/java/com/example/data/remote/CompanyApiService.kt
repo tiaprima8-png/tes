@@ -544,7 +544,7 @@ class ApiClientManager(val context: Context) {
                 val userObj = json.optJSONObject("user") ?: json.optJSONObject("data")
 
                 if (!success || userObj == null) {
-                    val errorMsg = if (message.isNotBlank()) message else "Akun tidak aktif atau kredensial salah"
+                    val errorMsg = if (message.isNotBlank() && !message.contains("kredensial", ignoreCase = true)) message else "Gagal Masuk: Akun tidak terdaftar atau telah dinonaktifkan di Website Admin."
                     return@withContext LoginResult.Error(errorMsg)
                 }
 
@@ -552,7 +552,7 @@ class ApiClientManager(val context: Context) {
                 val namaLengkap = userObj.optString("nama_lengkap", userObj.optString("nama", userObj.optString("name", trimmedUsername)))
                 val userName = userObj.optString("username", trimmedUsername)
                 val role = userObj.optString("role", "KASIE")
-                val wilayah = userObj.optString("wilayah", "Geodesi 1")
+                val wilayah = userObj.optString("wilayah", "Geodesi PG1")
                 val status = userObj.optString("status", "Aktif")
 
                 // Validasi Akun Nonaktif sesuai persyaratan prompt
@@ -560,7 +560,7 @@ class ApiClientManager(val context: Context) {
                     status.equals("Inactive", ignoreCase = true) || 
                     status.equals("Blocked", ignoreCase = true) ||
                     status.equals("Tidak Aktif", ignoreCase = true)) {
-                    return@withContext LoginResult.Error("Akun tidak aktif atau kredensial salah")
+                    return@withContext LoginResult.Error("Gagal Masuk: Akun tidak terdaftar atau telah dinonaktifkan di Website Admin.")
                 }
 
                 val userProfile = UserProfileDto(
@@ -586,13 +586,13 @@ class ApiClientManager(val context: Context) {
         }
 
         if (responseCode in 400..499) {
-            return@withContext LoginResult.Error("Akun tidak aktif atau kredensial salah")
+            return@withContext LoginResult.Error("Gagal Masuk: Akun tidak terdaftar atau telah dinonaktifkan di Website Admin.")
         }
 
         if (useSimulationFallback) {
             return@withContext CompanyServerSimulator.authenticate(trimmedUsername, trimmedPassword)
         }
 
-        LoginResult.Error("Akun tidak aktif atau kredensial salah")
+        LoginResult.Error("Gagal Masuk: Akun tidak terdaftar atau telah dinonaktifkan di Website Admin.")
     }
 }

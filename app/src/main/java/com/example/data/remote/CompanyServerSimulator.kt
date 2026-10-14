@@ -52,15 +52,20 @@ object CompanyServerSimulator {
     val serverUnits = CopyOnWriteArrayList<UnitPayload>().apply {
         addAll(
             listOf(
-                UnitPayload("HEH1", "Excavator Standar", "Komatsu PC200-8", 4125.5, "Budi Santoso", "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
-                UnitPayload("EXC-02", "Excavator Long Arm", "Caterpillar 320D Long Arm", 6280.0, "Budi Santoso", "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
-                UnitPayload("EXC-M01", "Excavator Mini", "Kubota U50-5", 1450.0, "Budi Santoso", "OPERASIONAL", 5.0, 8.0, "Geodesi PG1"),
-                UnitPayload("GRD-01", "Motor Grader", "Caterpillar 140K", 1870.0, "Budi Santoso", "OPERASIONAL", 5.0, 9.0, "Geodesi PG1"),
-                UnitPayload("CMP-01", "Compactor", "Bomag BW211 D-40", 2100.0, "Budi Santoso", "OPERASIONAL", 5.0, 8.5, "Geodesi PG1"),
-                // Units assigned to other supervisors
-                UnitPayload("EXC-09", "Excavator Standar", "Hitachi ZX210-5G", 3990.2, "Agus Wijaya", "OPERASIONAL", 6.0, 10.0, "Geodesi PG2"),
-                UnitPayload("GRD-02", "Motor Grader", "CAT 140M", 2300.0, "Agus Wijaya", "OPERASIONAL", 5.0, 9.0, "Geodesi PG2"),
-                UnitPayload("CMP-02", "Compactor", "Sakai SV520", 1750.0, "Rudi Hermawan", "OPERASIONAL", 5.0, 8.5, "RC PG1")
+                UnitPayload("HEH1", "Excavator Standar", "Komatsu PC200-8", 4125.5, "Agung", "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
+                UnitPayload("EXC-02", "Excavator Long Arm", "Caterpillar 320D Long Arm", 6280.0, "Agung", "OPERASIONAL", 6.0, 10.0, "Geodesi PG1"),
+                UnitPayload("EXC-M01", "Excavator Mini", "Kubota U50-5", 1450.0, "Agung", "OPERASIONAL", 5.0, 8.0, "Geodesi PG1"),
+                UnitPayload("GRD-01", "Motor Grader", "Caterpillar 140K", 1870.0, "Agung", "OPERASIONAL", 5.0, 9.0, "Geodesi PG1"),
+                UnitPayload("CMP-01", "Compactor", "Bomag BW211 D-40", 2100.0, "Agung", "OPERASIONAL", 5.0, 8.5, "Geodesi PG1"),
+                // Units assigned to other official supervisors
+                UnitPayload("EXC-09", "Excavator Standar", "Hitachi ZX210-5G", 3990.2, "Zainudin", "OPERASIONAL", 6.0, 10.0, "Geodesi PG2"),
+                UnitPayload("GRD-02", "Motor Grader", "CAT 140M", 2300.0, "Zainudin", "OPERASIONAL", 5.0, 9.0, "Geodesi PG2"),
+                UnitPayload("CMP-02", "Compactor", "Sakai SV520", 1750.0, "Jaidi", "OPERASIONAL", 5.0, 8.5, "Geodesi PG3"),
+                UnitPayload("EXC-10", "Excavator Standar", "Komatsu PC210-10", 3540.0, "Hisar", "OPERASIONAL", 6.0, 10.0, "RC PG1"),
+                UnitPayload("GRD-03", "Motor Grader", "Komatsu GD511A", 2150.0, "Yono", "OPERASIONAL", 5.0, 9.0, "RC PG2"),
+                UnitPayload("EXC-11", "Excavator Long Arm", "CAT 320D2", 5120.0, "Nyoman", "OPERASIONAL", 6.0, 10.0, "RC PG3"),
+                UnitPayload("CMP-03", "Compactor", "Bomag BW216", 1890.0, "Saipul", "OPERASIONAL", 5.0, 8.5, "LEBUNG PG12"),
+                UnitPayload("EXC-12", "Excavator Standar", "Hitachi ZX200-5A", 4200.0, "Galung", "OPERASIONAL", 6.0, 10.0, "LEBUNG PG3")
             )
         )
     }
@@ -109,16 +114,18 @@ object CompanyServerSimulator {
     val serverOperators = CopyOnWriteArrayList<OperatorPayload>().apply {
         addAll(
             listOf(
-                OperatorPayload("OPR-001", "Ahmad Fauzi", "NIK-94821", "Budi Santoso", "Senior Operator - Class A", "AKTIF", "Geodesi PG1"),
-                OperatorPayload("OPR-002", "Bambang Sudrajat", "NIK-88234", "Budi Santoso", "Senior Operator - Class A", "AKTIF", "Geodesi PG1"),
-                OperatorPayload("OPR-003", "Dedi Supriyadi", "NIK-77412", "Budi Santoso", "Operator Alat Berat - Class B", "AKTIF", "Geodesi PG1"),
-                OperatorPayload("OPR-004", "Eko Prasetyo", "NIK-65129", "Budi Santoso", "Operator Compactor - Class B", "AKTIF", "Geodesi PG1"),
-                OperatorPayload("OPR-005", "Hendra Gunawan", "NIK-91203", "Budi Santoso", "Master Grader Operator", "AKTIF", "Geodesi PG1"),
-                // Operators for Agus Wijaya
-                OperatorPayload("OPR-006", "Indra Kusuma", "NIK-83190", "Agus Wijaya", "Senior Excavator Operator", "AKTIF", "Geodesi PG2"),
-                OperatorPayload("OPR-007", "Joko Susilo", "NIK-74102", "Agus Wijaya", "Grader Operator", "AKTIF", "Geodesi PG2"),
-                // Operators for Rudi Hermawan
-                OperatorPayload("OPR-008", "Kurniawan Putra", "NIK-69214", "Rudi Hermawan", "Compactor Operator", "AKTIF", "RC PG1")
+                OperatorPayload("OPR-001", "Ahmad Fauzi", "NIK-94821", "Agung", "Senior Operator - Class A", "AKTIF", "Geodesi PG1"),
+                OperatorPayload("OPR-002", "Bambang Sudrajat", "NIK-88234", "Agung", "Senior Operator - Class A", "AKTIF", "Geodesi PG1"),
+                OperatorPayload("OPR-003", "Dedi Supriyadi", "NIK-77412", "Agung", "Operator Alat Berat - Class B", "AKTIF", "Geodesi PG1"),
+                OperatorPayload("OPR-004", "Eko Prasetyo", "NIK-65129", "Agung", "Operator Compactor - Class B", "AKTIF", "Geodesi PG1"),
+                OperatorPayload("OPR-005", "Hendra Gunawan", "NIK-91203", "Agung", "Master Grader Operator", "AKTIF", "Geodesi PG1"),
+                OperatorPayload("OPR-006", "Indra Kusuma", "NIK-83190", "Zainudin", "Senior Excavator Operator", "AKTIF", "Geodesi PG2"),
+                OperatorPayload("OPR-007", "Joko Susilo", "NIK-74102", "Jaidi", "Grader Operator", "AKTIF", "Geodesi PG3"),
+                OperatorPayload("OPR-008", "Kurniawan Putra", "NIK-69214", "Hisar", "Compactor Operator", "AKTIF", "RC PG1"),
+                OperatorPayload("OPR-009", "Asep Hidayat", "NIK-61234", "Yono", "Excavator Operator", "AKTIF", "RC PG2"),
+                OperatorPayload("OPR-010", "Wayan Sukarta", "NIK-54321", "Nyoman", "Long Arm Operator", "AKTIF", "RC PG3"),
+                OperatorPayload("OPR-011", "Rian Pratama", "NIK-43210", "Saipul", "Grader Operator", "AKTIF", "LEBUNG PG12"),
+                OperatorPayload("OPR-012", "Doni Saputra", "NIK-32109", "Galung", "Excavator Operator", "AKTIF", "LEBUNG PG3")
             )
         )
     }
@@ -613,61 +620,43 @@ object CompanyServerSimulator {
     }
 
     suspend fun authenticate(username: String, pin: String): LoginResult {
-        delay(400) // latency simulation
+        delay(300) // latency simulation
         val trimmedUser = username.trim()
         val trimmedPin = pin.trim()
 
+        if (trimmedUser.isBlank()) {
+            return LoginResult.Error("Gagal Masuk: Akun tidak terdaftar atau telah dinonaktifkan di Website Admin.")
+        }
+
         if (trimmedUser.contains("nonaktif", ignoreCase = true) || trimmedUser.contains("inactive", ignoreCase = true)) {
-            return LoginResult.Error("Akun tidak aktif atau kredensial salah")
+            return LoginResult.Error("Gagal Masuk: Akun tidak terdaftar atau telah dinonaktifkan di Website Admin.")
         }
 
         val matched = com.example.data.model.SupervisorDirectory.authenticate(trimmedUser, trimmedPin)
-        if (matched != null) {
-            if (!matched.isAktif) {
-                return LoginResult.Error("Akun tidak aktif atau kredensial salah")
-            }
-            return LoginResult.Success(
-                token = "SIM-JWT-${System.currentTimeMillis()}",
-                user = UserProfileDto(
-                    id = matched.userId,
-                    nama_lengkap = matched.namaLengkap,
-                    username = matched.username,
-                    role = matched.role,
-                    wilayah = matched.wilayah,
-                    status = matched.status
-                ),
-                message = "Login berhasil sebagai ${matched.role}"
-            )
+        if (matched == null) {
+            return LoginResult.Error("Gagal Masuk: Akun tidak terdaftar atau telah dinonaktifkan di Website Admin.")
         }
 
-        // Standalone user fallback jika sandi diisi (e.g. 1234 atau >= 4 karakter)
-        if (trimmedPin == "1234" || trimmedPin.length >= 4) {
-            val isSuperAdmin = trimmedUser.contains("super", ignoreCase = true) || trimmedUser.contains("admin", ignoreCase = true)
-            val isMgr = isSuperAdmin || trimmedUser.contains("manager", ignoreCase = true) || trimmedUser.startsWith("mgr", ignoreCase = true) || trimmedUser.startsWith("gm", ignoreCase = true)
-            val assignedRole = when {
-                isSuperAdmin -> "SUPER ADMIN"
-                isMgr -> "MANAGER"
-                else -> "KASIE"
-            }
-            val assignedWilayah = when {
-                isMgr || isSuperAdmin -> "Semua Wilayah"
-                else -> "Geodesi 1"
-            }
-
-            return LoginResult.Success(
-                token = "SIM-JWT-${System.currentTimeMillis()}",
-                user = UserProfileDto(
-                    id = System.currentTimeMillis().toString().takeLast(4),
-                    nama_lengkap = trimmedUser,
-                    username = trimmedUser,
-                    role = assignedRole,
-                    wilayah = assignedWilayah,
-                    status = "Aktif"
-                ),
-                message = "Login berhasil sebagai $assignedRole"
-            )
+        if (!matched.isAktif) {
+            return LoginResult.Error("Gagal Masuk: Akun tidak terdaftar atau telah dinonaktifkan di Website Admin.")
         }
 
-        return LoginResult.Error("Akun tidak aktif atau kredensial salah")
+        // Validasi PIN/Password (wajib default '123', '1234', atau matched.passwordPin)
+        if (trimmedPin.isNotEmpty() && trimmedPin != matched.passwordPin && trimmedPin != "123" && trimmedPin != "1234") {
+            return LoginResult.Error("Gagal Masuk: Akun tidak terdaftar atau telah dinonaktifkan di Website Admin.")
+        }
+
+        return LoginResult.Success(
+            token = "SIM-JWT-${System.currentTimeMillis()}",
+            user = UserProfileDto(
+                id = matched.userId,
+                nama_lengkap = matched.namaLengkap,
+                username = matched.username,
+                role = matched.role,
+                wilayah = matched.wilayah,
+                status = matched.status
+            ),
+            message = "Login berhasil sebagai ${matched.role}"
+        )
     }
 }
