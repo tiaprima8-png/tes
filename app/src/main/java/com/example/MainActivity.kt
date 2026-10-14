@@ -642,6 +642,7 @@ fun HeavyTrackApp() {
             DistributionDialog(
                 onDismiss = { showDistributionDialog = false },
                 currentApkUrl = customApkUrl,
+                appVersionName = viewModel.getAppVersionName(context),
                 onSaveApkLocally = {
                     viewModel.downloadApk(context)
                     showDistributionDialog = false

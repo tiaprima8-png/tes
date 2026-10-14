@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -69,9 +70,11 @@ import com.example.ui.theme.Emerald700
 import com.example.ui.theme.Emerald900
 import com.example.ui.theme.ErrorRose
 import com.example.ui.theme.ErrorRose50
+import com.example.ui.theme.Slate100
 import com.example.ui.theme.Slate200
 import com.example.ui.theme.Slate400
 import com.example.ui.theme.Slate500
+import com.example.ui.theme.Slate600
 import com.example.ui.theme.Slate700
 import com.example.ui.theme.Slate900
 import kotlinx.coroutines.launch
@@ -82,7 +85,7 @@ fun LoginScreen(
     onLoginWithApi: (suspend (String, String) -> LoginResult)? = null
 ) {
     var usernameInput by remember { mutableStateOf("Agung") }
-    var passwordInput by remember { mutableStateOf("1234") }
+    var passwordInput by remember { mutableStateOf("123") }
     var isPasswordVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
@@ -240,7 +243,7 @@ fun LoginScreen(
                         modifier = Modifier.padding(top = 4.dp, bottom = 14.dp)
                     )
 
-                    // Quick Select Grid (Hanya memuat akun Kasie aktif Agung dan Manager aktif Lutfi)
+                    // Quick Select Card (Hanya Akun Kasie Utama: Agung)
                     Text(
                         text = "Pilih Akun Sinkron Website Admin:",
                         fontSize = 11.5.sp,
@@ -249,128 +252,94 @@ fun LoginScreen(
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        // 1. Akun Kasie Lapangan Aktif: Agung
-                        val isAgungActive = usernameInput.equals("Agung", ignoreCase = true)
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isAgungActive) Emerald50 else Color(0xFFF8FAFC),
-                            border = androidx.compose.foundation.BorderStroke(
-                                if (isAgungActive) 1.5.dp else 1.dp,
-                                if (isAgungActive) Emerald600 else Slate200
-                            ),
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable {
-                                    usernameInput = "Agung"
-                                    passwordInput = "1234"
-                                    errorMessage = null
-                                }
-                                .testTag("chip_login_agung")
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                                horizontalAlignment = Alignment.Start
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "Agung",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isAgungActive) Emerald900 else Slate900
-                                    )
-                                    Surface(
-                                        shape = RoundedCornerShape(4.dp),
-                                        color = Emerald100
-                                    ) {
-                                        Text(
-                                            text = "KASIE",
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = Emerald900,
-                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                                        )
-                                    }
-                                }
-                                Spacer(modifier = Modifier.height(3.dp))
-                                Text(
-                                    text = "Geodesi 1 • Shift Siang",
-                                    fontSize = 10.sp,
-                                    color = if (isAgungActive) Emerald700 else Slate500,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = "Formulir & Realisasi SPK",
-                                    fontSize = 9.sp,
-                                    color = Slate400
-                                )
+                    // Akun Kasie Lapangan Aktif: Agung (Full Width Card)
+                    val isAgungActive = usernameInput.equals("Agung", ignoreCase = true)
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isAgungActive) Emerald50 else Color(0xFFF8FAFC),
+                        border = androidx.compose.foundation.BorderStroke(
+                            if (isAgungActive) 1.5.dp else 1.dp,
+                            if (isAgungActive) Emerald600 else Slate200
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                usernameInput = "Agung"
+                                passwordInput = "123"
+                                errorMessage = null
                             }
-                        }
-
-                        // 2. Akun Manager Operasional Aktif: Lutfi
-                        val isLutfiActive = usernameInput.equals("Lutfi", ignoreCase = true)
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isLutfiActive) Color(0xFFFEF3C7).copy(alpha = 0.5f) else Color(0xFFF8FAFC),
-                            border = androidx.compose.foundation.BorderStroke(
-                                if (isLutfiActive) 1.5.dp else 1.dp,
-                                if (isLutfiActive) Color(0xFFF59E0B) else Slate200
-                            ),
+                            .testTag("chip_login_agung")
+                    ) {
+                        Row(
                             modifier = Modifier
-                                .weight(1f)
-                                .clickable {
-                                    usernameInput = "Lutfi"
-                                    passwordInput = "1234"
-                                    errorMessage = null
-                                }
-                                .testTag("chip_login_lutfi")
+                                .fillMaxWidth()
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                                horizontalAlignment = Alignment.Start
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
+                                Surface(
+                                    shape = CircleShape,
+                                    color = if (isAgungActive) Emerald600 else Slate200,
+                                    modifier = Modifier.size(40.dp)
                                 ) {
-                                    Text(
-                                        text = "Lutfi",
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (isLutfiActive) Color(0xFF92400E) else Slate900
-                                    )
-                                    Surface(
-                                        shape = RoundedCornerShape(4.dp),
-                                        color = Color(0xFFFEF3C7)
-                                    ) {
-                                        Text(
-                                            text = "MANAGER",
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.ExtraBold,
-                                            color = Color(0xFF92400E),
-                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                    Box(contentAlignment = Alignment.Center) {
+                                        Icon(
+                                            imageVector = Icons.Default.Person,
+                                            contentDescription = null,
+                                            tint = if (isAgungActive) Color.White else Slate500,
+                                            modifier = Modifier.size(22.dp)
                                         )
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(3.dp))
+
+                                Column {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Text(
+                                            text = "Agung",
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (isAgungActive) Emerald900 else Slate900
+                                        )
+                                        Surface(
+                                            shape = RoundedCornerShape(4.dp),
+                                            color = Emerald100
+                                        ) {
+                                            Text(
+                                                text = "KASIE",
+                                                fontSize = 9.sp,
+                                                fontWeight = FontWeight.ExtraBold,
+                                                color = Emerald900,
+                                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                            )
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Kasie • Geodesi PG1",
+                                        fontSize = 12.sp,
+                                        color = if (isAgungActive) Emerald700 else Slate500,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = if (isAgungActive) Emerald600 else Slate100
+                            ) {
                                 Text(
-                                    text = "Seluruh Wilayah",
+                                    text = if (isAgungActive) "TERPILIH" else "PILIH",
                                     fontSize = 10.sp,
-                                    color = if (isLutfiActive) Color(0xFFB45309) else Slate500,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = "Monitoring & Analitik",
-                                    fontSize = 9.sp,
-                                    color = Slate400
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = if (isAgungActive) Color.White else Slate600,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
                                 )
                             }
                         }
@@ -426,7 +395,7 @@ fun LoginScreen(
                             usernameInput = it
                             errorMessage = null
                         },
-                        placeholder = { Text("Masukkan username (misal: Agung / Lutfi)", color = Slate400) },
+                        placeholder = { Text("Masukkan username (misal: Agung)", color = Slate400) },
                         leadingIcon = {
                             Icon(Icons.Default.Person, contentDescription = "User Icon", tint = Emerald600)
                         },

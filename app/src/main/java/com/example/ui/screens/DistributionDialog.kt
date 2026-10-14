@@ -71,6 +71,7 @@ import com.example.ui.theme.Slate900
 fun DistributionDialog(
     onDismiss: () -> Unit,
     currentApkUrl: String,
+    appVersionName: String = "1.4",
     onSaveApkLocally: () -> Unit,
     onShareWhatsApp: () -> Unit,
     onShareGeneral: () -> Unit,
@@ -123,15 +124,30 @@ fun DistributionDialog(
                         }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
-                            Text(
-                                text = "Unduh APK Pembaruan",
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = Slate900
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Unduh APK Pembaruan",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = Slate900
+                                    )
                                 )
-                            )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = Emerald600
+                                ) {
+                                    Text(
+                                        text = "v$appVersionName",
+                                        color = Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
                             Text(
-                                text = "Installer Resmi Versi Terbaru RKCE",
+                                text = "Installer Resmi Versi Terbaru RKCE (v$appVersionName)",
                                 style = MaterialTheme.typography.bodySmall.copy(
                                     color = Slate500,
                                     fontSize = 11.sp
@@ -167,7 +183,7 @@ fun DistributionDialog(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Aplikasi Operasional",
+                                text = "Berkas: RKCE_Installer_v${appVersionName}.apk",
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 12.sp,
                                 color = Emerald900
@@ -177,7 +193,7 @@ fun DistributionDialog(
                                 color = Emerald600
                             ) {
                                 Text(
-                                    text = "LIVE SERVER",
+                                    text = "VERSI TERBARU",
                                     color = Color.White,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.ExtraBold,
@@ -187,7 +203,7 @@ fun DistributionDialog(
                         }
                         Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Unduh langsung installer APK untuk instalasi atau pembaruan mandiri di lapangan tanpa melalui Play Store.",
+                            text = "Unduh langsung installer APK v$appVersionName untuk instalasi atau pembaruan mandiri di HP pengawas lapangan tanpa melalui Play Store.",
                             fontSize = 11.5.sp,
                             color = Emerald800,
                             lineHeight = 16.sp
@@ -219,7 +235,7 @@ fun DistributionDialog(
                     Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        text = "Simpan APK ke Folder Download",
+                        text = "Simpan APK v$appVersionName ke Folder Download",
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp
                     )

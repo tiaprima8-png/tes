@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -30,6 +31,7 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -707,11 +709,9 @@ fun OperatorSelectorItemCard(
 }
 
 /**
- * Card Item for Lokasi Kerja Selector
- * Displays:
- * - Kode Lokasi dicetak tebal (misal: "001A")
- * - Badge Wilayah (misal: "Geodesi PG1")
- * - Info Luas: "Bruto: 10 Ha | Netto: 8 Ha"
+ * Item for Lokasi Kerja Selector - Minimalis (Hanya Kode Lokasi)
+ * Displays only:
+ * - kode_lokasi (e.g., "001A", "002B", "100A")
  */
 @Composable
 fun LokasiSelectorItemCard(
@@ -719,92 +719,28 @@ fun LokasiSelectorItemCard(
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    Card(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
             .clickable { onClick() }
+            .padding(vertical = 14.dp, horizontal = 16.dp)
             .testTag("lokasi_item_${lokasi.kodeLokasi}"),
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Emerald50 else Color.White
-        ),
-        border = androidx.compose.foundation.BorderStroke(
-            width = if (isSelected) 1.5.dp else 1.dp,
-            color = if (isSelected) Emerald600 else Slate200
-        ),
-        shape = RoundedCornerShape(14.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = lokasi.kodeLokasi,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.ExtraBold,
-                            color = Slate900,
-                            fontSize = 16.sp
-                        )
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Surface(
-                        shape = RoundedCornerShape(6.dp),
-                        color = Color(0xFFFEF3C7) // Amber/Warm badge for Wilayah
-                    ) {
-                        Text(
-                            text = lokasi.wilayah,
-                            color = Color(0xFFB45309),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "Bruto: ${lokasi.luasBruto} Ha | Netto: ${lokasi.luasNetto} Ha",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Slate500,
-                            fontWeight = FontWeight.Medium
-                        )
-                    )
-                    if (lokasi.keterangan.isNotBlank()) {
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "• ${lokasi.keterangan}",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                color = Slate400,
-                                fontSize = 11.sp
-                            )
-                        )
-                    }
-                }
-            }
-
-            if (isSelected) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .background(Emerald600, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Check,
-                        contentDescription = "Terpilih",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
+        Text(
+            text = lokasi.kodeLokasi,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 16.sp,
+            color = if (isSelected) Emerald700 else Slate900
+        )
+        if (isSelected) {
+            Icon(
+                imageVector = Icons.Default.Check,
+                contentDescription = "Terpilih",
+                tint = Emerald600,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
@@ -827,11 +763,9 @@ fun LokasiSearchableSelectorSheet(
         if (searchQuery.isBlank()) {
             lokasiList
         } else {
-            val q = searchQuery.trim().lowercase()
+            val q = searchQuery.trim()
             lokasiList.filter {
-                it.kodeLokasi.lowercase().contains(q) ||
-                it.wilayah.lowercase().contains(q) ||
-                it.keterangan.lowercase().contains(q)
+                it.kodeLokasi.contains(q, ignoreCase = true)
             }
         }
     }
@@ -839,7 +773,7 @@ fun LokasiSearchableSelectorSheet(
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         sheetState = sheetState,
-        containerColor = Color(0xFFF8FAFC),
+        containerColor = Color.White,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         dragHandle = {
             Box(
@@ -847,7 +781,7 @@ fun LokasiSearchableSelectorSheet(
                     .padding(vertical = 10.dp)
                     .width(44.dp)
                     .height(4.dp)
-                    .background(Color(0xFFCBD5E1), RoundedCornerShape(2.dp))
+                    .background(Slate200, RoundedCornerShape(2.dp))
             )
         }
     ) {
@@ -855,93 +789,99 @@ fun LokasiSearchableSelectorSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(min = 280.dp, max = 560.dp)
-                .padding(horizontal = 20.dp, vertical = 6.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "Pilih Lokasi Kerja Lapangan",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = Slate900
-                        )
-                    )
-                    Text(
-                        text = "Cari berdasarkan kode lokasi (001A) atau wilayah (Geodesi PG1)",
-                        style = MaterialTheme.typography.bodySmall.copy(color = Slate500)
-                    )
-                }
-
-                IconButton(
-                    onClick = onDismissRequest,
-                    modifier = Modifier
-                        .size(36.dp)
-                        .background(Color.White, CircleShape)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Tutup",
-                        tint = Slate500,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Search Bar
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                placeholder = { Text("Ketik kode lokasi (001A) atau wilayah...", color = Slate400, fontSize = 14.sp) },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Default.Search,
-                        contentDescription = null,
-                        tint = Emerald600,
-                        modifier = Modifier.size(20.dp)
-                    )
-                },
-                trailingIcon = {
-                    if (searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { searchQuery = "" }) {
-                            Icon(Icons.Default.Clear, contentDescription = "Hapus", tint = Slate400)
-                        }
-                    }
-                },
-                singleLine = true,
-                shape = RoundedCornerShape(12.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Emerald600,
-                    unfocusedBorderColor = Slate200,
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White
-                ),
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .testTag("search_input_lokasi")
-            )
+                    .padding(horizontal = 20.dp, vertical = 4.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Pilih Lokasi Kerja Lapangan",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Slate900
+                            )
+                        )
+                        Text(
+                            text = "Pilih kode lokasi kerja",
+                            style = MaterialTheme.typography.bodySmall.copy(color = Slate500)
+                        )
+                    }
 
-            Spacer(modifier = Modifier.height(12.dp))
+                    IconButton(
+                        onClick = onDismissRequest,
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(Color(0xFFF1F5F9), CircleShape)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Tutup",
+                            tint = Slate500,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
 
-            Text(
-                text = "Ditemukan ${filteredList.size} Lokasi Kerja",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    color = Slate400,
-                    fontWeight = FontWeight.SemiBold
-                ),
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Search Bar
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = { Text("Cari kode lokasi (misal: 001A)...", color = Slate400, fontSize = 14.sp) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = Emerald600,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { searchQuery = "" }) {
+                                Icon(Icons.Default.Clear, contentDescription = "Hapus", tint = Slate400)
+                            }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Emerald600,
+                        unfocusedBorderColor = Slate200,
+                        focusedContainerColor = Color(0xFFF8FAFC),
+                        unfocusedContainerColor = Color(0xFFF8FAFC)
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("search_input_lokasi")
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Text(
+                    text = "Ditemukan ${filteredList.size} Lokasi Kerja",
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        color = Slate400,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
 
             if (filteredList.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f),
+                        .weight(1f)
+                        .padding(horizontal = 20.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -952,10 +892,9 @@ fun LokasiSearchableSelectorSheet(
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.weight(1f)
                 ) {
-                    items(filteredList, key = { it.kodeLokasi }) { lokasi ->
+                    itemsIndexed(filteredList, key = { _, lokasi -> lokasi.kodeLokasi }) { index, lokasi ->
                         LokasiSelectorItemCard(
                             lokasi = lokasi,
                             isSelected = selectedLokasi?.kodeLokasi == lokasi.kodeLokasi,
@@ -964,6 +903,12 @@ fun LokasiSearchableSelectorSheet(
                                 onDismissRequest()
                             }
                         )
+                        if (index < filteredList.lastIndex) {
+                            HorizontalDivider(
+                                color = Color.LightGray.copy(alpha = 0.3f),
+                                thickness = 1.dp
+                            )
+                        }
                     }
                 }
             }

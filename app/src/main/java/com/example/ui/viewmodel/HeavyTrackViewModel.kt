@@ -2237,10 +2237,15 @@ class HeavyTrackViewModel(
     // ==========================================
     fun getAppVersionName(context: Context): String {
         return try {
-            val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-            pInfo.versionName ?: "1.2"
+            val pInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getPackageInfo(context.packageName, android.content.pm.PackageManager.PackageInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getPackageInfo(context.packageName, 0)
+            }
+            pInfo.versionName ?: "1.4"
         } catch (_: Exception) {
-            "1.2"
+            "1.4"
         }
     }
 

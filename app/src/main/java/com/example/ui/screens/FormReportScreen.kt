@@ -633,10 +633,9 @@ fun FormReportScreen(
                         // 5. Lokasi Kerja Lapangan
                         SelectorFieldTrigger(
                             label = "5. Lokasi Kerja Lapangan",
-                            selectedValue = rencanaState.selectedLokasi?.let { "${it.kodeLokasi} (${it.wilayah})" },
-                            placeholder = "Pilih Lokasi Kerja (001A / Geodesi PG1)...",
+                            selectedValue = rencanaState.selectedLokasi?.kodeLokasi,
+                            placeholder = "Pilih Kode Lokasi (misal: 001A)...",
                             leadingIcon = Icons.Default.LocationOn,
-                            badgeText = rencanaState.selectedLokasi?.wilayah,
                             testTag = "selector_rencana_lokasi",
                             onClick = {
                                 activeSubPlanLokasiTarget = null
@@ -826,8 +825,8 @@ fun FormReportScreen(
                                         // Sub 3: Lokasi
                                         SelectorFieldTrigger(
                                             label = "Lokasi Kerja Lapangan #${index + 2}",
-                                            selectedValue = sub.selectedLokasi?.let { "${it.kodeLokasi} (${it.wilayah})" },
-                                            placeholder = "Pilih Lokasi Kerja...",
+                                            selectedValue = sub.selectedLokasi?.kodeLokasi,
+                                            placeholder = "Pilih Kode Lokasi (misal: 001A)...",
                                             leadingIcon = Icons.Default.LocationOn,
                                             testTag = "sub_lokasi_${index + 1}",
                                             onClick = {
@@ -1489,12 +1488,12 @@ fun FormReportScreen(
                         // Editable Dropdown Lokasi (Cascading dari Rencana Terpilih)
                         SelectorFieldTrigger(
                             label = "Lokasi Kerja Lapangan Aktual",
-                            selectedValue = realisasiState.selectedLokasi?.let { "${it.kodeLokasi} (${it.wilayah})" }
+                            selectedValue = realisasiState.selectedLokasi?.kodeLokasi
                                 ?: realisasiState.selectedRencana?.kodeLokasi,
                             placeholder = if (realisasiState.selectedRencana == null)
                                 "Pilih Rencana Unit terlebih dahulu..."
                             else
-                                "Pilih Lokasi Aktual Lapangan...",
+                                "Pilih Kode Lokasi (misal: 001A)...",
                             leadingIcon = Icons.Default.LocationOn,
                             badgeText = if (realisasiState.selectedRencana != null) "Dapat Diubah" else null,
                             enabled = realisasiState.selectedRencana != null,
